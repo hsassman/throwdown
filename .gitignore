@@ -24,3 +24,29 @@ dist-ssr
 *.sw?
 
 tools/out/
+
+# Track B offline asset pipeline (docs/06-CHARACTER-ASSET-PIPELINE.md).
+# The Python env, the ~199MB MHR asset archive and its extracted contents are
+# all reproducible from the documented download step and must not be committed.
+# The one output that DOES ship is public/models/boxer_lod3.glb.
+assets/mhr-export/.venv/
+assets/mhr-export/node_modules/
+assets/mhr-export/assets.zip
+assets/mhr-export/assets/
+assets/mhr-export/output/
+
+# Raw third-party asset drops. Large, and kept out of the repo by default so a
+# licence-encumbered download can never be committed by accident.
+3D_models/
+
+# Blender pipeline (blender/README.md). Working .blend files, intermediate
+# bakes and exports are all reproducible by re-running the scripts, and the
+# kit drop folder takes third-party garment meshes whose licence has not been
+# cleared — same reasoning as 3D_models/ above.
+blender/out/
+blender/assets/kit/*
+!blender/assets/kit/README.md
+
+# Blender writes bytecode next to the scripts it imports.
+__pycache__/
+*.pyc

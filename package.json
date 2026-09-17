@@ -10,7 +10,9 @@
     "preview": "vite preview --port 4173",
     "measure": "node tools/measure-pose.mjs",
     "measure:ab": "node tools/ab-worker.mjs",
-    "test": "vitest run"
+    "measure:sweep": "node tools/perf-sweep.mjs",
+    "test": "vitest run",
+    "smoke": "npm run build && node tools/smoke-shell.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

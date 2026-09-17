@@ -6,7 +6,7 @@
 // period. Running that on the main thread means inference cannot overlap frame
 // delivery, so every inference misses the next frame and the pipeline settles
 // on every second frame — 15 FPS instead of 30. Moving inference here lets it
-// pipeline against capture. See 05-TECH-SETUP-AND-RISK-LOG.md open question 3.
+// pipeline against capture. See the risk log.
 //
 // Frames arrive as transferred ImageBitmaps (zero-copy) and results go back as
 // a transferred Float32Array rather than a structured-cloned object graph, to
@@ -18,7 +18,7 @@ import {
   PoseLandmarker,
   type PoseLandmarkerResult,
 } from "@mediapipe/tasks-vision";
-import { MP_LANDMARKS, POSE_KEYS } from "./poseTypes";
+import { ALL_POSE_KEYS, MP_LANDMARKS } from "./poseTypes";
 
 export interface InitMessage {
   type: "init";
@@ -50,7 +50,7 @@ export interface ResultMessage {
   type: "result";
   timestamp: number;
   inferenceMs: number;
-  /** 4 floats (x, y, z, visibility) per key, in POSE_KEYS order. Null if no pose. */
+  /** 4 floats (x, y, z, visibility) per key, in ALL_POSE_KEYS order. Null if no pose. */
   values: Float32Array | null;
 }
 export type WorkerResponse = ReadyMessage | ErrorMessage | ResultMessage;
@@ -81,9 +81,9 @@ async function createLandmarker(
 function packResult(result: PoseLandmarkerResult): Float32Array | null {
   const pose = result.landmarks?.[0];
   if (!pose) return null;
-  const out = new Float32Array(POSE_KEYS.length * FLOATS_PER_KEY);
-  for (let i = 0; i < POSE_KEYS.length; i++) {
-    const lm = pose[MP_LANDMARKS[POSE_KEYS[i]]];
+  const out = new Float32Array(ALL_POSE_KEYS.length * FLOATS_PER_KEY);
+  for (let i = 0; i < ALL_POSE_KEYS.length; i++) {
+    const lm = pose[MP_LANDMARKS[ALL_POSE_KEYS[i]]];
     const o = i * FLOATS_PER_KEY;
     out[o] = lm?.x ?? 0;
     out[o + 1] = lm?.y ?? 0;

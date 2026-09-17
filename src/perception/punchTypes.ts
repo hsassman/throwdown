@@ -1,6 +1,6 @@
 // Perception-layer vocabulary. These are the discrete outputs the rest of the
 // game consumes — the simulation and netcode layers see only these, never
-// landmarks (01-ARCHITECTURE.md).
+// landmarks (docs/ARCHITECTURE.md).
 
 /** Which physical arm moved. Independent of stance. */
 export type HandSide = "left" | "right";

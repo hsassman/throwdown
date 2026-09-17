@@ -20,7 +20,10 @@ function translate(f: PoseFrame, dx: number, dy: number): PoseFrame {
   const out = { timestamp: f.timestamp } as PoseFrame;
   for (const k of Object.keys(f) as (keyof PoseFrame)[]) {
     if (k === "timestamp") continue;
+    // PoseFrame's leg/hand landmarks are optional and absent from these
+    // fixtures, so a key can legitimately carry no keypoint.
     const kp = f[k];
+    if (!kp) continue;
     out[k] = { ...kp, x: kp.x + dx, y: kp.y + dy };
   }
   return out;

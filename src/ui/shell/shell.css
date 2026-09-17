@@ -1,0 +1,413 @@
+/* The menu shell.
+ *
+ * Built around one constraint that is not obvious from a screenshot: the
+ * player is standing a couple of metres back with their arm in the air. That
+ * makes this closer to a TV interface than a web page — type has to be large,
+ * targets have to be tall, and contrast has to survive a bright room.
+ *
+ * Hence the row height (~92px, far taller than a web list), the type scale,
+ * and the fact that nothing important is conveyed by colour alone: every
+ * availability state carries a text badge as well as a hue, because a locked
+ * row that is merely dimmer reads as a rendering bug.
+ */
+
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: #eef2f8;
+  background: #06070c;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* --- Backdrop ---------------------------------------------------------- */
+
+.shell-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shell-glow {
+  position: absolute;
+  left: 50%;
+  top: -30%;
+  width: 120vmax;
+  height: 120vmax;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(255, 108, 44, 0.18) 0%,
+    rgba(120, 40, 160, 0.1) 32%,
+    transparent 62%
+  );
+}
+
+.shell-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 78%);
+}
+
+/* --- Header ------------------------------------------------------------ */
+
+.shell-head {
+  position: relative;
+  padding: clamp(20px, 4vh, 44px) clamp(20px, 5vw, 72px) 0;
+}
+
+.shell-title {
+  margin: 0;
+  font-size: clamp(30px, 5.4vw, 62px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.shell-title span {
+  background: linear-gradient(96deg, #ff8a3d, #ff4d6d 58%, #c04bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.shell-hint {
+  margin: 10px 0 0;
+  font-size: clamp(13px, 1.5vw, 16px);
+  color: #93a2bb;
+  min-height: 1.4em;
+}
+
+/* --- Layout ------------------------------------------------------------ */
+
+.shell-body {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 46px);
+  padding: clamp(16px, 3vh, 34px) clamp(20px, 5vw, 72px) clamp(24px, 4vh, 48px);
+  align-items: start;
+  min-height: 0;
+}
+
+.shell-list-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.shell-list,
+.shell-group-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shell-group + .shell-group {
+  margin-top: clamp(14px, 2.4vh, 28px);
+}
+
+.shell-group-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6c7c96;
+}
+
+.shell-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- Rows -------------------------------------------------------------- */
+
+.shell-row {
+  --dwell: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  /* Deliberately tall. This is a target for a hand held in the air, not a
+   * cursor. A 44px web row is unusable at two metres. */
+  min-height: 84px;
+  padding: 14px clamp(16px, 2vw, 26px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.045),
+    rgba(255, 255, 255, 0.012)
+  );
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 200ms ease;
+}
+
+/* The dwell fill. Driven by the --dwell custom property, which the camera
+ * hook writes directly to the element every frame — this is what keeps a
+ * 60fps progress animation out of React's render path entirely. */
+.shell-row-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--dwell));
+  background: linear-gradient(
+    90deg,
+    rgba(255, 138, 61, 0.34),
+    rgba(255, 77, 109, 0.22)
+  );
+  pointer-events: none;
+}
+
+.shell-row-text {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shell-row-title {
+  font-size: clamp(17px, 2vw, 23px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.shell-row-blurb {
+  font-size: clamp(12px, 1.35vw, 14.5px);
+  color: #9aa8c0;
+  line-height: 1.35;
+}
+
+.shell-row[data-focused="true"] {
+  border-color: rgba(255, 138, 61, 0.62);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 138, 61, 0.14),
+    rgba(255, 255, 255, 0.02)
+  );
+  transform: translateX(5px);
+}
+
+.shell-row:focus-visible {
+  outline: 2px solid #ff8a3d;
+  outline-offset: 3px;
+}
+
+.shell-row[data-locked="true"] {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.shell-row[data-locked="true"] .shell-row-fill {
+  display: none;
+}
+
+/* A refused press has to be VISIBLE. Silence is indistinguishable from the
+ * camera having failed, which is the player's first assumption. */
+@keyframes shell-refuse {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-7px);
+  }
+  75% {
+    transform: translateX(7px);
+  }
+}
+
+.shell-row[data-rejected="true"] {
+  animation: shell-refuse 260ms ease;
+  border-color: rgba(255, 90, 90, 0.7);
+}
+
+/* --- Badges ------------------------------------------------------------ */
+
+.shell-badge {
+  position: relative;
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.shell-badge[data-availability="ready"] {
+  color: #6ff0ad;
+  background: rgba(61, 220, 132, 0.12);
+  border-color: rgba(61, 220, 132, 0.34);
+}
+
+.shell-badge[data-availability="preview"] {
+  color: #ffc46b;
+  background: rgba(255, 176, 32, 0.12);
+  border-color: rgba(255, 176, 32, 0.34);
+}
+
+.shell-badge[data-availability="locked"] {
+  color: #9aa8c0;
+  background: rgba(154, 168, 192, 0.1);
+  border-color: rgba(154, 168, 192, 0.26);
+}
+
+/* --- Detail panel ------------------------------------------------------ */
+
+.shell-detail {
+  position: sticky;
+  top: clamp(16px, 3vh, 34px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(18px, 2.4vw, 30px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(10, 12, 20, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.shell-detail-title {
+  margin: 0;
+  font-size: clamp(20px, 2.4vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.shell-detail-body {
+  margin: 0;
+  font-size: clamp(13px, 1.45vw, 15.5px);
+  line-height: 1.6;
+  color: #b8c4d8;
+}
+
+.shell-detail-locked {
+  margin: 0;
+  font-size: 13px;
+  color: #8b9ab3;
+  padding-left: 12px;
+  border-left: 2px solid rgba(154, 168, 192, 0.4);
+}
+
+.shell-detail-reject {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ff8f8f;
+}
+
+.shell-detail-dwell {
+  margin: 0;
+  font-size: 12px;
+  color: #6c7c96;
+}
+
+/* --- The cursor -------------------------------------------------------- */
+
+.shell-cursor {
+  --dwell: 0;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  z-index: 5;
+}
+
+.shell-cursor-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.shell-cursor-track,
+.shell-cursor-progress {
+  fill: none;
+  stroke-width: 3.5;
+  /* r=20 -> circumference 125.66. Kept exact so the ring reaches precisely
+   * full at dwell 1.0 rather than approximately. */
+  stroke-dasharray: 125.66;
+}
+
+.shell-cursor-track {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.shell-cursor-progress {
+  stroke: #ff8a3d;
+  stroke-linecap: round;
+  stroke-dashoffset: calc(125.66 - (125.66 * var(--dwell)));
+}
+
+.shell-cursor-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 14px rgba(255, 138, 61, 0.8);
+}
+
+.shell-cursor[data-armed="true"] .shell-cursor-dot {
+  background: #ff8a3d;
+}
+
+/* --- Narrow screens ---------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .shell-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The detail panel moves ABOVE the list on a phone, because the list is
+   * long and a panel below it would never be seen. */
+  .shell-detail {
+    order: -1;
+    position: static;
+  }
+
+  .shell-row {
+    min-height: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-row,
+  .shell-cursor {
+    transition: none;
+  }
+
+  .shell-row[data-rejected="true"] {
+    animation: none;
+  }
+}

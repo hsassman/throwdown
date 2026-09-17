@@ -1,9 +1,9 @@
 // Rolling performance statistics.
 //
-// CLAUDE.md's working agreement requires milestone "done when" criteria to be
+// the project's working rules requires milestone "done when" criteria to be
 // actually measured, not assumed. The Flap project logged a single FPS number
 // once a second, which is fine for a spot check but useless for deciding
-// whether we clear 02-IMPLEMENTATION-PLAN.md's 24-30 FPS fallback trigger — a
+// whether we clear the implementation plan's 24-30 FPS fallback trigger — a
 // mean of 30 hides a p5 of 12, and it's the slow frames that lose punches.
 //
 // So: keep a rolling window of raw samples and report percentiles.

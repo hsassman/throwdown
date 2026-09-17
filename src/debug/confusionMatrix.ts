@@ -105,7 +105,7 @@ export function evaluate(trials: Trial[]): Evaluation {
   };
 }
 
-/** The bars fixed before measurement. See 05-TECH-SETUP-AND-RISK-LOG.md. */
+/** The bars fixed before measurement. See the risk log. */
 export const BARS = {
   detectionRate: 0.9,
   handAccuracy: 0.95,

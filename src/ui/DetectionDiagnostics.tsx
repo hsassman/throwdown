@@ -18,7 +18,22 @@ export function DetectionDiagnostics({ diagnosticsRef, onReset }: Props) {
   useEffect(() => {
     const id = setInterval(() => {
       const cur = diagnosticsRef.current;
-      setD(cur ? { ...cur, recent: [...cur.recent] } : null);
+      setD((prev) => {
+        // Skip the update when no punch has been attempted since last poll.
+        // Cloning and setting state unconditionally re-rendered this panel and
+        // its tables four times a second while nothing was happening, on a
+        // main thread already short of time for pose inference.
+        if (!cur) return prev === null ? prev : null;
+        if (
+          prev &&
+          prev.launches === cur.launches &&
+          prev.detections === cur.detections &&
+          prev.rejections === cur.rejections
+        ) {
+          return prev;
+        }
+        return { ...cur, recent: [...cur.recent] };
+      });
     }, 250);
     return () => clearInterval(id);
   }, [diagnosticsRef]);
@@ -63,14 +78,18 @@ export function DetectionDiagnostics({ diagnosticsRef, onReset }: Props) {
       <div className="muted small">
         Excursion is how far the fist travels from its calibrated guard. If
         these stay below the gate while you punch hard, the threshold is
-        unreachable rather than strict.
+        unreachable rather than strict. The excursion gate shown is the
+        EFFECTIVE one — it rises above the configured {C.minPunchExcursion} when
+        your measured guard jitter demands it.
       </div>
       <table className="features">
         <tbody>
-          {gate("L excursion", d.peakSeen.left.excursion, C.minPunchExcursion)}
-          {gate("R excursion", d.peakSeen.right.excursion, C.minPunchExcursion)}
-          {gate("L peak speed", d.peakSeen.left.speed, C.minMeanSpeed)}
-          {gate("R peak speed", d.peakSeen.right.speed, C.minMeanSpeed)}
+          {gate("L excursion", d.peakSeen.left.excursion, d.excursionGate.left)}
+          {gate("R excursion", d.peakSeen.right.excursion, d.excursionGate.right)}
+          {/* Mean, not instantaneous peak: minMeanSpeed gates the mean, and the
+              peak clears it almost always, which would mask a real failure. */}
+          {gate("L mean speed", d.peakSeen.left.meanSpeed, C.minMeanSpeed)}
+          {gate("R mean speed", d.peakSeen.right.meanSpeed, C.minMeanSpeed)}
         </tbody>
       </table>
 

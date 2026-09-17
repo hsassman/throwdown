@@ -290,8 +290,15 @@ export function PunchHarness({ poseRef, enabled }: Props) {
             min={5}
             max={40}
             value={repsPerType}
-            onChange={(e) => setRepsPerType(Number(e.target.value) || 20)}
-            style={{ width: 60 }}
+            // min/max on the element are only hints the browser may ignore.
+            // Clamped here too: 4 punch types x an unclamped value is how you
+            // end up committed to a two-hour run you can't easily abandon.
+            onChange={(e) =>
+              setRepsPerType(
+                Math.max(5, Math.min(40, Math.round(Number(e.target.value)) || 20))
+              )
+            }
+            className="reps-input"
           />
         </label>
       </div>
@@ -306,7 +313,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     return (
       <div className="harness collect">
         <div className="muted">
-          {done} / {schedule.length} · press Esc to stop early
+          {done} / {schedule.length}
         </div>
         <div className="prompt-type">{current?.toUpperCase()}</div>
         <div className="muted">
@@ -315,7 +322,11 @@ export function PunchHarness({ poseRef, enabled }: Props) {
 
         {current && <PunchGuide type={current} stance={stance} />}
 
-        <div className={`prompt ${windowPhase}`}>
+        {/* The player is standing back from the machine and may be looking at
+            their own guard rather than the screen, so the cue is announced as
+            well as shown. Without this the protocol is unusable to anyone who
+            can't read the prompt at distance. */}
+        <div className={`prompt ${windowPhase}`} aria-live="assertive">
           {windowPhase === "ready" ? "get ready" : "THROW"}
         </div>
 
@@ -325,6 +336,13 @@ export function PunchHarness({ poseRef, enabled }: Props) {
         {next && next !== current && (
           <div className="muted small next-up">next up: {next}</div>
         )}
+
+        {/* Escape alone stranded touch users mid-run: an 80-trial protocol
+            could only be escaped by reloading, losing every trial already
+            collected. */}
+        <div className="row" style={{ justifyContent: "center" }}>
+          <button onClick={abortCollection}>Stop run (or press Esc)</button>
+        </div>
       </div>
     );
   }
@@ -409,6 +427,26 @@ function FeatureTable({ event }: { event: PunchEvent }) {
   );
 }
 
+type CopyState = "idle" | "ok" | "failed";
+
+/**
+ * Copies text and reports whether it worked.
+ *
+ * `navigator.clipboard` is undefined on insecure origins, which is exactly how
+ * LAN play is served (plain http:// to a local IP). The old code optional-
+ * chained the call away, so the button silently did nothing — losing the
+ * measured numbers that are the entire point of a Milestone 1 run.
+ */
+async function copyText(text: string, setState: (s: CopyState) => void) {
+  try {
+    if (!navigator.clipboard) throw new Error("clipboard unavailable");
+    await navigator.clipboard.writeText(text);
+    setState("ok");
+  } catch {
+    setState("failed");
+  }
+}
+
 function Results({
   trials,
   onRestart,
@@ -420,6 +458,7 @@ function Results({
 }) {
   const evaluation = useMemo(() => evaluate(trials), [trials]);
   const report = useMemo(() => formatReport(evaluation), [evaluation]);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
   const bars = checkBars(evaluation);
   const allPass = bars.every((b) => b.pass);
 
@@ -448,15 +487,14 @@ function Results({
       <pre className="report">{report}</pre>
 
       <div className="row">
-        <button
-          onClick={() => navigator.clipboard?.writeText(report)}
-        >
+        <button onClick={() => void copyText(report, setCopyState)}>
           Copy report
         </button>
         <button
           onClick={() =>
-            navigator.clipboard?.writeText(
-              JSON.stringify({ evaluation, trials }, null, 2)
+            void copyText(
+              JSON.stringify({ evaluation, trials }, null, 2),
+              setCopyState
             )
           }
         >
@@ -464,6 +502,12 @@ function Results({
         </button>
         <button onClick={onRestart}>Run again</button>
         <button onClick={onFree}>Free practice</button>
+      </div>
+      <div className="muted small" aria-live="polite">
+        {copyState === "ok" && "Copied to clipboard."}
+        {copyState === "failed" &&
+          "Couldn't reach the clipboard — select the report above and copy manually. " +
+            "(Browsers block clipboard access on plain http:// origins, which is how LAN testing is served.)"}
       </div>
     </div>
   );

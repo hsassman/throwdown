@@ -1,0 +1,155 @@
+/* In-fight overlay. Sits above the 3D stage and must never eat pointer events
+   — the player is moving in front of a camera, not clicking. */
+
+.fight-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #eef1f5;
+  z-index: 3;
+}
+
+.fh-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: clamp(0.5rem, 2vw, 1.5rem);
+  align-items: start;
+  padding: clamp(0.5rem, 2vw, 1rem);
+  background: linear-gradient(180deg, rgba(5, 7, 10, 0.78), transparent);
+}
+
+.fh-fighter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fh-right {
+  align-items: flex-end;
+}
+
+.fh-name {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9aa3b1;
+}
+
+.fh-health,
+.fh-stamina {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.fh-health {
+  height: 12px;
+}
+/* Thinner, and below. Health is glanced at constantly; stamina is consulted
+   when deciding whether to commit. Different jobs, different weights. */
+.fh-stamina {
+  height: 4px;
+}
+
+.fh-health > span,
+.fh-stamina > span {
+  display: block;
+  height: 100%;
+  transition: width 0.18s linear;
+}
+.fh-health > span {
+  background: linear-gradient(90deg, #d8332f, #f26b3a);
+}
+.fh-stamina > span {
+  background: #4f9ad8;
+}
+/* The right fighter's bars drain toward the centre, mirroring the left. */
+.fh-right .fh-health,
+.fh-right .fh-stamina {
+  transform: scaleX(-1);
+}
+
+.fh-centre {
+  text-align: center;
+  min-width: 4.5rem;
+}
+.fh-round {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  color: #9aa3b1;
+}
+.fh-clock {
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.fh-clock.is-low {
+  color: #f0563f;
+}
+.fh-phase {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #d7a53c;
+}
+
+/* The telegraph. Deliberately loud — the AI's readability is the entire basis
+   of the defensive game, and 260ms is not long enough to notice something
+   subtle while you are also moving. */
+.fh-windup {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  width: min(42vw, 320px);
+  height: 5px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.12);
+}
+.fh-windup > span {
+  display: block;
+  height: 100%;
+  background: #f0563f;
+  transform-origin: left center;
+}
+
+.fh-result {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background: rgba(5, 7, 10, 0.9);
+  border: 1px solid #d8332f;
+  padding: 1rem 1.6rem;
+  font-size: clamp(1rem, 2.6vw, 1.5rem);
+}
+.fh-cards {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #9aa3b1;
+}
+
+.fh-log {
+  position: absolute;
+  left: clamp(0.5rem, 2vw, 1rem);
+  bottom: clamp(0.5rem, 2vw, 1rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.74rem;
+  color: #c3cad6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  max-width: 60%;
+}
+.fh-log li {
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fh-health > span,
+  .fh-stamina > span {
+    transition: none;
+  }
+}

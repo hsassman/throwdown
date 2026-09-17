@@ -1,5 +1,5 @@
 // Punch detection and type classification — Approach A from
-// 03-GESTURE-CLASSIFICATION.md: a guard-state FSM plus geometric/velocity
+// the gesture-classification notes: a guard-state FSM plus geometric/velocity
 // heuristics on the shoulder-elbow-wrist chain.
 //
 // Detection (was a punch thrown?) and classification (which punch?) are kept
@@ -84,8 +84,24 @@ export interface ClassifierDiagnostics {
   recent: RejectionRecord[];
   peakSeen: Record<
     HandSide,
-    { excursion: number; extension: number; speed: number; elbowOpen: number }
+    {
+      excursion: number;
+      extension: number;
+      speed: number;
+      elbowOpen: number;
+      /** Highest MEAN outward speed seen across completed episodes. Distinct
+       * from `speed`, which is the instantaneous per-sample peak: `meanSpeed`
+       * is the quantity `minMeanSpeed` actually gates on. Comparing the
+       * instantaneous peak against that gate reads "fine" almost always, which
+       * is exactly the wrong signal when diagnosing why punches were rejected. */
+      meanSpeed: number;
+    }
   >;
+  /** The excursion gate actually applied, per hand — `max(minPunchExcursion,
+   * guardJitter x guardNoiseMultiple)`. Surfaced because a jittery player's
+   * real gate sits well above the configured constant, and a diagnostics panel
+   * showing the constant would report "ok" while every punch is rejected. */
+  excursionGate: Record<HandSide, number>;
 }
 
 /** Mutable diagnostics shared by both hands. */
@@ -97,9 +113,10 @@ function emptyDiagnostics(): ClassifierDiagnostics {
     byReason: {},
     recent: [],
     peakSeen: {
-      left: { excursion: 0, extension: 0, speed: 0, elbowOpen: 0 },
-      right: { excursion: 0, extension: 0, speed: 0, elbowOpen: 0 },
+      left: { excursion: 0, extension: 0, speed: 0, elbowOpen: 0, meanSpeed: 0 },
+      right: { excursion: 0, extension: 0, speed: 0, elbowOpen: 0, meanSpeed: 0 },
     },
+    excursionGate: { left: C.minPunchExcursion, right: C.minPunchExcursion },
   };
 }
 
@@ -325,6 +342,14 @@ class HandTracker {
     // distance-over-duration has no such dependence.
     const meanSpeed = durationMs > 0 ? peakExcursion / (durationMs / 1000) : 0;
 
+    // Recorded BEFORE the gates below, so rejected episodes are represented
+    // too — those are the ones a failed run needs to explain.
+    this.diag.peakSeen[this.side].meanSpeed = Math.max(
+      this.diag.peakSeen[this.side].meanSpeed,
+      meanSpeed
+    );
+    this.diag.excursionGate[this.side] = this.minExcursion(cal);
+
     // Reject non-punches: slow reaches, small adjustments, guard fidgeting.
     // The first failing gate is recorded so a failed run can name the culprit.
     // Extension and elbow opening are deliberately NOT gated — both collapse
@@ -502,6 +527,7 @@ export class PunchClassifier {
     this.diag.byReason = fresh.byReason;
     this.diag.recent = fresh.recent;
     this.diag.peakSeen = fresh.peakSeen;
+    this.diag.excursionGate = fresh.excursionGate;
   }
 
   get debug(): Record<HandSide, HandDebugState> {

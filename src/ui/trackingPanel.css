@@ -1,0 +1,250 @@
+/* The standing tracking assessment. Lives in the side panel, so it has to be
+ * legible at a glance and never taller than it needs to be. */
+
+.tpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.82);
+  color: #e8eef7;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- Headline score ----------------------------------------------------- */
+
+.tpanel-score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tpanel-score-value {
+  flex: none;
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border: 3px solid currentColor;
+}
+
+.tpanel-score[data-grade="good"] .tpanel-score-value {
+  color: #3ddc84;
+}
+.tpanel-score[data-grade="fair"] .tpanel-score-value {
+  color: #ffb020;
+}
+.tpanel-score[data-grade="poor"] .tpanel-score-value {
+  color: #e8453c;
+}
+
+.tpanel-score-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8d9cb5;
+}
+
+.tpanel-score-label span {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #e8eef7;
+}
+
+/* --- Per-metric bars ---------------------------------------------------- */
+
+.tpanel-metrics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.tpanel-metrics li {
+  display: grid;
+  grid-template-columns: 62px 1fr 76px;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.tpanel-metric-name {
+  color: #8d9cb5;
+  text-transform: capitalize;
+}
+
+.tpanel-metric-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.tpanel-metric-bar span {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8453c, #ffb020 55%, #3ddc84);
+}
+
+.tpanel-metric-value {
+  text-align: right;
+  color: #b8c4d8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Raw figures -------------------------------------------------------- */
+
+.tpanel-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.tpanel-facts div {
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tpanel-facts dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #7f8fa8;
+}
+
+.tpanel-facts dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Findings ----------------------------------------------------------- */
+
+.tpanel-worst {
+  margin: 0;
+  font-size: 12.5px;
+  color: #ffc46b;
+}
+
+.tpanel-advice {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tpanel-advice li {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #b8c4d8;
+  padding-left: 10px;
+  border-left: 2px solid #ffb020;
+}
+
+.tpanel-ok {
+  margin: 0;
+  font-size: 12.5px;
+  color: #6ff0ad;
+}
+
+.tpanel-note {
+  margin: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11px;
+  line-height: 1.45;
+  color: #6c7c96;
+}
+
+/* --- Body channels ------------------------------------------------------ */
+
+.bchan-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7f8fa8;
+}
+
+.bchan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.bchan-list li {
+  display: grid;
+  grid-template-columns: 52px 1fr 78px;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.bchan-name {
+  color: #8d9cb5;
+}
+
+/* Centred, because four of the five channels are signed and a left-anchored
+ * bar cannot represent a negative value at all. */
+.bchan-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bchan-bar::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.bchan-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff8a3d, #ffb020);
+}
+
+.bchan-value {
+  text-align: right;
+  color: #b8c4d8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Not measured yet — deliberately neutral, not red. A player who has not
+ * stepped into frame has not done anything wrong. */
+.tpanel-score[data-grade="waiting"] .tpanel-score-value {
+  color: #6c7c96;
+  font-size: 22px;
+}

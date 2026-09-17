@@ -54,7 +54,15 @@ async function runCondition(useWorker) {
   );
 
   await page.evaluate(() => {
-    const tick = () => requestAnimationFrame(tick);
+    // Counts its own frames, matching measure-pose.mjs. Without this the
+    // `keepalive` field reported below is always 0, silently discarding the
+    // only evidence that Chrome throttled rAF for a condition — which would
+    // invalidate that condition's frame-rate numbers without anyone noticing.
+    window.__keepaliveFrames = 0;
+    const tick = () => {
+      window.__keepaliveFrames++;
+      requestAnimationFrame(tick);
+    };
     requestAnimationFrame(tick);
   });
 

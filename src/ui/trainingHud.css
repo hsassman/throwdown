@@ -1,0 +1,237 @@
+/* Training read-out. Sits over the 3D stage, so everything here has to stay
+ * legible against an arbitrary background — hence the solid backing rather
+ * than a pure blur, which goes muddy over a bright dummy. */
+
+.thud {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(10px);
+  color: #e8eef7;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- Current target ---------------------------------------------------- */
+
+.thud-target-label {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 7px;
+  min-height: 1.3em;
+}
+
+.thud-target-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.thud-target-bar {
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff4d6d, #ffb020);
+}
+
+/* --- Stat row ---------------------------------------------------------- */
+
+.thud-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.thud-stat {
+  padding: 9px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: center;
+}
+
+.thud-stat[data-emphasis="true"] {
+  background: rgba(255, 138, 61, 0.15);
+}
+
+.thud-stat-value {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.thud-stat-label {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8d9cb5;
+}
+
+/* --- Counters ---------------------------------------------------------- */
+
+.thud-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: #9aa8c0;
+  font-variant-numeric: tabular-nums;
+}
+
+.thud-warn {
+  color: #ffc46b;
+}
+
+/* --- Last punch -------------------------------------------------------- */
+
+.thud-last {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border-left: 3px solid #e8453c;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+  color: #9aa8c0;
+}
+
+.thud-last[data-good="true"] {
+  border-left-color: #3ddc84;
+}
+
+.thud-last strong {
+  font-size: 14px;
+  color: #e8eef7;
+}
+
+/* --- Coaching notes ---------------------------------------------------- */
+
+.thud-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.thud-notes li {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #b8c4d8;
+  padding-left: 10px;
+  border-left: 2px solid rgba(154, 168, 192, 0.35);
+}
+
+.thud-notes li[data-kind="setup"] {
+  border-left-color: #58a6ff;
+}
+
+.thud-notes li[data-kind="technique"] {
+  border-left-color: #ffb020;
+}
+
+.thud-notes li[data-kind="progress"] {
+  border-left-color: #3ddc84;
+}
+
+.thud-note-kind {
+  display: inline-block;
+  margin-right: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #7f8fa8;
+}
+
+/* --- Footer ------------------------------------------------------------ */
+
+.thud-profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11.5px;
+  color: #6c7c96;
+  font-variant-numeric: tabular-nums;
+}
+
+.thud-err {
+  margin: 0;
+  font-size: 12px;
+  color: #ff8f8f;
+}
+
+@media (max-width: 640px) {
+  .thud-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- Round complete ----------------------------------------------------- */
+
+.thud-done {
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
+.thud-done-score {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(96deg, #ff8a3d, #ff4d6d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.thud-done-label {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8d9cb5;
+}
+
+.thud-best {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6ff0ad;
+}
+
+.thud-again {
+  padding: 12px 18px;
+  border: 1px solid rgba(255, 138, 61, 0.55);
+  border-radius: 11px;
+  background: rgba(255, 138, 61, 0.14);
+  color: #ffd2b0;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.thud-again:hover {
+  background: rgba(255, 138, 61, 0.24);
+  color: #fff;
+}
+
+.thud-again:focus-visible {
+  outline: 2px solid #ff8a3d;
+  outline-offset: 2px;
+}

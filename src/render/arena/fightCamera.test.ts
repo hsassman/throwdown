@@ -1,0 +1,135 @@
+import { describe, it, expect } from "vitest";
+import { FightCamera, type DirectorInput } from "./fightCamera";
+
+const input: DirectorInput = {
+  player: { x: 0, y: 0, z: -0.4 },
+  opponent: { x: 0, y: 0, z: 0.4 },
+  radius: 4.95,
+};
+
+// Stepped by COUNT, not by accumulating a float clock. `for (t = 0; t < 1;
+// t += 1/30)` runs 31 times, not 30 — the accumulated float error leaves it
+// just under 1 after the 30th — so a naive loop simulates 1.033 s at 30 FPS
+// against 1.004 s at 240 FPS, and the frame-rate-independence test below fails
+// on a 3% difference in elapsed time that has nothing to do with the code.
+const run = (cam: FightCamera, seconds: number, dt = 1 / 60, i = input) => {
+  const steps = Math.round(seconds / dt);
+  for (let n = 0; n < steps; n++) cam.update(dt, i);
+};
+
+describe("shot selection", () => {
+  it("refuses discretionary cuts while a round is live", () => {
+    // The rule the whole director is built around. A cut mid-exchange costs
+    // the viewer a beat, and here the viewer is also throwing real punches.
+    const cam = new FightCamera(input);
+    cam.setLive(true);
+    expect(cam.cut("overhead")).toBe(false);
+    expect(cam.shot).toBe("broadcast");
+  });
+
+  it("allows a forced cut, which is what a knockdown is", () => {
+    const cam = new FightCamera(input);
+    cam.setLive(true);
+    expect(cam.cut("lowAngle", true)).toBe(true);
+    expect(cam.shot).toBe("lowAngle");
+  });
+
+  it("returns to the broadcast shot on its own after a held shot", () => {
+    const cam = new FightCamera(input);
+    cam.cut("lowAngle", true);
+    run(cam, 2);
+    expect(cam.shot).toBe("lowAngle");
+    run(cam, 2);
+    expect(cam.shot).toBe("broadcast");
+  });
+
+  it("holds the broadcast shot indefinitely", () => {
+    const cam = new FightCamera(input);
+    run(cam, 120);
+    expect(cam.shot).toBe("broadcast");
+  });
+});
+
+describe("framing", () => {
+  it("puts the default camera side-on, so neither fighter occludes the other", () => {
+    // The single most important property of a fight camera, and the reason
+    // broadcast sits side-on rather than behind one fighter.
+    const cam = new FightCamera(input);
+    const pose = cam.snap(input);
+    // Fighters are separated along z, so the camera must be off to the side
+    // in x, not down the z axis between them.
+    expect(Math.abs(pose.position.x)).toBeGreaterThan(Math.abs(pose.position.z) + 1);
+  });
+
+  it("looks up from below for a knockdown", () => {
+    const cam = new FightCamera(input);
+    cam.cut("lowAngle", true);
+    const pose = cam.snap(input);
+    expect(pose.position.y).toBeLessThan(pose.target.y);
+    expect(pose.position.y).toBeLessThan(1);
+  });
+
+  it("narrows the field of view for a tight shot", () => {
+    const wide = new FightCamera(input).snap(input).fov;
+    const cam = new FightCamera(input);
+    cam.cut("tight");
+    expect(cam.snap(input).fov).toBeLessThan(wide);
+  });
+
+  it("keeps the camera inside a sane distance of the cage", () => {
+    const cam = new FightCamera(input);
+    for (const shot of ["broadcast", "tight", "lowAngle", "corner", "overhead"] as const) {
+      cam.cut(shot, true);
+      const p = cam.snap(input);
+      expect(Math.hypot(p.position.x, p.position.z)).toBeLessThan(input.radius * 2);
+      expect(Number.isFinite(p.position.y)).toBe(true);
+    }
+  });
+});
+
+describe("robustness", () => {
+  it("does not produce NaN when the fighters are in a clinch", () => {
+    // Two fighters in exactly the same spot gives no axis to derive a shot
+    // from — and a clinch is precisely when they are closest. Without a
+    // fallback every shot becomes NaN and the camera vanishes.
+    const clinch: DirectorInput = {
+      player: { x: 1, y: 0, z: 1 },
+      opponent: { x: 1, y: 0, z: 1 },
+      radius: 4.95,
+    };
+    const cam = new FightCamera(clinch);
+    for (const shot of ["broadcast", "tight", "lowAngle", "corner", "overhead"] as const) {
+      cam.cut(shot, true);
+      const p = cam.snap(clinch);
+      for (const v of [p.position, p.target]) {
+        expect(Number.isFinite(v.x)).toBe(true);
+        expect(Number.isFinite(v.y)).toBe(true);
+        expect(Number.isFinite(v.z)).toBe(true);
+      }
+    }
+  });
+
+  it("eases at the same rate regardless of frame rate", () => {
+    // The naive `current += (want - current) * k` moves further per second at
+    // 120 FPS than at 30, so the camera would feel different on different
+    // machines — the same bug the bone smoothing had to fix.
+    const far: DirectorInput = { ...input, player: { x: 3, y: 0, z: 0 } };
+    const a = new FightCamera(input);
+    const b = new FightCamera(input);
+    run(a, 1, 1 / 30, far);
+    run(b, 1, 1 / 240, far);
+    expect(b.pose.position.x).toBeCloseTo(a.pose.position.x, 2);
+    expect(b.pose.position.z).toBeCloseTo(a.pose.position.z, 2);
+  });
+
+  it("eases rather than teleporting", () => {
+    const cam = new FightCamera(input);
+    const start = { ...cam.pose.position };
+    cam.cut("overhead", true);
+    cam.update(1 / 60, input);
+    // Moved, but nowhere near all the way in one frame.
+    const moved = Math.abs(cam.pose.position.y - start.y);
+    expect(moved).toBeGreaterThan(0);
+    expect(moved).toBeLessThan(1);
+  });
+});

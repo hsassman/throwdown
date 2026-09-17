@@ -4,7 +4,8 @@
   "ignorePatterns": [
     "dist/**",
     "public/mediapipe/**",
-    "tools/**"
+    "tools/**",
+    "assets/**"
   ],
   "rules": {
     "react/rules-of-hooks": "error",

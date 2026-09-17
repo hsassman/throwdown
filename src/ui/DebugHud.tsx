@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { formatStats, type RollingStats, type Stats } from "../debug/perfStats";
 import { POSE_CONFIG } from "../config/tuning";
 import type { CameraInfo } from "../capture/useWebcam";
-import type { PoseStatus } from "../pose/usePoseTracking";
+import type { PipelineDebug, PoseStatus } from "../pose/usePoseTracking";
 
 // Milestone 0's measurement readout.
 //
-// 02-IMPLEMENTATION-PLAN.md's done-when is "tracked in real time, at a measured
+// the milestone's done-when is "tracked in real time, at a measured
 // frame rate on your actual target hardware", and the fallback trigger is
 // "well below 24-30 FPS". A single instantaneous FPS number can't answer that,
 // so this reports the distribution and calls out the p5 (worst 5% of frames)
@@ -19,6 +19,10 @@ interface Props {
   poseStatus: PoseStatus;
   delegate: "GPU" | "CPU" | null;
   camera: CameraInfo | null;
+  /** Quality readouts for the ROI crop, the constraint solver and the
+   *  predictor. Optional so the HUD still renders on the worker path, which
+   *  does not produce them. */
+  pipelineDebugRef?: React.RefObject<PipelineDebug | null>;
   onReset: () => void;
 }
 
@@ -35,20 +39,23 @@ export function DebugHud({
   poseStatus,
   delegate,
   camera,
+  pipelineDebugRef,
   onReset,
 }: Props) {
   const [interval, setIntervalStats] = useState<Stats | null>(null);
   const [inference, setInference] = useState<Stats | null>(null);
   const [found, setFound] = useState(0);
+  const [pipeline, setPipeline] = useState<PipelineDebug | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => {
       setIntervalStats(frameIntervalStats.compute());
       setInference(inferenceStats.compute());
       setFound(poseFoundRatio.current);
+      setPipeline(pipelineDebugRef?.current ?? null);
     }, 500);
     return () => window.clearInterval(id);
-  }, [frameIntervalStats, inferenceStats, poseFoundRatio]);
+  }, [frameIntervalStats, inferenceStats, poseFoundRatio, pipelineDebugRef]);
 
   // Expose the raw numbers for scripted measurement runs, so a measurement can
   // be captured verbatim rather than transcribed off a screenshot.
@@ -61,17 +68,35 @@ export function DebugHud({
       frameInterval: frameIntervalStats.compute(),
       inference: inferenceStats.compute(),
       poseFoundRatio: poseFoundRatio.current,
+      // The phase-3 quality numbers, so a measurement run captures whether ROI
+      // and the constraint solver were actually engaged rather than assuming
+      // it from the flags.
+      pipeline: pipelineDebugRef?.current ?? null,
+      flags: {
+        roi: POSE_CONFIG.useRoi,
+        constraints: POSE_CONFIG.useConstraints,
+        predict: POSE_CONFIG.usePrediction,
+        pipelineFrames: POSE_CONFIG.pipelineFrames,
+      },
       userAgent: navigator.userAgent,
       hardwareConcurrency: navigator.hardwareConcurrency,
       devicePixelRatio: window.devicePixelRatio,
     });
-  }, [frameIntervalStats, inferenceStats, poseFoundRatio, poseStatus, delegate, camera]);
+  }, [
+    frameIntervalStats,
+    inferenceStats,
+    poseFoundRatio,
+    poseStatus,
+    delegate,
+    camera,
+    pipelineDebugRef,
+  ]);
 
   const medianFps = interval ? intervalToRate(interval.median) : 0;
   const worstFps = interval ? intervalToRate(interval.p95) : 0;
   const bestFps = interval ? intervalToRate(interval.min) : 0;
 
-  // 02-IMPLEMENTATION-PLAN.md fallback trigger: "well below 24-30 FPS".
+  // the fallback trigger: "well below 24-30 FPS".
   const bar = medianFps >= 30 ? "good" : medianFps >= 24 ? "marginal" : "poor";
 
   return (
@@ -134,6 +159,45 @@ export function DebugHud({
           {inference ? formatStats(inference, "ms") : "—"}
         </div>
       </div>
+
+      {pipeline && (
+        <>
+          <hr />
+          <div className="hud-block">
+            <div className="hud-label">roi crop</div>
+            <div className="hud-stat">
+              {pipeline.roi.active
+                ? `${pipeline.roi.magnification.toFixed(2)}x body zoom · ${(
+                    pipeline.roi.coverage * 100
+                  ).toFixed(0)}% of frame`
+                : "full frame (acquiring)"}
+            </div>
+          </div>
+
+          <div className="hud-block">
+            <div className="hud-label">skeleton constraints</div>
+            <div className="hud-stat">
+              {pipeline.skeleton.learned}/{pipeline.skeleton.attempted} bones ·
+              {" "}
+              {/* The headline accuracy number: how much the raw skeleton's limb
+                  lengths were breathing, and what is left after projection. */}
+              limb error {(pipeline.skeleton.meanError * 1000).toFixed(1)} →{" "}
+              {(pipeline.skeleton.meanErrorAfter * 1000).toFixed(1)} mpx
+              {pipeline.skeleton.rejected > 0 &&
+                ` · ${pipeline.skeleton.rejected} clamped`}
+            </div>
+          </div>
+
+          <div className="hud-block">
+            <div className="hud-label">latency compensation</div>
+            <div className="hud-stat">
+              {pipeline.predictor.latencyMs.toFixed(0)} ms measured · leading{" "}
+              {pipeline.predictor.leadMs.toFixed(0)} ms ·{" "}
+              {pipeline.predictor.predicted}/{pipeline.predictor.available} points
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

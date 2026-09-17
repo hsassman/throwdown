@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { HeadState } from "../perception/dodgeDetector";
 
 // Milestone 2's done-when is that dodging and ducking "visibly and promptly"
@@ -15,9 +15,23 @@ interface Props {
 
 const REFRESH_MS = 60;
 
+/**
+ * Thresholds at which this panel NAMES a dodge or duck.
+ *
+ * These are display labels only — `dodgeDetector` owns the actual committed
+ * 0..1 values, and nothing downstream reads these. They live here rather than
+ * in config/tuning.ts for that reason, but are named and documented rather
+ * than inlined, because this panel is Milestone 2's acceptance surface and a
+ * label that disagrees with the drawn dead zone would mislead the validation
+ * run. `.dodge-neutral` in App.css draws the dead zone; keep the two in step.
+ */
+const INDICATOR_CONFIG = {
+  duckLabel: 0.45,
+  leanLabel: 0.25,
+};
+
 export function DodgeIndicator({ headStateRef, mirrored = true }: Props) {
   const [state, setState] = useState<HeadState | null>(null);
-  const frame = useRef(0);
 
   useEffect(() => {
     // Polls rather than re-rendering per pose frame: the head state updates at
@@ -25,8 +39,23 @@ export function DodgeIndicator({ headStateRef, mirrored = true }: Props) {
     // loop's cost depend on rendering. ~16 Hz is well past "prompt" for a
     // human watching an indicator.
     const id = setInterval(() => {
-      frame.current++;
-      setState(headStateRef.current ? { ...headStateRef.current } : null);
+      const next = headStateRef.current;
+      setState((prev) => {
+        // Only re-render when something actually changed. Setting state
+        // unconditionally re-rendered this panel ~16x a second even with the
+        // player standing perfectly still, competing for main-thread time with
+        // a pose pipeline that is already frame-starved at 15 FPS.
+        if (!next) return prev === null ? prev : null;
+        if (
+          prev &&
+          prev.tracked === next.tracked &&
+          Math.abs(prev.lean - next.lean) < 1e-3 &&
+          Math.abs(prev.duck - next.duck) < 1e-3
+        ) {
+          return prev;
+        }
+        return { ...next };
+      });
     }, REFRESH_MS);
     return () => clearInterval(id);
   }, [headStateRef]);
@@ -38,9 +67,9 @@ export function DodgeIndicator({ headStateRef, mirrored = true }: Props) {
   const dotY = 34 + state.duck * 46;
 
   const label =
-    state.duck > 0.45
+    state.duck > INDICATOR_CONFIG.duckLabel
       ? "DUCK"
-      : Math.abs(state.lean) < 0.25
+      : Math.abs(state.lean) < INDICATOR_CONFIG.leanLabel
         ? "centre"
         : lean < 0
           ? "SLIP LEFT"

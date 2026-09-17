@@ -1,0 +1,1708 @@
+{
+  "source": "output/boxer_lod3.glb",
+  "vertexCount": 5429,
+  "results": [
+    {
+      "index": 0,
+      "moved": 2403,
+      "coverage": 0.4426229508196721,
+      "maxDisp": 0.03241671429143323,
+      "faceShare": 0.027049521431543905,
+      "headFrac": -2.9250300813347985,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 1,
+      "moved": 2399,
+      "coverage": 0.44188616688156196,
+      "maxDisp": 0.012131046771876973,
+      "faceShare": 0.02626094205919133,
+      "headFrac": -2.928992531282165,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 2,
+      "moved": 2389,
+      "coverage": 0.4400442070362866,
+      "maxDisp": 0.008378904246272526,
+      "faceShare": 0.0246965257429887,
+      "headFrac": -2.937431392148309,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 3,
+      "moved": 2368,
+      "coverage": 0.43617609136120833,
+      "maxDisp": 0.0041541768303479335,
+      "faceShare": 0.016047297297297296,
+      "headFrac": -2.9649654878537555,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 4,
+      "moved": 2371,
+      "coverage": 0.4367286793147909,
+      "maxDisp": 0.0040821440907404015,
+      "faceShare": 0.018135807676086038,
+      "headFrac": -2.9601203281317945,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 5,
+      "moved": 2387,
+      "coverage": 0.4396758150672315,
+      "maxDisp": 0.004594126695464507,
+      "faceShare": 0.02387934645999162,
+      "headFrac": -2.9400604504388683,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 6,
+      "moved": 2355,
+      "coverage": 0.4337815435623503,
+      "maxDisp": 0.0028212330329255757,
+      "faceShare": 0.01613588110403397,
+      "headFrac": -2.9752897635212543,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 7,
+      "moved": 2350,
+      "coverage": 0.43286056363971265,
+      "maxDisp": 0.0035789082042480286,
+      "faceShare": 0.01446808510638298,
+      "headFrac": -2.9785595431711402,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 8,
+      "moved": 2357,
+      "coverage": 0.4341499355314054,
+      "maxDisp": 0.0021743174664029447,
+      "faceShare": 0.017819261773440814,
+      "headFrac": -2.969980613991042,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 9,
+      "moved": 2362,
+      "coverage": 0.4350709154540431,
+      "maxDisp": 0.0017801932125327074,
+      "faceShare": 0.016088060965283656,
+      "headFrac": -2.9650791537069736,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 10,
+      "moved": 2314,
+      "coverage": 0.4262295081967213,
+      "maxDisp": 0.0015704549532595466,
+      "faceShare": 0.00864304235090752,
+      "headFrac": -3.010658718064427,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 11,
+      "moved": 2302,
+      "coverage": 0.42401915638239085,
+      "maxDisp": 0.0037038600541878888,
+      "faceShare": 0.01216333622936577,
+      "headFrac": -2.9287806129491636,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "c_spine0:4%"
+      ]
+    },
+    {
+      "index": 12,
+      "moved": 2337,
+      "coverage": 0.43046601584085464,
+      "maxDisp": 0.0014131265858686327,
+      "faceShare": 0.012836970474967908,
+      "headFrac": -2.9565584739434962,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 13,
+      "moved": 2242,
+      "coverage": 0.4129673973107386,
+      "maxDisp": 0.0029232211957069773,
+      "faceShare": 0.008920606601248885,
+      "headFrac": -2.9355352353789153,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "c_spine0:4%"
+      ]
+    },
+    {
+      "index": 14,
+      "moved": 2352,
+      "coverage": 0.43322895560876773,
+      "maxDisp": 0.0014558318539186282,
+      "faceShare": 0.011904761904761904,
+      "headFrac": -2.970925710138889,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 15,
+      "moved": 2210,
+      "coverage": 0.4070731258058574,
+      "maxDisp": 0.002241883687707573,
+      "faceShare": 0.009954751131221719,
+      "headFrac": -2.8050207563651095,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "c_spine0:4%"
+      ]
+    },
+    {
+      "index": 16,
+      "moved": 2348,
+      "coverage": 0.43249217167065757,
+      "maxDisp": 0.00110194602086574,
+      "faceShare": 0.013628620102214651,
+      "headFrac": -2.9774361293899463,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 17,
+      "moved": 2336,
+      "coverage": 0.43028181985632713,
+      "maxDisp": 0.0014773115582527598,
+      "faceShare": 0.014554794520547944,
+      "headFrac": -2.958997686386171,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "c_spine0:4%"
+      ]
+    },
+    {
+      "index": 18,
+      "moved": 2336,
+      "coverage": 0.43028181985632713,
+      "maxDisp": 0.0012741869694997566,
+      "faceShare": 0.007705479452054794,
+      "headFrac": -3.000157371892788,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 19,
+      "moved": 2362,
+      "coverage": 0.4350709154540431,
+      "maxDisp": 0.0009379473843332117,
+      "faceShare": 0.01947502116850127,
+      "headFrac": -2.9614154692423793,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "root:7%",
+        "c_spine2:7%",
+        "r_lowleg_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 20,
+      "moved": 1216,
+      "coverage": 0.22398231718548536,
+      "maxDisp": 0.01051902402574816,
+      "faceShare": 0.8939144736842105,
+      "headFrac": 0.37708701757887186,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 21,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.005682050198533295,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 22,
+      "moved": 1207,
+      "coverage": 0.22232455332473752,
+      "maxDisp": 0.0033913266617898626,
+      "faceShare": 0.9005799502899752,
+      "headFrac": 0.38159156636548563,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 23,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.004296610039415555,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 24,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.0027963045808304735,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.3797367789859792,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 25,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.0028313520634909383,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 26,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.0023957569058120918,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 27,
+      "moved": 1203,
+      "coverage": 0.22158776938662736,
+      "maxDisp": 0.0020149237325781475,
+      "faceShare": 0.9035743973399833,
+      "headFrac": 0.3832378230754422,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:76%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 28,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.0018572585277121688,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 29,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.001808055851386247,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 30,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.002095905329169945,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 31,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.0022202224226063527,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 32,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.001715541266663588,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.3797367789859792,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 33,
+      "moved": 1213,
+      "coverage": 0.22342972923190274,
+      "maxDisp": 0.0013003912148523249,
+      "faceShare": 0.8961253091508656,
+      "headFrac": 0.3788055333954008,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 34,
+      "moved": 1207,
+      "coverage": 0.22232455332473752,
+      "maxDisp": 0.0017581400594053093,
+      "faceShare": 0.9005799502899752,
+      "headFrac": 0.38209243369254725,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 35,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.0016244685905124096,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 36,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.0020574098308348433,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 37,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.0014503410392394894,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 38,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.0012722487744105501,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 39,
+      "moved": 1211,
+      "coverage": 0.22306133726284766,
+      "maxDisp": 0.000994741227724263,
+      "faceShare": 0.8976052848885219,
+      "headFrac": 0.37975683743767435,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 40,
+      "moved": 2272,
+      "coverage": 0.41849327684656473,
+      "maxDisp": 0.002449145292494398,
+      "faceShare": 0,
+      "headFrac": -1.953720662518635,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "r_wrist:5%",
+        "l_wrist:5%",
+        "r_lowarm_twist4_proc:3%"
+      ]
+    },
+    {
+      "index": 41,
+      "moved": 2246,
+      "coverage": 0.4137041812488488,
+      "maxDisp": 0.0012722445465977556,
+      "faceShare": 0,
+      "headFrac": -1.9587258909876113,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "r_wrist:6%",
+        "l_wrist:6%",
+        "r_lowarm_twist4_proc:3%"
+      ]
+    },
+    {
+      "index": 42,
+      "moved": 2160,
+      "coverage": 0.3978633265794806,
+      "maxDisp": 0.0007920436924929962,
+      "faceShare": 0,
+      "headFrac": -1.9681403647919786,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "r_wrist:6%",
+        "l_wrist:6%",
+        "r_middle1:3%"
+      ]
+    },
+    {
+      "index": 43,
+      "moved": 2194,
+      "coverage": 0.4041259900534168,
+      "maxDisp": 0.0007173590187022976,
+      "faceShare": 0,
+      "headFrac": -1.9649971789427627,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "r_wrist:6%",
+        "l_wrist:6%",
+        "r_lowarm_twist4_proc:3%"
+      ]
+    },
+    {
+      "index": 44,
+      "moved": 2204,
+      "coverage": 0.4059679498986922,
+      "maxDisp": 0.0005396607695501508,
+      "faceShare": 0,
+      "headFrac": -1.9627755116881924,
+      "kind": "body",
+      "region": null,
+      "topBones": [
+        "r_wrist:6%",
+        "l_wrist:6%",
+        "r_lowarm_twist4_proc:4%"
+      ]
+    },
+    {
+      "index": 45,
+      "moved": 183,
+      "coverage": 0.033707865168539325,
+      "maxDisp": 0.01124534319152026,
+      "faceShare": 1,
+      "headFrac": 0.6492469692709203,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 46,
+      "moved": 184,
+      "coverage": 0.033892061153066866,
+      "maxDisp": 0.011245341813662806,
+      "faceShare": 1,
+      "headFrac": 0.6488915989705348,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 47,
+      "moved": 512,
+      "coverage": 0.0943083440780991,
+      "maxDisp": 0.010881633514444392,
+      "faceShare": 0.90234375,
+      "headFrac": 0.28165300032650464,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:61%",
+        "c_jaw:30%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 48,
+      "moved": 507,
+      "coverage": 0.09338736415546141,
+      "maxDisp": 0.010562650038434299,
+      "faceShare": 0.9013806706114399,
+      "headFrac": 0.279561210073488,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:60%",
+        "c_jaw:30%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 49,
+      "moved": 548,
+      "coverage": 0.10093939952109043,
+      "maxDisp": 0.007812900069972515,
+      "faceShare": 0.9981751824817519,
+      "headFrac": 0.4107413108580847,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:78%",
+        "c_jaw:22%",
+        "c_neck_twist1_proc:0%"
+      ]
+    },
+    {
+      "index": 50,
+      "moved": 558,
+      "coverage": 0.10278135936636582,
+      "maxDisp": 0.007813126784207529,
+      "faceShare": 0.9982078853046595,
+      "headFrac": 0.41305918594555113,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:78%",
+        "c_jaw:21%",
+        "c_neck_twist1_proc:0%"
+      ]
+    },
+    {
+      "index": 51,
+      "moved": 348,
+      "coverage": 0.06410020261558298,
+      "maxDisp": 0.005750697975647424,
+      "faceShare": 0.9540229885057471,
+      "headFrac": 0.2512230178043333,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:54%",
+        "c_jaw:42%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 52,
+      "moved": 352,
+      "coverage": 0.06483698655369313,
+      "maxDisp": 0.005692611174867354,
+      "faceShare": 0.9545454545454546,
+      "headFrac": 0.2536413784010306,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:54%",
+        "c_jaw:41%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 53,
+      "moved": 303,
+      "coverage": 0.0558113833118438,
+      "maxDisp": 0.010503589860880005,
+      "faceShare": 0.9207920792079208,
+      "headFrac": 0.18982801937467458,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:59%",
+        "c_head:33%",
+        "c_neck_twist1_proc:6%"
+      ]
+    },
+    {
+      "index": 54,
+      "moved": 290,
+      "coverage": 0.053416835512985816,
+      "maxDisp": 0.006497832852174735,
+      "faceShare": 1,
+      "headFrac": 0.2950998932465786,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:74%",
+        "c_jaw:26%"
+      ]
+    },
+    {
+      "index": 55,
+      "moved": 452,
+      "coverage": 0.08325658500644686,
+      "maxDisp": 0.012921291855250733,
+      "faceShare": 0.9535398230088495,
+      "headFrac": 0.286821509924502,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:62%",
+        "c_jaw:34%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 56,
+      "moved": 454,
+      "coverage": 0.08362497697550193,
+      "maxDisp": 0.01292263101707697,
+      "faceShare": 0.9515418502202643,
+      "headFrac": 0.28610857828456066,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:62%",
+        "c_jaw:33%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 57,
+      "moved": 602,
+      "coverage": 0.11088598268557745,
+      "maxDisp": 0.00930854311923319,
+      "faceShare": 0.8970099667774086,
+      "headFrac": 0.376291317502335,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:74%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 58,
+      "moved": 603,
+      "coverage": 0.11107017867010499,
+      "maxDisp": 0.009257231051655589,
+      "faceShare": 0.8971807628524047,
+      "headFrac": 0.37540903999930314,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:74%",
+        "c_jaw:15%",
+        "c_spine3:5%"
+      ]
+    },
+    {
+      "index": 59,
+      "moved": 115,
+      "coverage": 0.02118253822066679,
+      "maxDisp": 0.010384466520855007,
+      "faceShare": 1,
+      "headFrac": 0.5370596855358774,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 60,
+      "moved": 114,
+      "coverage": 0.020998342236139254,
+      "maxDisp": 0.010772978646276738,
+      "faceShare": 1,
+      "headFrac": 0.5366418405758446,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 61,
+      "moved": 119,
+      "coverage": 0.021919322158776938,
+      "maxDisp": 0.0033366221365497004,
+      "faceShare": 1,
+      "headFrac": 0.532836275661501,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 62,
+      "moved": 119,
+      "coverage": 0.021919322158776938,
+      "maxDisp": 0.003083408711436372,
+      "faceShare": 1,
+      "headFrac": 0.5318757530155316,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 63,
+      "moved": 119,
+      "coverage": 0.021919322158776938,
+      "maxDisp": 0.0030833570726328586,
+      "faceShare": 1,
+      "headFrac": 0.5318758859377654,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 64,
+      "moved": 119,
+      "coverage": 0.021919322158776938,
+      "maxDisp": 0.003346530402842177,
+      "faceShare": 1,
+      "headFrac": 0.5328361427392673,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 65,
+      "moved": 119,
+      "coverage": 0.021919322158776938,
+      "maxDisp": 0.00757087527855289,
+      "faceShare": 1,
+      "headFrac": 0.5308663238490009,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 66,
+      "moved": 120,
+      "coverage": 0.022103518143304475,
+      "maxDisp": 0.007425544935948482,
+      "faceShare": 1,
+      "headFrac": 0.5298299838377785,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 67,
+      "moved": 431,
+      "coverage": 0.07938846933136857,
+      "maxDisp": 0.00913075440061144,
+      "faceShare": 1,
+      "headFrac": 0.5294255017715609,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 68,
+      "moved": 441,
+      "coverage": 0.08123042917664394,
+      "maxDisp": 0.009321258956146963,
+      "faceShare": 1,
+      "headFrac": 0.5281669863859928,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 69,
+      "moved": 907,
+      "coverage": 0.16706575796647632,
+      "maxDisp": 0.03958933864806841,
+      "faceShare": 0.9404630650496141,
+      "headFrac": 0.34879653009092054,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:74%",
+        "c_jaw:20%",
+        "c_neck_twist1_proc:3%"
+      ]
+    },
+    {
+      "index": 70,
+      "moved": 872,
+      "coverage": 0.16061889850801253,
+      "maxDisp": 0.00870846385623703,
+      "faceShare": 0.9025229357798165,
+      "headFrac": 0.31415980093458834,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:70%",
+        "c_jaw:20%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 71,
+      "moved": 868,
+      "coverage": 0.15988211456990237,
+      "maxDisp": 0.008627169568958412,
+      "faceShare": 0.9043778801843319,
+      "headFrac": 0.3148294497843521,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:70%",
+        "c_jaw:21%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 72,
+      "moved": 926,
+      "coverage": 0.17056548167249955,
+      "maxDisp": 0.010554342849079992,
+      "faceShare": 0.9017278617710583,
+      "headFrac": 0.3241285282973869,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:71%",
+        "c_jaw:19%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 73,
+      "moved": 384,
+      "coverage": 0.07073125805857432,
+      "maxDisp": 0.006447568226738496,
+      "faceShare": 1,
+      "headFrac": 0.47624658034615236,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:96%",
+        "c_jaw:4%"
+      ]
+    },
+    {
+      "index": 74,
+      "moved": 391,
+      "coverage": 0.07202062995026709,
+      "maxDisp": 0.005719027775928992,
+      "faceShare": 1,
+      "headFrac": 0.47614607200925063,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:96%",
+        "c_jaw:4%"
+      ]
+    },
+    {
+      "index": 75,
+      "moved": 357,
+      "coverage": 0.06575796647633081,
+      "maxDisp": 0.00591412530089723,
+      "faceShare": 0.9915966386554622,
+      "headFrac": 0.27209009496182945,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:59%",
+        "c_jaw:40%",
+        "c_neck_twist1_proc:1%"
+      ]
+    },
+    {
+      "index": 76,
+      "moved": 360,
+      "coverage": 0.06631055442991343,
+      "maxDisp": 0.0065335602621908375,
+      "faceShare": 0.9916666666666667,
+      "headFrac": 0.27323124648055136,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:59%",
+        "c_jaw:40%",
+        "c_neck_twist1_proc:1%"
+      ]
+    },
+    {
+      "index": 77,
+      "moved": 644,
+      "coverage": 0.11862221403573402,
+      "maxDisp": 0.018523411343088738,
+      "faceShare": 0.9301242236024845,
+      "headFrac": 0.3226805738471208,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:69%",
+        "c_jaw:24%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 78,
+      "moved": 646,
+      "coverage": 0.1189906060047891,
+      "maxDisp": 0.018614731374421087,
+      "faceShare": 0.9303405572755418,
+      "headFrac": 0.3227719115070998,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:69%",
+        "c_jaw:24%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 79,
+      "moved": 225,
+      "coverage": 0.04144409651869589,
+      "maxDisp": 0.011106305454274613,
+      "faceShare": 0.9333333333333333,
+      "headFrac": 0.19124302642454008,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:63%",
+        "c_head:31%",
+        "c_neck_twist1_proc:7%"
+      ]
+    },
+    {
+      "index": 80,
+      "moved": 300,
+      "coverage": 0.05525879535826119,
+      "maxDisp": 0.009451103211928122,
+      "faceShare": 1,
+      "headFrac": 0.3604836521839384,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:87%",
+        "c_jaw:13%"
+      ]
+    },
+    {
+      "index": 81,
+      "moved": 227,
+      "coverage": 0.041812488487750966,
+      "maxDisp": 0.011299612172975902,
+      "faceShare": 0.933920704845815,
+      "headFrac": 0.19138856228043946,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:63%",
+        "c_head:31%",
+        "c_neck_twist1_proc:7%"
+      ]
+    },
+    {
+      "index": 82,
+      "moved": 303,
+      "coverage": 0.0558113833118438,
+      "maxDisp": 0.009597877775082825,
+      "faceShare": 1,
+      "headFrac": 0.3622868069774852,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:87%",
+        "c_jaw:13%"
+      ]
+    },
+    {
+      "index": 83,
+      "moved": 489,
+      "coverage": 0.09007183643396574,
+      "maxDisp": 0.0034676141168550317,
+      "faceShare": 0.9570552147239264,
+      "headFrac": 0.3110397409100248,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:66%",
+        "c_jaw:29%",
+        "c_neck_twist1_proc:3%"
+      ]
+    },
+    {
+      "index": 84,
+      "moved": 491,
+      "coverage": 0.09044022840302081,
+      "maxDisp": 0.003422165874897006,
+      "faceShare": 0.9531568228105907,
+      "headFrac": 0.30922864613226747,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:66%",
+        "c_jaw:29%",
+        "c_neck_twist1_proc:3%"
+      ]
+    },
+    {
+      "index": 85,
+      "moved": 410,
+      "coverage": 0.0755203536562903,
+      "maxDisp": 0.018229523972521183,
+      "faceShare": 0.9829268292682927,
+      "headFrac": 0.28459122135168363,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:61%",
+        "c_jaw:37%",
+        "c_neck_twist1_proc:2%"
+      ]
+    },
+    {
+      "index": 86,
+      "moved": 414,
+      "coverage": 0.07625713759440045,
+      "maxDisp": 0.018505457130781083,
+      "faceShare": 0.9830917874396136,
+      "headFrac": 0.28593839737370647,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:62%",
+        "c_jaw:37%",
+        "c_neck_twist1_proc:2%"
+      ]
+    },
+    {
+      "index": 87,
+      "moved": 594,
+      "coverage": 0.10941241480935715,
+      "maxDisp": 0.011420502521563906,
+      "faceShare": 0.8484848484848485,
+      "headFrac": 0.2626235207061252,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:59%",
+        "c_jaw:26%",
+        "c_neck_twist1_proc:7%"
+      ]
+    },
+    {
+      "index": 88,
+      "moved": 592,
+      "coverage": 0.10904402284030208,
+      "maxDisp": 0.011484902906543982,
+      "faceShare": 0.847972972972973,
+      "headFrac": 0.2623846857829015,
+      "kind": "mixed",
+      "region": null,
+      "topBones": [
+        "c_head:59%",
+        "c_jaw:26%",
+        "c_neck_twist1_proc:7%"
+      ]
+    },
+    {
+      "index": 89,
+      "moved": 217,
+      "coverage": 0.03997052864247559,
+      "maxDisp": 0.010511623476392663,
+      "faceShare": 0.9308755760368663,
+      "headFrac": 0.18247368833395938,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:66%",
+        "c_head:27%",
+        "c_neck_twist1_proc:6%"
+      ]
+    },
+    {
+      "index": 90,
+      "moved": 279,
+      "coverage": 0.05139067968318291,
+      "maxDisp": 0.009515082185711147,
+      "faceShare": 1,
+      "headFrac": 0.3650199860336673,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:87%",
+        "c_jaw:13%"
+      ]
+    },
+    {
+      "index": 91,
+      "moved": 216,
+      "coverage": 0.03978633265794806,
+      "maxDisp": 0.010407983208361228,
+      "faceShare": 0.9305555555555556,
+      "headFrac": 0.1830583696497065,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:66%",
+        "c_head:27%",
+        "c_neck_twist1_proc:6%"
+      ]
+    },
+    {
+      "index": 92,
+      "moved": 280,
+      "coverage": 0.05157487566771044,
+      "maxDisp": 0.00950802680057821,
+      "faceShare": 1,
+      "headFrac": 0.362359773800209,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:87%",
+        "c_jaw:13%"
+      ]
+    },
+    {
+      "index": 93,
+      "moved": 303,
+      "coverage": 0.0558113833118438,
+      "maxDisp": 0.003424684829074141,
+      "faceShare": 1,
+      "headFrac": 0.2695919991871806,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:57%",
+        "c_jaw:43%"
+      ]
+    },
+    {
+      "index": 94,
+      "moved": 304,
+      "coverage": 0.05599557929637134,
+      "maxDisp": 0.003458143744667427,
+      "faceShare": 1,
+      "headFrac": 0.26961741465549155,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:57%",
+        "c_jaw:43%"
+      ]
+    },
+    {
+      "index": 95,
+      "moved": 208,
+      "coverage": 0.03831276478172776,
+      "maxDisp": 0.016446395106974043,
+      "faceShare": 0.9615384615384616,
+      "headFrac": 0.18711745897079518,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:70%",
+        "c_head:26%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 96,
+      "moved": 226,
+      "coverage": 0.04162829250322343,
+      "maxDisp": 0.010733715416564604,
+      "faceShare": 1,
+      "headFrac": 0.32560489626330336,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:83%",
+        "c_jaw:17%"
+      ]
+    },
+    {
+      "index": 97,
+      "moved": 208,
+      "coverage": 0.03831276478172776,
+      "maxDisp": 0.016482336605426324,
+      "faceShare": 0.9615384615384616,
+      "headFrac": 0.18711740573799696,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_jaw:70%",
+        "c_head:26%",
+        "c_neck_twist1_proc:4%"
+      ]
+    },
+    {
+      "index": 98,
+      "moved": 228,
+      "coverage": 0.04199668447227851,
+      "maxDisp": 0.010830641417403574,
+      "faceShare": 1,
+      "headFrac": 0.3259626106599322,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:83%",
+        "c_jaw:17%"
+      ]
+    },
+    {
+      "index": 99,
+      "moved": 325,
+      "coverage": 0.059863694971449624,
+      "maxDisp": 0.007058803645802366,
+      "faceShare": 0.9323076923076923,
+      "headFrac": 0.23435446968127466,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:48%",
+        "c_jaw:45%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 100,
+      "moved": 325,
+      "coverage": 0.059863694971449624,
+      "maxDisp": 0.007077554729161451,
+      "faceShare": 0.9323076923076923,
+      "headFrac": 0.2343543999209602,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:48%",
+        "c_jaw:45%",
+        "c_neck_twist1_proc:5%"
+      ]
+    },
+    {
+      "index": 101,
+      "moved": 552,
+      "coverage": 0.10167618345920058,
+      "maxDisp": 0.01870679670846488,
+      "faceShare": 0.9764492753623188,
+      "headFrac": 0.30244223569364387,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:65%",
+        "c_jaw:32%",
+        "c_neck_twist1_proc:2%"
+      ]
+    },
+    {
+      "index": 102,
+      "moved": 552,
+      "coverage": 0.10167618345920058,
+      "maxDisp": 0.018704865395770657,
+      "faceShare": 0.9764492753623188,
+      "headFrac": 0.30244223569364387,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:65%",
+        "c_jaw:32%",
+        "c_neck_twist1_proc:2%"
+      ]
+    },
+    {
+      "index": 103,
+      "moved": 364,
+      "coverage": 0.06704733836802358,
+      "maxDisp": 0.003943557937898111,
+      "faceShare": 1,
+      "headFrac": 0.3132282594470009,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:70%",
+        "c_jaw:30%"
+      ]
+    },
+    {
+      "index": 104,
+      "moved": 366,
+      "coverage": 0.06741573033707865,
+      "maxDisp": 0.0039519075515133326,
+      "faceShare": 1,
+      "headFrac": 0.3139646144982546,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:70%",
+        "c_jaw:30%"
+      ]
+    },
+    {
+      "index": 105,
+      "moved": 550,
+      "coverage": 0.10130779149014552,
+      "maxDisp": 0.00923611113446326,
+      "faceShare": 0.9854545454545455,
+      "headFrac": 0.38670478200174413,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:75%",
+        "c_jaw:23%",
+        "c_neck_twist1_proc:1%"
+      ]
+    },
+    {
+      "index": 106,
+      "moved": 553,
+      "coverage": 0.10186037944372812,
+      "maxDisp": 0.00975377837850016,
+      "faceShare": 0.9855334538878843,
+      "headFrac": 0.38772628658369496,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:76%",
+        "c_jaw:23%",
+        "c_neck_twist1_proc:1%"
+      ]
+    },
+    {
+      "index": 107,
+      "moved": 144,
+      "coverage": 0.02652422177196537,
+      "maxDisp": 0.0023113533626973356,
+      "faceShare": 1,
+      "headFrac": 0.39570867704709156,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 108,
+      "moved": 145,
+      "coverage": 0.026708417756492908,
+      "maxDisp": 0.0023160267276218487,
+      "faceShare": 1,
+      "headFrac": 0.39478634734358986,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 109,
+      "moved": 157,
+      "coverage": 0.028918769570823358,
+      "maxDisp": 0.0021171008448950274,
+      "faceShare": 1,
+      "headFrac": 0.3832758362190699,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 110,
+      "moved": 159,
+      "coverage": 0.02928716153987843,
+      "maxDisp": 0.0021438932524645918,
+      "faceShare": 1,
+      "headFrac": 0.38237346542829004,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 111,
+      "moved": 387,
+      "coverage": 0.07128384601215694,
+      "maxDisp": 0.009919944655609797,
+      "faceShare": 1,
+      "headFrac": 0.516016775573686,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 112,
+      "moved": 387,
+      "coverage": 0.07128384601215694,
+      "maxDisp": 0.009936898202161771,
+      "faceShare": 1,
+      "headFrac": 0.5145708782890424,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 113,
+      "moved": 144,
+      "coverage": 0.02652422177196537,
+      "maxDisp": 0.003935401258588456,
+      "faceShare": 1,
+      "headFrac": 0.5474515714813308,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 114,
+      "moved": 144,
+      "coverage": 0.02652422177196537,
+      "maxDisp": 0.0037963222279782096,
+      "faceShare": 1,
+      "headFrac": 0.5474514543128434,
+      "kind": "face",
+      "region": "mid (cheek/nose)",
+      "topBones": [
+        "c_head:100%"
+      ]
+    },
+    {
+      "index": 115,
+      "moved": 424,
+      "coverage": 0.07809909743967582,
+      "maxDisp": 0.008166404436879523,
+      "faceShare": 0.9834905660377359,
+      "headFrac": 0.31471705852959914,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:67%",
+        "c_jaw:31%",
+        "c_neck_twist1_proc:2%"
+      ]
+    },
+    {
+      "index": 116,
+      "moved": 424,
+      "coverage": 0.07809909743967582,
+      "maxDisp": 0.008188209612910217,
+      "faceShare": 0.9834905660377359,
+      "headFrac": 0.31416907685008993,
+      "kind": "face",
+      "region": "lower (jaw/mouth)",
+      "topBones": [
+        "c_head:67%",
+        "c_jaw:31%",
+        "c_neck_twist1_proc:2%"
+      ]
+    }
+  ]
+}
