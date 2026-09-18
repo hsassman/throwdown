@@ -1259,6 +1259,33 @@ export const MONITOR_CONFIG = {
   maxPredictScale: 1.0,
 } as const;
 
+/**
+ * The system monitor aggregates tracking, frame timing, strike resolution and
+ * drill health into one report — see diag/systemMonitor.ts.
+ */
+export const SYSTEM_CONFIG = {
+  /** Window over which strike activity is measured, ms. Kept short: training
+   *  pace can change in a few seconds, and a window measured in minutes would
+   *  still be reporting a rest break as normal throughput. */
+  strikeWindowMs: 10_000,
+
+  /** Reach counts as a "near miss" above this — close enough to a landed
+   *  strike that repeated near-misses without a landed strike are a
+   *  calibration question, not a player who simply isn't punching. */
+  nearMissReach: 0.85,
+  /** How many near-misses inside the window, with nothing landed, before the
+   *  report says so. One or two near misses is normal circling; a stack of
+   *  them with zero landed strikes is the pattern worth naming. */
+  nearMissAdviceCount: 6,
+
+  /** Frame delivery rate, Hz, good/bad — same shape as MONITOR_CONFIG's pose
+   *  thresholds, applied to the RENDER loop's own delivered-pose interval
+   *  rather than the tracker's internal one, so a render-side stall shows up
+   *  even when pose sampling itself is healthy. */
+  goodFrameHz: 24,
+  badFrameHz: 10,
+} as const;
+
 // DUMMY TRAINING
 //
 // The training mode is a punching dummy with lit target zones. These numbers

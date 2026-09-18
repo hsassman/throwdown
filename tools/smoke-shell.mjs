@@ -281,6 +281,25 @@ try {
       note.trim().slice(0, 80)
     );
   }
+  // The aggregate system panel sits below it — it polls its own monitor on
+  // an interval, so give it a moment to produce its first report.
+  await page.waitForSelector(".spanel", { timeout: 20000 });
+  await page.waitForTimeout(600);
+  const sp = await page.evaluate(() => ({
+    sections: document.querySelectorAll(".spanel-sections li").length,
+    text: document.querySelector(".spanel")?.textContent ?? "",
+  }));
+  check(
+    "system panel shows all four sections",
+    sp.sections === 4,
+    JSON.stringify(sp)
+  );
+  check(
+    "frame delivery reports a real number, not stuck warming up",
+    /Hz/.test(sp.text),
+    sp.text.slice(0, 200)
+  );
+
   await page.screenshot({ path: `${OUT}/shell-tracking.png` });
   step(`saved ${OUT}/shell-tracking.png`);
   await page.locator(".back-btn").click();

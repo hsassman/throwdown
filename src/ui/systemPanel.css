@@ -1,0 +1,85 @@
+/* Aggregate system health — a compact companion to trackingPanel.css, same
+ * visual language, smaller footprint since every line here is a summary. */
+
+.spanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.82);
+  color: #e8eef7;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.spanel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.spanel-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.spanel-sections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spanel-sections li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.spanel-name {
+  opacity: 0.65;
+  flex: none;
+}
+
+.spanel-value {
+  text-align: right;
+}
+
+.spanel-idle {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.spanel-good {
+  color: #4ade80;
+}
+.spanel-fair {
+  color: #facc15;
+}
+.spanel-poor {
+  color: #f87171;
+}
+
+.spanel-advice {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #fca5a5;
+}

@@ -150,7 +150,7 @@ export const SHELL_ITEMS: ShellItem[] = [
     title: "Tracking",
     blurb: "What the camera sees, and how well. Live diagnosis.",
     detail:
-      "The skeleton the camera is reading, the rate it is arriving at, and a continuous assessment of the signal — dropout, jitter, and which landmark is worst. Open this first if anything feels unresponsive.",
+      "The skeleton the camera is reading, the rate it is arriving at, and a continuous assessment of the signal — dropout, jitter, and which landmark is worst. Below it, one aggregate view of the whole pipeline: pose, frame delivery, strike resolution and the drill together. Open this first if anything feels unresponsive.",
     availability: "ready",
     category: "tools",
   },

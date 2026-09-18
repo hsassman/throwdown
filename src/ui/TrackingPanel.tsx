@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { TrackingReport } from "../pose/trackingMonitor";
+import { isMeasured, type TrackingReport } from "../pose/trackingMonitor";
 import type { BodyMotion } from "../perception/bodyMotion";
 import { MONITOR_CONFIG } from "../config/tuning";
 import "./trackingPanel.css";
@@ -72,7 +72,7 @@ export function TrackingPanel({ reportRef }: Props) {
   // different facts. Without this the panel greeted anyone who opened it
   // before stepping into frame with a red 0 marked "Poor", which blames the
   // player's webcam for the player not being in front of it.
-  if (report.samples < MONITOR_CONFIG.minSamples || report.metrics.length === 0) {
+  if (!isMeasured(report)) {
     return (
       <div className="tpanel">
         <div className="tpanel-score" data-grade="waiting">

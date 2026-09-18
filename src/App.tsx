@@ -17,6 +17,8 @@ import { useStrikeTraining } from "./perception/useStrikeTraining";
 import { useDummyTraining } from "./training/useDummyTraining";
 import { TrainingHud } from "./ui/TrainingHud";
 import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
+import { SystemPanel } from "./ui/SystemPanel";
+import { useSystemMonitor } from "./diag/useSystemMonitor";
 import { useFight } from "./sim/useFight";
 import { FightHud } from "./ui/FightHud";
 import { DEFAULT_RULES } from "./menu/menuModel";
@@ -119,6 +121,17 @@ export default function App() {
   });
 
   // Scored rounds start when the screen does; free work never scores.
+  const systemReportRef = useSystemMonitor({
+    subscribeStrikes: strike.subscribe,
+    trackingReportRef,
+    strikeDebugRef: strike.debugRef,
+    frameIntervalStats,
+    inferenceStats,
+    // null while no drill has been started, so the panel reads "not running"
+    // rather than a drill that presented zero targets.
+    drillStats: training.running ? training.stats : null,
+  });
+
   const { start: startDrill, stop: stopDrill } = training;
   useEffect(() => {
     if (screen === "dummy") startDrill();
@@ -289,7 +302,12 @@ export default function App() {
           {stage3d && boxerStatus === "loading" && (
             <p className="muted small">Loading character…</p>
           )}
-          {screen === "tracking" && <TrackingPanel reportRef={trackingReportRef} />}
+          {screen === "tracking" && (
+            <>
+              <TrackingPanel reportRef={trackingReportRef} />
+              <SystemPanel reportRef={systemReportRef} />
+            </>
+          )}
 
           {/* The new depth / turn / crouch channels, live. Shown where the
               character is, because these are numbers a player can verify with

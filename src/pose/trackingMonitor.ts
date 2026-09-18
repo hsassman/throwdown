@@ -72,6 +72,23 @@ export interface TrackingReport {
   advice: string[];
 }
 
+/**
+ * Whether a report reflects an actual measurement, as opposed to the empty
+ * placeholder produced before `minSamples` frames have arrived.
+ *
+ * The placeholder's `score` is 0 — not "unmeasured", genuinely the numeric
+ * value zero — because `TrackingReport.score` has no separate slot for "no
+ * data yet" and 0 is what an empty min() naturally produces. Any caller that
+ * reads `.score` directly without this check will report "0% healthy" for a
+ * player who has not stepped in front of the camera, which reads as the
+ * camera being broken rather than as nobody being there. ONE place decides
+ * this so TrackingPanel and the system monitor cannot drift onto two
+ * different definitions of "not measured yet".
+ */
+export function isMeasured(report: TrackingReport): boolean {
+  return report.samples >= MONITOR_CONFIG.minSamples && report.metrics.length > 0;
+}
+
 /** The only two things the monitor is allowed to change. */
 export interface TrackingTuning {
   /** Multiplier on smoothing time constants. >1 filters harder. */
