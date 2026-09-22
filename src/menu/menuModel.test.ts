@@ -27,7 +27,7 @@ describe("menu honesty", () => {
     expect(playable(FIGHT_MODES)).toBe(true);
     expect(playable(ROSTER)).toBe(true);
     expect(playable(ARENAS)).toBe(true);
-    // Online is the exception, and deliberately so — nothing there is built.
+    // Online is the exception, and deliberately so - nothing there is built.
     expect(ONLINE_MODES.every((m) => m.availability === "locked")).toBe(true);
   });
 
@@ -52,7 +52,7 @@ describe("settings stepper", () => {
 
   it("does not accumulate floating-point drift", () => {
     // 0.95 -0.05 +0.05 must still be 0.95 and must still render as "0.95".
-    // Without snapping, the label grows a tail of nines after a few presses —
+    // Without snapping, the label grows a tail of nines after a few presses -
     // which looks exactly like a broken setting.
     let s = find("gameplay", "reach");
     for (let i = 0; i < 40; i++) {

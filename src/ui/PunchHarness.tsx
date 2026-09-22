@@ -52,7 +52,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
   // ---- free play: rolling log of recent punches ----
   const [recent, setRecent] = useState<PunchEvent[]>([]);
   // Depend on the stable `onPunch` callback, not the `detection` object, whose
-  // identity changes every render — that re-subscribed on every render, and a
+  // identity changes every render - that re-subscribed on every render, and a
   // punch landing between cleanup and re-subscribe would have been dropped.
   const { onPunch } = detection;
   useEffect(() => {
@@ -78,7 +78,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
   //
   // `capturing` gates the subscriber to the throw window specifically. Without
   // it, an early punch thrown during the "get ready" countdown would sit in
-  // `captured` and be recorded as the answer to the NEXT prompt — quietly
+  // `captured` and be recorded as the answer to the next prompt - quietly
   // corrupting the confusion matrix rather than failing visibly.
   const captured = useRef<PunchEvent | null>(null);
   const capturing = useRef(false);
@@ -115,7 +115,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     capturing.current = true;
     captured.current = null;
 
-    // Throw window closed — record whatever was (or wasn't) detected.
+    // Throw window closed - record whatever was (or wasn't) detected.
     const id = setTimeout(() => {
       capturing.current = false;
       const e = captured.current;
@@ -178,7 +178,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
           </label>
         </div>
         <p className="muted small">
-          Stance is asked rather than detected — inferring it needs shoulder
+          Stance is asked rather than detected - inferring it needs shoulder
           depth, and depth is the least reliable axis here.
         </p>
 
@@ -198,14 +198,14 @@ export function PunchHarness({ poseRef, enabled }: Props) {
         {calibration ? (
           <>
             <p className="ok">
-              Calibrated — torso scale {calibration.torsoScale.toFixed(3)}, guard
+              Calibrated - torso scale {calibration.torsoScale.toFixed(3)}, guard
               extension L {calibration.guardExtension.left.toFixed(2)} / R{" "}
               {calibration.guardExtension.right.toFixed(2)}
             </p>
             <p className="muted small">
               scale reference: {calibration.scaleSource}
               {calibration.scaleSource === "shoulder-width"
-                ? " — hips weren't visible, so scale is approximated from shoulder width. Step back so your hips are in frame for a more stance-robust reference."
+                ? " - hips weren't visible, so scale is approximated from shoulder width. Step back so your hips are in frame for a more stance-robust reference."
                 : ""}
             </p>
             <div className="row">
@@ -230,7 +230,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
         <p className="muted small">
           Throw punches and check the classifier reacts sensibly before spending
           five minutes on a measured run. Throw each one the way the guide shows
-          — the measured run scores what you were asked for against what was
+          - the measured run scores what you were asked for against what was
           detected, so matching the intended movement is what keeps the result
           meaningful.
         </p>
@@ -331,7 +331,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
         </div>
 
         <div className="muted small">
-          Return to guard between reps — the detector re-arms from guard.
+          Return to guard between reps - the detector re-arms from guard.
         </div>
         {next && next !== current && (
           <div className="muted small next-up">next up: {next}</div>
@@ -353,7 +353,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
 
 /**
  * Shows which required landmarks are actually tracked. Calibration silently
- * collecting zero frames is otherwise indistinguishable from a broken build —
+ * collecting zero frames is otherwise indistinguishable from a broken build -
  * in practice the cause is nearly always framing (hands below the frame, or
  * standing too close), which this makes obvious and fixable.
  */
@@ -368,7 +368,7 @@ function TrackingChecklist({
     return () => clearInterval(id);
   }, [statusRef]);
 
-  if (!status) return <p className="muted small">waiting for pose…</p>;
+  if (!status) return <p className="muted small">waiting for pose...</p>;
   const min = PERCEPTION_CONFIG.minLandmarkConfidence;
 
   return (
@@ -380,7 +380,7 @@ function TrackingChecklist({
           return (
             <tr key={name}>
               <td className={good || optional ? "muted" : "bad"}>
-                {good ? "ok" : optional ? "—" : "MISSING"}
+                {good ? "ok" : optional ? "-" : "MISSING"}
               </td>
               <td className="muted">{name}</td>
               <td>{conf.toFixed(2)}</td>
@@ -434,7 +434,7 @@ type CopyState = "idle" | "ok" | "failed";
  *
  * `navigator.clipboard` is undefined on insecure origins, which is exactly how
  * LAN play is served (plain http:// to a local IP). The old code optional-
- * chained the call away, so the button silently did nothing — losing the
+ * chained the call away, so the button silently did nothing - losing the
  * measured numbers that are the entire point of a Milestone 1 run.
  */
 async function copyText(text: string, setState: (s: CopyState) => void) {
@@ -506,7 +506,7 @@ function Results({
       <div className="muted small" aria-live="polite">
         {copyState === "ok" && "Copied to clipboard."}
         {copyState === "failed" &&
-          "Couldn't reach the clipboard — select the report above and copy manually. " +
+          "Couldn't reach the clipboard - select the report above and copy manually. " +
             "(Browsers block clipboard access on plain http:// origins, which is how LAN testing is served.)"}
       </div>
     </div>

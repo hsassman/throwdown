@@ -2,7 +2,7 @@
 // slow but stays responsive (low latency) when it moves fast.
 //
 // Ported unchanged in principle from the Flap project's flap/smoothing.ts.
-// the gesture-classification notes requires smoothing before any trajectory work —
+// the gesture-classification notes requires smoothing before any trajectory work -
 // both the heuristic classifier and (especially) a DTW comparison are sensitive
 // to single-frame landmark jitter. The adaptive cutoff matters here: a fixed
 // low-pass strong enough to kill resting jitter would also add lag to a real
@@ -40,7 +40,7 @@ export class OneEuroFilter {
    * Retunes the filter in place, keeping its history.
    *
    * In place rather than by replacement, because rebuilding the filter would
-   * discard `xPrev` and restart it from the next sample — a visible jump on
+   * discard `xPrev` and restart it from the next sample - a visible jump on
    * every landmark, every time the auto-tuner nudged anything.
    */
   setParams(minCutoff: number, beta: number): void {
@@ -76,7 +76,7 @@ export class OneEuroFilter {
 /**
  * Applies a one-euro filter per landmark, per axis, producing a smoothed
  * PoseFrame. This sits between pose/ and perception/ exactly as described in
- * docs/ARCHITECTURE.md — the perception layer should never see raw landmarks.
+ * docs/ARCHITECTURE.md - the perception layer should never see raw landmarks.
  *
  * Confidence is passed through unfiltered; it's a quality signal, not a
  * trajectory, and smoothing it would blur the "landmark just became untracked"
@@ -88,7 +88,7 @@ export class PoseSmoother {
   private beta: number;
   private dCutoff: number;
   /**
-   * Multiplier from the tracking monitor. Above 1 means filter HARDER.
+   * Multiplier from the tracking monitor. Above 1 means filter harder.
    *
    * It divides the cutoff rather than multiplying it, because a One Euro
    * filter's cutoff is a frequency: a lower cutoff passes less and smooths

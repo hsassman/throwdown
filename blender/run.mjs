@@ -7,10 +7,9 @@
  *   node blender/run.mjs all --ship      # everything, and overwrite the live asset
  *   node blender/run.mjs --blender "C:/path/to/blender.exe"
  *
- * Exists so the whole thing is one command that Claude Code (or CI, or you)
- * can run without remembering Blender's argument order -- in particular the
- * `--` separator, which Blender needs before script arguments and which is
- * silently swallowed if you forget it.
+ * One command, so nobody has to remember Blender's argument order. In
+ * particular the `--` separator, which Blender needs before script arguments
+ * and silently swallows if you forget it.
  *
  * Steps run in separate Blender processes on purpose. Each one opens
  * out/boxer.blend, changes it, and saves. A crash in step 5 therefore leaves
@@ -41,7 +40,7 @@ function findBlender(override) {
     return override;
   }
   for (const c of CANDIDATES) if (existsSync(c)) return c;
-  // Fall back to PATH.
+  // Fall back to path.
   const probe = spawnSync("blender", ["--version"], { encoding: "utf8" });
   if (probe.status === 0) return "blender";
   die(

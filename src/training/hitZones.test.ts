@@ -14,24 +14,24 @@ import { regionAt } from "../perception/strikeGeometry";
 describe("dummy silhouette", () => {
   it("has nothing to hit below the cut or above the crown", () => {
     // The reference dummy's torso ends at the lower chest. A punch into the
-    // space where a fighter's stomach would be hits the STAND.
+    // space where a fighter's stomach would be hits the stand.
     expect(halfWidthAt(DUMMY.base - 0.01)).toBe(0);
     expect(halfWidthAt(DUMMY.crown + 0.01)).toBe(0);
     expect(onDummy({ lateral: 0, height: 0.1 })).toBe(false);
   });
 
   it("closes the head at the crown instead of leaving a hole", () => {
-    // The loft caps the BOTTOM of the body but not the top, so the head
-    // profile has to reach exactly zero on its own. It did not — it bottomed
-    // out at 0.42 of full width — and the dummy rendered with a flat open
+    // The loft caps the bottom of the body but not the top, so the head
+    // profile has to reach exactly zero on its own. It did not - it bottomed
+    // out at 0.42 of full width - and the dummy rendered with a flat open
     // cylinder where its skull should be.
     expect(halfWidthAt(DUMMY.crown)).toBeCloseTo(0, 6);
     expect(halfWidthAt(DUMMY.crown - 0.02)).toBeGreaterThan(0);
   });
 
   it("has no crease where the shoulder cap meets the head", () => {
-    // The sections meet by CONSTRUCTION — the cap ends at whatever width the
-    // head profile has at the neck — rather than by two stored numbers
+    // The sections meet by construction - the cap ends at whatever width the
+    // head profile has at the neck - rather than by two stored numbers
     // agreeing. Sampling either side of the join catches a ledge.
     const below = halfWidthAt(DUMMY.neck - 0.005);
     const above = halfWidthAt(DUMMY.neck + 0.005);
@@ -41,7 +41,7 @@ describe("dummy silhouette", () => {
   it("holds full width across the shoulders instead of coning to a point", () => {
     // The reference dummy has broad, flat shoulders. Without a plateau the
     // body starts narrowing the instant it reaches full width, so there is no
-    // shoulder at all — just a cone, and the whole thing reads as a bowling
+    // shoulder at all - just a cone, and the whole thing reads as a bowling
     // pin. The plateau runs from the deltoid line to the shoulder line.
     const deltoid = halfWidthAt(DUMMY.deltoid);
     const shoulder = halfWidthAt(DUMMY.shoulder);
@@ -66,7 +66,7 @@ describe("hit zones", () => {
   it("every zone actually IS the region it claims to be", () => {
     // The single most important test in this file. strikeGeometry's region
     // table and these target positions are two descriptions of the same
-    // anatomy, and nothing else keeps them in agreement — a zone labelled
+    // anatomy, and nothing else keeps them in agreement - a zone labelled
     // "Liver" that resolves to "ribs_left" would score the player for hitting
     // a target they were never shown.
     for (const z of HIT_ZONES) {
@@ -151,7 +151,7 @@ describe("tiers", () => {
     expect(open.length).toBeGreaterThan(0);
     expect(precise.length).toBeGreaterThan(open.length);
     expect(expert.length).toBe(HIT_ZONES.length);
-    // Progression must be a superset, not a different set — a drill that
+    // Progression must be a superset, not a different set - a drill that
     // "progresses" by removing the target you just learned is not progression.
     expect(precise.map((z) => z.id)).toEqual(
       expect.arrayContaining(open.map((z) => z.id))
@@ -160,7 +160,7 @@ describe("tiers", () => {
 
   it("grades by REACH off the midline, not by size", () => {
     // Worth stating because the obvious assumption is wrong, and a test
-    // asserting it failed: the liver is a BIGGER target than the nose and
+    // asserting it failed: the liver is a bigger target than the nose and
     // still much harder, because it is around the side of the body and needs a
     // hook to reach. Difficulty here is about the angle a punch has to arrive
     // from, not about how many centimetres wide the circle is.

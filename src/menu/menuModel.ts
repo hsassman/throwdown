@@ -1,38 +1,25 @@
 // The front end's data model: what screens exist, what is on them, and what is
 // actually playable today.
-// SHAPE, AND WHERE IT COMES FROM
 //
-// The structure follows what the genre has converged on, which is worth being
-// explicit about rather than reinventing:
+// The shape follows what the genre has converged on. Mortal Kombat and
+// Injustice: a flat tile grid of modes, fighter select with a live stat panel,
+// destructive choices confirmed on the screen they are made. WWE 2K: match
+// setup as a separate step after the participants, carrying rules, because one
+// roster feeds a dozen match types - this project has the same split coming so
+// the step exists now. Tekken and Street Fighter: online as its own branch,
+// because folding it into exhibition confuses both flows.
 //
-//  * Mortal Kombat / Injustice: a title attract screen, then a flat tile grid
-//    of modes; fighter select is a fixed grid with a large portrait and a live
-//    stat panel; every destructive choice is confirmed on the same screen it
-//    is made, not on a separate dialog.
-//  * WWE 2K: match setup is a SEPARATE step after the participants are chosen,
-//    carrying rules (rounds, time, stipulations) — because the same roster
-//    feeds a dozen match types. This project has the same split coming, so the
-//    step exists now rather than being retrofitted.
-//  * Tekken / Street Fighter: online is its own branch off the main menu, not a
-//    mode inside exhibition, because the matchmaking flow is different enough
-//    that folding it in confuses both.
+// The convention they share, and the one that matters most: the player is
+// never more than two presses from a fight.
 //
-// The convention they all share, and the one that matters most here: the
-// player is never more than two presses from a fight. "Exhibition" is the
-// first item and it leads straight to fighter select.
-// HONESTY RULE
-//
-// Every entry carries an explicit availability. Nothing is presented as
-// playable that is not, and nothing that IS built is hidden. This project's
-// own docs have already been bitten once by a status section that claimed more
-// than the code did — the menu is the most visible possible place for that to
-// happen again, so availability is a required field rather than an optional
-// flag someone can forget.
+// Honesty rule. Every entry carries an explicit availability. Nothing is
+// presented as playable that is not, and nothing built is hidden. It is a
+// required field rather than a flag someone can forget.
 
 export type Availability =
   /** Built, tested, reachable now. */
   | "ready"
-  /** Reachable but incomplete — it will run and it will be rough. */
+  /** Reachable but incomplete - it will run and it will be rough. */
   | "preview"
   /** Deliberately not built yet. Shown so the shape of the game is legible. */
   | "locked";
@@ -95,7 +82,7 @@ export interface Fighter {
   stats: { power: number; speed: number; chin: number; stamina: number };
   availability: Availability;
   blurb: string;
-  /** Required in practice on a locked entry — a dead tile with no explanation
+  /** Required in practice on a locked entry - a dead tile with no explanation
    *  is the most annoying thing a menu can contain. */
   lockedReason?: string;
 }
@@ -103,13 +90,13 @@ export interface Fighter {
 /**
  * The roster.
  *
- * There is exactly ONE character mesh in this project, so exactly one entry is
+ * There is exactly one character mesh in this project, so exactly one entry is
  * `ready`. The rest are shown as locked slots rather than being invented,
  * because a grid of eight selectable fighters that are all the same model with
  * different names would be a lie told by the menu about the game.
  *
  * They are laid out by weight class because that is the customisation axis
- * already planned, and it is the axis that changes the SIMULATION (reach,
+ * already planned, and it is the axis that changes the simulation (reach,
  * mass, speed) rather than only the skin.
  */
 export const ROSTER: Fighter[] = [
@@ -157,7 +144,7 @@ export const ROSTER: Fighter[] = [
  * Every locked entry must say why. TypeScript cannot express "required only
  * when availability is locked" without splitting the type into a union that
  * would make every consumer narrow before reading a name, so it is asserted in
- * the tests instead — which is where the check is actually useful, because the
+ * the tests instead - which is where the check is actually useful, because the
  * failure mode is a human forgetting when adding a row.
  */
 export function missingLockReasons(): string[] {
@@ -194,7 +181,7 @@ export const ARENAS: Arena[] = [
   },
   {
     id: "octagon-bright",
-    name: "Octagon — House Lights",
+    name: "Octagon - House Lights",
     blurb: "Same cage, flat even lighting. Easier to read while training.",
     availability: "ready",
   },
@@ -267,18 +254,18 @@ export const FIGHT_MODES: MenuItem[] = [
   },
   {
     id: "ai",
-    label: "Versus AI",
+    label: "Versus CPU",
     blurb: "A training target that fights back.",
     availability: "locked",
     lockedReason:
-      "The target reacts to hits but does not throw any. It needs an AI layer.",
+      "The target reacts to hits but does not throw any. It needs a CPU layer.",
   },
   {
     id: "tower",
     label: "Tower",
     blurb: "A ladder of opponents, escalating.",
     availability: "locked",
-    lockedReason: "Needs Versus AI and more than one opponent.",
+    lockedReason: "Needs Versus CPU and more than one opponent.",
   },
   {
     id: "career",
@@ -341,9 +328,6 @@ export const DEFAULT_RULES: MatchRules = {
   stoppages: true,
 };
 
-export const ROUND_OPTIONS = [1, 3, 5] as const;
-export const ROUND_LENGTHS = [60, 120, 180, 300] as const;
-
 /** The full selection a match needs before it can start. */
 export interface MatchConfig {
   fighterId: string;
@@ -365,7 +349,7 @@ export function defaultMatch(): MatchConfig {
  * Whether a match config can actually be started, and why not.
  *
  * Returned as a reason string rather than a boolean so the button can say what
- * is wrong instead of just being greyed out — the thing every one of the
+ * is wrong instead of just being greyed out - the thing every one of the
  * reference menus gets right and most web UIs get wrong.
  */
 export function matchBlockedReason(config: MatchConfig): string | null {

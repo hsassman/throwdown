@@ -6,9 +6,9 @@ import { FT, IN } from "./octagonSpec";
 // testable on their own, and proportions that are wrong at this level cannot
 // be fixed by nudging the render code afterwards.
 //
-// WHERE "20 FEET" IS MEASURED
+// Where "20 feet" is measured
 //
-// A championship ring is 20 feet INSIDE THE ROPES — not 20 feet of platform.
+// A championship ring is 20 feet inside the ropes - not 20 feet of platform.
 // The apron is extra, and it has to be: fighters stand on it, corners work
 // from it, and a fighter driven onto the ropes needs somewhere for their feet
 // to be. Reading the 20 feet as the platform edge would put the ropes at 16
@@ -64,7 +64,7 @@ export function ringArea(inside = RING.insideRopes): number {
 /**
  * The four post centres, on the XZ plane, centred on the origin.
  *
- * Posts sit ON the rope line, at its corners — that is what the ropes are
+ * Posts sit on the rope line, at its corners - that is what the ropes are
  * tensioned between, so anywhere else and the ropes would not meet them.
  */
 export function ringCorners(inside = RING.insideRopes): RingCorner[] {

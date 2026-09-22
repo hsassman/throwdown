@@ -1,25 +1,25 @@
 // Real-world dimensions of a regulation octagon, and the pure geometry derived
-// from them. No three.js here on purpose — the numbers are testable on their
+// from them. No three.js here on purpose - the numbers are testable on their
 // own, and getting them wrong is the one mistake that cannot be fixed by
 // nudging the render code afterwards.
-// WHERE "30 FEET ACROSS" IS MEASURED, AND WHY IT MATTERS
+// Where "30 feet across" is measured, and why it matters
 //
 // The reference sheet gives two figures that have to agree: 30 feet across,
-// and 750 square feet of floor. For a regular octagon only ONE reading of
+// and 750 square feet of floor. For a regular octagon only one reading of
 // "across" satisfies both.
 //
-//   Across the CORNERS (circumdiameter 30 ft, R = 15 ft):
+//   Across the corners (circumdiameter 30 ft, R = 15 ft):
 //       area = 2*sqrt(2)*R^2 = 636 sq ft   -- 15% short of the sheet
-//   Across the FLATS (apothem a = 15 ft, R = a / cos(22.5deg) = 16.238 ft):
+//   Across the flats (apothem a = 15 ft, R = a / cos(22.5deg) = 16.238 ft):
 //       area = 2*sqrt(2)*R^2 = 746 sq ft   -- matches "750 sq ft"
 //
-// So 30 feet is measured FLAT TO FLAT, wall to opposite wall. That also falls
+// So 30 feet is measured flat to flat, wall to opposite wall. That also falls
 // out correctly on the third, independent figure nobody fed in: it makes each
 // of the eight walls 12.43 ft, and a regulation octagon's panels are ~12.4 ft.
 // Three numbers from one assumption is enough to trust it.
 //
 // Reading it the other way would build a cage 8% too small in every dimension
-// — small enough to look right in a screenshot and wrong for every reach,
+// - small enough to look right in a screenshot and wrong for every reach,
 // stride and camera distance derived from it afterwards.
 
 /** Feet to metres. The spec sheet is imperial; everything downstream is SI. */
@@ -41,7 +41,7 @@ export const OCTAGON = {
    *  the fence. */
   apron: 1.5 * FT,
 
-  /** Padded corner posts. Not on the sheet as a number — taken from the
+  /** Padded corner posts. Not on the sheet as a number - taken from the
    *  photograph, where a post reads as roughly a hand-span across and the pad
    *  as a fat sausage around it. */
   postWidth: 6 * IN,
@@ -55,17 +55,17 @@ export const OCTAGON = {
   meshWire: 0.18 * IN,
 
   /** Height of the vinyl-wrapped padding that skirts the platform edge below
-   *  the fence — the red band in both reference images. */
+   *  the fence - the red band in both reference images. */
   skirtHeight: 4 * FT,
 } as const;
 
-/** Circumradius: centre to a CORNER, metres. */
+/** Circumradius: centre to a corner, metres. */
 export function circumradius(acrossFlats = OCTAGON.acrossFlats): number {
   // apothem = acrossFlats / 2, and apothem = R * cos(pi/8).
   return acrossFlats / 2 / Math.cos(Math.PI / 8);
 }
 
-/** Centre to the middle of a WALL, metres. Half the across-flats figure. */
+/** Centre to the middle of a wall, metres. Half the across-flats figure. */
 export function apothem(acrossFlats = OCTAGON.acrossFlats): number {
   return acrossFlats / 2;
 }
@@ -89,7 +89,7 @@ export interface Corner {
 /**
  * The eight corners, on the XZ plane, centred on the origin.
  *
- * Rotated by half a step (pi/8) so that a WALL faces +Z rather than a corner.
+ * Rotated by half a step (pi/8) so that a wall faces +Z rather than a corner.
  * That is not cosmetic: the fighters face each other along +/-Z, the default
  * camera looks down -Z, and with a corner at +Z the nearest post would sit
  * dead centre of frame between the camera and the action.
@@ -118,14 +118,14 @@ export function walls(radius = circumradius()): {
       //
       // A rotation of `t` about Y sends local +X to (cos t, 0, -sin t), so
       // aligning it with the wall direction (dx, dz) needs cos t = dx and
-      // sin t = -dz — that is, atan2(-dz, dx).
+      // sin t = -dz - that is, atan2(-dz, dx).
       //
       // This was atan2(dx, dz), which is the same angle measured from the
       // other axis: it turned every panel a quarter turn, so the eight fence
-      // walls stood PERPENDICULAR to the cage, jutting in and out like blades
+      // walls stood perpendicular to the cage, jutting in and out like blades
       // instead of enclosing it. The spec tests only ever checked distances
-      // and areas, so nothing caught it — `walls.test.ts` now asserts the
-      // panel NORMAL points at the centre, which cannot pass for a panel
+      // and areas, so nothing caught it - `walls.test.ts` now asserts the
+      // panel normal points at the centre, which cannot pass for a panel
       // facing the wrong way.
       angle: Math.atan2(-(b.z - a.z), b.x - a.x),
       length: Math.hypot(b.x - a.x, b.z - a.z),

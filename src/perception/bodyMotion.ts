@@ -4,60 +4,28 @@ import type { Stance } from "./punchTypes";
 
 // Whole-body motion: where the player has moved to, and which way they are
 // facing.
-// WHAT THIS ADDS, AND WHY IT IS SEPARATE FROM THE DODGE DETECTOR
 //
-// `dodgeDetector.ts` answers a GAMEPLAY question — "is this a slip or a duck?"
-// — and thresholds accordingly. This answers a CONTINUOUS one: how far has the
-// body translated and rotated, right now, in torso units and radians.
+// Separate from dodgeDetector.ts on purpose. That answers a gameplay question
+// ("slip or duck?") with thresholds; this is a continuous measurement that
+// drives the character. Folded together, either the character would only move
+// once a dodge threshold tripped, or the dodge rule would inherit a signal it
+// has no thresholds for.
 //
-// They are deliberately not the same module. The dodge detector's output is a
-// classification that gates a game rule; this is a measurement that drives the
-// character. Folding them together would mean either the character only moved
-// once a dodge threshold tripped (stepping and swaying would go unrendered),
-// or the dodge rule inherited a continuous signal it has no thresholds for.
-// FIVE CHANNELS, ALL FROM x/y ONLY
+// Five channels - lateral, vertical, depth, turn, crouch - all from x/y only.
+// MediaPipe's `z` is never read anywhere in perception; it degrades along the
+// axis a punch travels.
 //
-//   lateral   slip left/right
-//   vertical  rise and crouch
-//   depth     stepping in and out          <- new
-//   turn      blading the torso            <- new
-//   crouch    0..1, derived from vertical   <- new
+// Depth comes from apparent size. A torso at distance D measuring s measures
+// s' = s*D/(D-delta) after stepping delta closer, so delta = D*(1 - s/s').
+// Exact, except for D, which an uncalibrated webcam cannot measure. So D is an
+// assumption (BODY_CONFIG.cameraDistance) acting purely as this channel's
+// gain: wrong by a factor and the step is too big or too small, but never
+// backwards and never non-monotonic.
 //
-// MediaPipe's `z` is never read, here or anywhere in perception. The standing
-// rule in docs/ARCHITECTURE.md exists because z degrades exactly along the axis a punch
-// travels. Depth here comes from apparent SIZE, which is an x/y measurement.
-// DEPTH: FROM APPARENT SIZE, WITH ONE HONEST ASSUMPTION
-//
-// A torso's apparent size is inversely proportional to its distance from the
-// camera. If the player is D away and their torso measures s, then after
-// stepping Δ toward the camera it measures s' = s·D/(D−Δ), so
-//
-//     Δ = D · (1 − s/s')
-//
-// That is exact. The catch is D, which a single uncalibrated webcam cannot
-// measure — it needs the field of view, which browsers do not report reliably.
-// So D is an ASSUMPTION (`BODY_CONFIG.cameraDistance`), and it acts purely as
-// the gain on this channel: get it wrong and stepping in moves the character
-// too much or too little, but never in the wrong direction and never
-// non-monotonically. That is a much better failure mode than a fudge factor,
-// and it is why the relation is written out rather than approximated linearly.
-// TURN: MAGNITUDE IS MEASURED, SIGN COMES FROM STANCE
-//
-// Apparent shoulder width is W·cos(yaw), so |yaw| falls straight out of how
-// much the shoulder line has narrowed against its own neutral. That part is
-// solid.
-//
-// The SIGN does not. A frontal camera sees the same narrowing whether you turn
-// left or right — the projection is symmetric, and there is no cue in x/y that
-// separates them robustly. Guessing from arm foreshortening was considered and
-// rejected: the arms are the one part of the body that is constantly doing
-// something else, so a punch would read as a turn.
-//
-// The resolution is that a BOXER does not turn both ways. An orthodox fighter
-// blades with the left shoulder forward and rotates into a right hand; a
-// southpaw mirrors it. So the sign is taken from the stance, which is already
-// known. That is a real constraint of the sport being used to resolve a real
-// ambiguity of the camera, rather than a number invented to paper over it.
+// Turn magnitude is measured (apparent shoulder width is W*cos(yaw)); the sign
+// is not. A frontal camera sees identical narrowing either way. So the sign
+// comes from the stance: an orthodox fighter blades left-shoulder-forward, a
+// southpaw mirrors it.
 
 export interface BodyMotion {
   /** False when the frame was unusable; every channel is then 0. */
@@ -72,6 +40,21 @@ export interface BodyMotion {
   turn: number;
   /** 0..1 crouch, from `vertical` against the learned standing height. */
   crouch: number;
+  /**
+   * Mean height of the two wrists above the hip line, torso units.
+   *
+   * Absolute, unlike every other channel here, and deliberately so: a guard is
+   * a posture rather than a displacement from wherever the player happened to
+   * be standing when tracking started. 0 is the belt and 1.0 the shoulder
+   * line, the same normalisation `ImpactPoint.height` uses.
+   *
+   * A wrist the camera cannot see contributes nothing and the other hand is
+   * used alone; with neither visible this reads 0. That is a deliberate false
+   * Negative - the camera is the only sensor, and hands it cannot see must not
+   * earn the player a block. The failure mode is losing a guard you had, never
+   * being credited with one you did not.
+   */
+  guardHeight: number;
   /** 0..1, how much of the body the measurement could actually see. */
   confidence: number;
 }
@@ -83,6 +66,7 @@ export const NEUTRAL_BODY_MOTION: BodyMotion = {
   depth: 0,
   turn: 0,
   crouch: 0,
+  guardHeight: 0,
   confidence: 0,
 };
 
@@ -105,18 +89,18 @@ function clamp(v: number, lo: number, hi: number): number {
  * Raw per-frame measurements, before any neutral is subtracted.
  *
  * Split out so the neutral-tracking and the geometry can be tested apart from
- * each other — the geometry is the part worth checking against hand-computed
+ * each other - the geometry is the part worth checking against hand-computed
  * numbers.
  */
 export interface BodySample {
   /**
-   * Position relative to the OPTICAL AXIS, divided by the torso scale.
+   * Position relative to the optical axis, divided by the torso scale.
    *
    * Not raw image position, and the difference matters. Stepping toward a
    * camera magnifies the image about the optical axis, so the shoulders of
-   * anyone not standing dead centre visibly RISE in frame as they step in. Raw
+   * anyone not standing dead centre visibly rise in frame as they step in. Raw
    * image position reads that as the player standing taller, so a step forward
-   * leaked straight into the vertical channel — a test caught it.
+   * leaked straight into the vertical channel - a test caught it.
    *
    * Dividing the axis-relative offset by the torso scale cancels it exactly:
    * both the offset and the scale are multiplied by the same magnification, so
@@ -143,9 +127,9 @@ export function sampleBody(pose: PoseFrame): BodySample | null {
     pose.leftShoulder.y - pose.rightShoulder.y
   );
 
-  // Confidence is the WEAKEST of the landmarks actually used, not their mean.
+  // Confidence is the weakest of the landmarks actually used, not their mean.
   // A mean lets a well-tracked shoulder hide a lost hip, and the hips are what
-  // the torso scale — and therefore the whole depth channel — rests on.
+  // the torso scale - and therefore the whole depth channel - rests on.
   const confidence = Math.min(
     pose.leftShoulder.confidence,
     pose.rightShoulder.confidence,
@@ -160,6 +144,28 @@ export function sampleBody(pose: PoseFrame): BodySample | null {
     shoulderWidth,
     confidence,
   };
+}
+
+/**
+ * Mean wrist height above the hip line, torso units.
+ *
+ * Averaged across the two hands rather than taken from the higher or the
+ * lower of them. The higher alone would call a fighter guarded with one hand
+ * dangling; the lower alone would drop the guard on every punch, since
+ * throwing one means extending one. The mean says what a guard actually is -
+ * how much of your head the pair of them is covering.
+ */
+export function guardHeightOf(pose: PoseFrame, torsoScale: number): number {
+  const min = PERCEPTION_CONFIG.minLandmarkConfidence;
+  const hips = midpoint(pose.leftHip, pose.rightHip);
+  if (hips.confidence < min || torsoScale <= 1e-4) return 0;
+
+  const heights: number[] = [];
+  for (const wrist of [pose.leftWrist, pose.rightWrist]) {
+    if (wrist.confidence >= min) heights.push((hips.y - wrist.y) / torsoScale);
+  }
+  if (heights.length === 0) return 0;
+  return heights.reduce((a, b) => a + b, 0) / heights.length;
 }
 
 /**
@@ -192,9 +198,9 @@ export class BodyMotionTracker {
    * Feeds one pose.
    *
    * Takes no `dt`: every channel here is a position, not a rate, so nothing in
-   * it depends on how long since the last sample. The one thing that does — the
-   * neutral's drift — lives in `followNeutral`, which takes the real interval
-   * between pose SAMPLES rather than render frames.
+   * it depends on how long since the last sample. The one thing that does - the
+   * neutral's drift - lives in `followNeutral`, which takes the real interval
+   * between pose samples rather than render frames.
    */
   update(pose: PoseFrame, stance: Stance = "orthodox"): BodyMotion {
     const s = sampleBody(pose);
@@ -213,7 +219,12 @@ export class BodyMotionTracker {
         scale: s.scale,
         shoulderWidth: s.shoulderWidth,
       };
-      this.last = { ...NEUTRAL_BODY_MOTION, tracked: true, confidence: s.confidence };
+      this.last = {
+        ...NEUTRAL_BODY_MOTION,
+        tracked: true,
+        guardHeight: guardHeightOf(pose, s.scale),
+        confidence: s.confidence,
+      };
       return this.last;
     }
 
@@ -222,7 +233,7 @@ export class BodyMotionTracker {
     // --- Lateral and vertical: displacement, in torso units. ---
     // Already torso-normalised and axis-relative (see BodySample), so these are
     // a plain subtraction and are invariant to how far away the player stands.
-    // Image y grows downward, so a NEGATIVE delta is a rise — flipped here so
+    // Image y grows downward, so a negative delta is a rise - flipped here so
     // `vertical` reads the way a person would describe it.
     const lateral = clamp(s.px - n.px, -BODY_CONFIG.travelClamp, BODY_CONFIG.travelClamp);
     const vertical = clamp(-(s.py - n.py), -BODY_CONFIG.travelClamp, BODY_CONFIG.travelClamp);
@@ -235,8 +246,8 @@ export class BodyMotionTracker {
     );
 
     // --- Turn: |yaw| = acos(width/neutralWidth), signed by stance. ---
-    // Clamped into [0,1] before acos: a player leaning IN measures a wider
-    // shoulder line than neutral, and acos of anything over 1 is NaN — which
+    // Clamped into [0,1] before acos: a player leaning in measures a wider
+    // shoulder line than neutral, and acos of anything over 1 is NaN - which
     // would propagate into the character's rotation and freeze it.
     const ratio = n.shoulderWidth > 1e-5 ? clamp(s.shoulderWidth / n.shoulderWidth, 0, 1) : 1;
     const magnitude = Math.acos(ratio);
@@ -259,6 +270,7 @@ export class BodyMotionTracker {
       depth,
       turn,
       crouch,
+      guardHeight: guardHeightOf(pose, s.scale),
       confidence: s.confidence,
     };
     return this.last;
@@ -267,7 +279,7 @@ export class BodyMotionTracker {
   /**
    * Lets the neutral follow where the player actually settles.
    *
-   * Separate from `update` so the caller decides when drift is appropriate —
+   * Separate from `update` so the caller decides when drift is appropriate -
    * it must not run while the player is mid-slip, or the neutral chases the
    * dodge and the character springs back upright underneath them.
    */

@@ -1,6 +1,6 @@
 // Removes the exported mesh's morph targets (facial/expression blendshapes).
 //
-// Why: this project's retargeting never drives a blendshape — facial joints
+// Why: this project's retargeting never drives a blendshape - facial joints
 // and expressions have no tracked source from a single frontal webcam, so all
 // 117 targets sit at weight 0 forever. They are not free: every target adds
 // per-vertex position deltas the GPU must store and the vertex shader must
@@ -9,12 +9,12 @@
 // is in scope (Draco only reached 8.09MB -> 7.84MB precisely because it
 // compresses base geometry, not morph deltas).
 //
-// Skinning is deliberately left untouched — that IS driven.
+// Skinning is deliberately left untouched - that is driven.
 //
-// SELECTIVE KEEPING
+// Selective keeping
 //
 // The 117 targets are not interchangeable. analyze-morphs.mjs established that
-// their order maps exactly onto MHR's documented parameterization — the
+// their order maps exactly onto MHR's documented parameterization - the
 // classification boundaries fall on 20/20/5/72, summing to 117:
 //
 //     0-19    body shape identity      -> body-type customization
@@ -72,7 +72,7 @@ for (const mesh of root.listMeshes()) {
       if (keepThis) {
         targetsKept++;
         // Name what survives. FBX2glTF dropped the original names, so without
-        // this the kept shapes would be just as unaddressable as before —
+        // this the kept shapes would be just as unaddressable as before -
         // which was the whole reason they couldn't be used.
         target.setName(`mhr_${i < 45 ? "identity" : "expression"}_${i}`);
         return;
@@ -91,7 +91,7 @@ for (const mesh of root.listMeshes()) {
 //
 // keepAttributes: the default prune also removed TEXCOORD_0, because the
 // material currently has no texture. That is correct by its own logic and
-// wrong for this project — the skin texture and the impact damage painted on
+// wrong for this project - the skin texture and the impact damage painted on
 // it both need UVs, and regenerating them after the fact is far more painful
 // than carrying ~43KB of them now.
 //

@@ -1,11 +1,11 @@
 // Identifies what the exported mesh's anonymous morph targets actually do.
 //
-// FBX2glTF drops morph target NAMES (`targetNames` is absent and each target
-// carries only POSITION deltas), so the 117 shapes arrive unlabelled. That is
+// FBX2glTF drops morph target names (`targetNames` is absent and each target
+// carries only position deltas), so the 117 shapes arrive unlabelled. That is
 // the blocker for ever using them: facial impact reactions need to address
 // "jaw open" or "brow lower", not "target 63".
 //
-// They can still be identified WITHOUT rendering anything, by asking where on
+// They can still be identified without rendering anything, by asking where on
 // the body each one actually moves vertices:
 //   - which bones those vertices are skinned to (via JOINTS_0 / WEIGHTS_0)
 //   - where they sit vertically within the head, for face shapes

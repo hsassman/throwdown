@@ -6,8 +6,8 @@ import "./systemPanel.css";
 // the drill, in one glance.
 //
 // TrackingPanel already answers "is the camera signal good" in detail. This
-// answers a different question — "is the WHOLE pipeline keeping up" — and
-// each section here is a ONE-LINE summary, not a re-statement of what
+// answers a different question - "is the whole pipeline keeping up" - and
+// each section here is a one-line summary, not a re-statement of what
 // TrackingPanel already shows in full. A section that has not reported
 // anything yet is shown as idle, not as failing; see systemMonitor.ts on why
 // that distinction matters.
@@ -27,7 +27,7 @@ export function SystemPanel({ reportRef }: Props) {
     return (
       <div className="spanel">
         <div className="spanel-title">System</div>
-        <p className="muted small">Warming up…</p>
+        <p className="muted small">Warming up...</p>
       </div>
     );
   }

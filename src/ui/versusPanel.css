@@ -1,0 +1,212 @@
+/* Setting up a same-network fight — same visual language as careerPanel.css
+   and systemPanel.css, so the side column reads as one thing. */
+
+.vs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.82);
+  color: #e8eef7;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.vs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+/* The status light. Colour alone never carries the state — the label beside it
+   always says the same thing in words, because about one man in twelve cannot
+   tell the red one from the green one. */
+.vs-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #64748b;
+  flex: none;
+}
+.vs-open {
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.75);
+}
+.vs-offering,
+.vs-answering,
+.vs-connecting {
+  background: #facc15;
+  animation: vs-pulse 1.1s ease-in-out infinite;
+}
+.vs-failed,
+.vs-closed {
+  background: #f87171;
+}
+@keyframes vs-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vs-offering,
+  .vs-answering,
+  .vs-connecting {
+    animation: none;
+  }
+}
+
+.vs-ping {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: #9fb3c8;
+}
+
+.vs-detail {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #9fb3c8;
+}
+
+.vs-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.vs-btn {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #e8eef7;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.vs-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+}
+.vs-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.vs-btn:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 2px;
+}
+.vs-leave {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+.vs-field,
+.vs-code label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9fb3c8;
+}
+
+.vs textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8eef7;
+  /* Monospace and word-break: the code is ~1 KB of base64 with no spaces in
+     it, so without an explicit break it renders as one line that scrolls
+     sideways forever. */
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  word-break: break-all;
+  resize: vertical;
+}
+.vs textarea:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 1px;
+}
+
+.vs-code {
+  display: grid;
+  gap: 6px;
+}
+.vs-copy {
+  justify-self: start;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #e8eef7;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vs-copy:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+.vs-copy:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 2px;
+}
+
+/* The connected state, floated over the fight instead of beside it.
+   Placed top-left under the header so it never overlaps the health bars or
+   the referee's count, both of which sit across the top centre. */
+.vs-chip {
+  position: absolute;
+  /* Clear of the health and stamina bars, which run the full width under the
+     header — at +44 the chip clipped the left end of the stamina bar. */
+  top: calc(var(--immersive-head, 52px) + 88px);
+  left: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(8, 10, 16, 0.72);
+  backdrop-filter: blur(6px);
+  color: #e8eef7;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.76rem;
+}
+.vs-chip-role {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vs-chip .vs-ping {
+  margin-left: 0;
+}
+.vs-chip-leave {
+  padding: 3px 9px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #fca5a5;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vs-chip-leave:hover {
+  background: rgba(248, 113, 113, 0.14);
+}
+.vs-chip-leave:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 2px;
+}

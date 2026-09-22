@@ -1,11 +1,11 @@
-// Head-based dodge and duck detection — Milestone 2.
+// Head-based dodge and duck detection - Milestone 2.
 //
-// Outputs CONTINUOUS head state, not discrete events: a dodge is a held
+// Outputs continuous head state, not discrete events: a dodge is a held
 // position, and the simulation reads the opponent's current state at the
 // instant a punch resolves to decide hit or miss. Everything is measured
 // relative to the current shoulder line and normalized by torso scale, so a
 // plain sidestep (shoulders travelling with the head) does not read as a dodge
-// — avoiding those false triggers is Milestone 2's actual bar.
+// - avoiding those false triggers is Milestone 2's actual bar.
 
 import { midpoint, torsoScaleOf, type PoseFrame } from "../pose/poseTypes";
 import { PERCEPTION_CONFIG as C } from "../config/tuning";
@@ -16,7 +16,7 @@ export interface HeadState {
   tracked: boolean;
   /**
    * Lateral dodge, -1 (fully to image left) .. +1 (fully to image right).
-   * Note this is IMAGE space; the UI mirrors it for display.
+   * Note this is image space; the UI mirrors it for display.
    */
   lean: number;
   /** Duck, 0 (upright) .. 1 (fully ducked). */

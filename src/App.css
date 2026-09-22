@@ -52,7 +52,7 @@
 }
 
 /* Video and overlay share one stacking context so landmark coordinates and the
-   displayed (mirrored) image stay aligned — the mirroring pitfall called out in
+   displayed (mirrored) image stay aligned - the mirroring pitfall called out in
    the risk log. The overlay mirrors in code, not in CSS. */
 .stage {
   position: relative;
@@ -574,7 +574,7 @@
 /* ---- Track B: boxer mesh ---- */
 
 /* In boxer mode the character IS the view. The stage stops being a 4:3 webcam
-   frame and instead fills the available height, with the panel narrowed — the
+   frame and instead fills the available height, with the panel narrowed - the
    webcam preview drops to a corner inset below. */
 .app-boxer .stage {
   width: auto;
@@ -586,6 +586,75 @@
 
 .app-boxer .panel {
   flex: 0 1 330px;
+}
+
+/* --- Immersive: the stage, and nothing else ----------------------------
+   Used when the side panel has no content to show - a plain fight with the
+   diagnostics hidden. The column of empty background it replaces was a
+   quarter of the screen sitting beside the only thing worth looking at. */
+.app-immersive {
+  padding: 0;
+  gap: 0;
+  /* One number, so the header's height and the fight HUD's clearance cannot
+     drift apart - they did, and the result was a title printed across a
+     health bar. */
+  --immersive-head: 52px;
+}
+
+/* The broadcast graphic starts below the floating header. `inset` rather than
+   a margin, because .fight-hud is absolutely positioned over the whole stage
+   and its children are laid out from its top edge. */
+.app-immersive .fight-hud {
+  top: var(--immersive-head);
+}
+
+.app-immersive .stage {
+  width: auto;
+  max-width: none;
+  aspect-ratio: auto;
+  flex: 1 1 100%;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+}
+
+/* The header floats over the stage rather than being removed with the panel.
+   The back button is the one control a mouse-only player cannot do without,
+   and Escape alone is not a discoverable substitute for it.
+
+   It takes the top band outright and the fight HUD is pushed below it, rather
+   than the two being layered. Overlapping them put "Fight the CPU" straight
+   across the player's own health bar - legible in neither direction, and the
+   health bar is the one the player reads mid-exchange. */
+.screen-head-float {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 10px 16px;
+  height: var(--immersive-head);
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(4, 6, 10, 0.92), rgba(4, 6, 10, 0));
+  /* Only the controls take clicks; the bar itself must not swallow a drag
+     meant for the 3D view underneath it. */
+  pointer-events: none;
+}
+
+.screen-head-float > * {
+  pointer-events: auto;
+}
+
+.screen-head-float .screen-title {
+  /* Over a dark, busy 3D scene rather than flat panel background. */
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+
+.screen-head-float .back-btn {
+  background: rgba(8, 11, 18, 0.72);
+  backdrop-filter: blur(6px);
 }
 
 .boxer-model {
@@ -606,7 +675,7 @@
 }
 
 /* ...and shrinks to a corner preview when the character has the stage. Still
-   fully mounted and playing — MediaPipe reads from this element. */
+   fully mounted and playing - MediaPipe reads from this element. */
 .cam-inset {
   position: absolute;
   right: 12px;
@@ -622,23 +691,12 @@
 
 /* The menu and the empty-arena view are their own product surface, not a panel
    beside a webcam. The stage takes the full width and the debug panel drops
-   below it — the diagnostics are still reachable, just not competing with a
+   below it - the diagnostics are still reachable, just not competing with a
    full-bleed 3D scene for attention. */
-.app-stageonly .stage {
-  width: auto;
-  max-width: none;
-  aspect-ratio: auto;
-  height: min(86vh, 1040px);
-  flex: 1 1 100%;
-}
-
-.app-stageonly .panel {
-  flex: 1 1 100%;
-}
 
 /* Mounted and playing, but out of the way. `visibility` rather than
    `display:none`: a display:none <video> can have its decoding throttled or
-   paused by the browser, which would starve MediaPipe of frames — the same
+   paused by the browser, which would starve MediaPipe of frames - the same
    class of bug as unmounting it, arriving more quietly. */
 .cam-hidden {
   position: absolute;
@@ -649,50 +707,16 @@
   pointer-events: none;
 }
 
-.app-stageonly .stage > .menu-root {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-}
-
 /* Sized by class, not an inline style, so the small-screen rule that widens
    inputs for touch isn't overridden by specificity. */
 .reps-input {
   width: 4rem;
 }
 
-.meter-row {
-  margin: 0.4rem 0;
-}
-
-.meter-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: #9aa7ba;
-}
-
 .boxer-model canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
-}
-
-.boxer-status {
-  margin-top: 0.4rem;
-}
-
-.boxer-joints {
-  margin-top: 0.5rem;
-}
-
-.boxer-joints summary {
-  cursor: pointer;
-}
-
-.boxer-joints ul {
-  margin: 0.3rem 0 0;
-  padding-left: 1.1rem;
 }
 
 /* ---- Accessibility: visible keyboard focus everywhere interactive ----
@@ -783,47 +807,10 @@ summary:focus-visible,
   }
 }
 
-/* Training mode panel (Track B). Set apart from the diagnostics around it,
-   because it is the one block the player reads while standing back from the
-   screen mid-combination rather than leaning in to inspect. */
-.training-panel {
-  margin: 0.6rem 0;
-  padding: 0.7rem;
-  border: 1px solid rgba(138, 180, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(138, 180, 255, 0.06);
-}
-
-.strike-readout {
-  min-height: 2.6em; /* reserve the space so the panel doesn't jump on a hit */
-  margin: 0.4rem 0;
-  display: flex;
-  align-items: center;
-}
-
-.strike-readout p {
-  margin: 0;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .strike-readout p strong {
-    animation: strike-flash 320ms ease-out;
-  }
-}
-
-@keyframes strike-flash {
-  from {
-    color: #ffd27a;
-  }
-  to {
-    color: inherit;
-  }
-}
-
 /* --- Screen chrome (added with the menu shell, 2026-09-17) --------------
  * Each mode is entered from the menu rather than a tab strip, so every screen
  * needs a way back that does NOT depend on the camera. If tracking fails
- * inside a mode, dwell cannot be used to leave it — hence a real button, and
+ * inside a mode, dwell cannot be used to leave it - hence a real button, and
  * Escape bound in App. */
 
 .screen-head {
@@ -862,6 +849,35 @@ summary:focus-visible,
   letter-spacing: -0.01em;
 }
 
+/* Keyboard affordances for the in-mode screens. Pushed to the far end and
+   kept dim: reference material the eye can find when it goes looking, and
+   ignore entirely while the player is throwing punches. */
+.screen-keys {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.screen-keys kbd {
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #9fb0c7;
+}
+
+.screen-keys kbd + kbd {
+  margin-left: 8px;
+}
+
 .shell-boot {
   display: grid;
   place-items: center;
@@ -875,7 +891,7 @@ summary:focus-visible,
 /* --- Menu layout (2026-09-17) ------------------------------------------
  * The menu is full-bleed: no panel beside it, no padding around it. It shares
  * the same `.app > .stage` skeleton as every other screen ONLY so that the
- * single <video> element never has to move in the tree — see the note in
+ * single <video> element never has to move in the tree - see the note in
  * App.tsx. Putting the menu in its own tree is what killed the camera. */
 
 .app-menu {

@@ -11,7 +11,7 @@ Apache-2.0, confirmed by reading `assets/LICENSE.txt` inside the `v1.0.1`
 release archive rather than trusting the README.
 
 The pip install path is broken upstream; the working route is a direct download
-of the release archive. The rig has **127 joints** — `tools/rig-introspect.mjs`
+of the release archive. The rig has **127 joints** - `tools/rig-introspect.mjs`
 prints the real names if the mesh is ever re-exported.
 
 Export to glTF is via the `FBX2glTF` CLI. MHR ships no exporter of its own.
@@ -23,18 +23,18 @@ translations ignores rotation and gives nonsense):
 
 - `l_*` bones sit at **+X**, `r_*` at **−X**. The figure's own right is −X.
 - The figure faces **+Z**.
-- Shoulder line at y **1.419**, hip line at y **0.944** — so one torso unit is
+- Shoulder line at y **1.419**, hip line at y **0.944** - so one torso unit is
   **0.475** world units.
 - 14 facial bones including `c_jaw` as a real skin joint. Head snap and jaw drop
   are therefore bone-driven and cost nothing in asset size.
 
 ## Morph targets
 
-The export carried 117 morph targets, all at weight 0 and all anonymous —
+The export carried 117 morph targets, all at weight 0 and all anonymous -
 FBX2glTF drops names, which is what made them unusable rather than merely
 unused. They were identified by skinning analysis, and the boundaries land on
-MHR's documented layout: **0–19** body identity, **20–39** head identity,
-**40–44** hands, **45–116** the 72 expression shapes.
+MHR's documented layout: **0-19** body identity, **20-39** head identity,
+**40-44** hands, **45-116** the 72 expression shapes.
 
 `assets/mhr-export/strip-morphs.mjs` removes them: **8.09 MB → 0.40 MB**.
 `--keep=expression` produces a named variant if expressions are ever wanted
@@ -61,7 +61,7 @@ Findings from those attempts that still apply to any incoming asset:
 - Ripped exports bury geometry under wrapper nodes, are often modelled in
   millimetres, and are rarely skinned.
 - Quantised positions are integers with a compensating scale/offset **on the
-  node** — taking geometry alone drops a garment at the origin at hundreds of
+  node** - taking geometry alone drops a garment at the origin at hundreds of
   times its size.
 - `KHR_materials_pbrSpecularGlossiness` was dropped by three.js in r165.
 - `dedup()` collapses a mirrored left/right pair back into one mesh, silently
@@ -84,7 +84,7 @@ coin flip that renders as a subtly broken character:
 - The jaw hinge direction.
 - The knee-bend direction for the duck.
 - Glove vertices, emitted in geometry space from
-  `skeleton.boneInverses[i].invert()` — **not** `bone.getWorldPosition()`,
+  `skeleton.boneInverses[i].invert()` - **not** `bone.getWorldPosition()`,
   which looks nearly correct and then drifts the instant the figure moves.
 
 ## Known-good numbers
@@ -93,7 +93,7 @@ coin flip that renders as a subtly broken character:
 | --- | --- |
 | Shipped mesh | 0.40 MB |
 | Driven joints | 18 |
-| Torso tracking fidelity | 99% of requested lean, 5°–45° |
+| Torso tracking fidelity | 99% of requested lean, 5°-45° |
 | Pose rate on the development machine | ~19 FPS median |
 | Hard inference ceiling on that machine | ~27.8 FPS |
 

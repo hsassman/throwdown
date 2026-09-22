@@ -4,7 +4,7 @@ import { MONITOR_CONFIG } from "../config/tuning";
 import { POSE_KEYS, type PoseFrame, type PoseKey } from "./poseTypes";
 
 // The monitor is only worth having if it can tell a healthy signal from a sick
-// one, so every test here builds a stream with ONE known defect and checks it
+// one, so every test here builds a stream with one known defect and checks it
 // is the defect that gets named.
 
 const HZ = 15;
@@ -37,7 +37,7 @@ interface StreamOptions {
   drop?: { keys: PoseKey[]; rate: number };
   /** Stretches the forearm over time, simulating a breathing skeleton. */
   limbDrift?: number;
-  /** Moves the whole body across frame — should NOT read as jitter. */
+  /** Moves the whole body across frame - should not read as jitter. */
   travel?: number;
 }
 
@@ -215,7 +215,7 @@ describe("tracking monitor", () => {
     }
   });
 
-  it("exposes ONLY smoothing and prediction — never a hit threshold", () => {
+  it("exposes ONLY smoothing and prediction - never a hit threshold", () => {
     // The architectural line. A monitor that could relax `reachThreshold`
     // because the lighting got worse would mean the game rewards a bad webcam,
     // and it would do it invisibly. Asserted structurally so adding a third

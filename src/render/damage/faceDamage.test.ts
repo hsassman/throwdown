@@ -21,7 +21,7 @@ beforeAll(async () => {
   scene = await new Promise<THREE.Object3D>((resolve, reject) => {
     new GLTFLoader().parse(ab as ArrayBuffer, "", (g) => resolve(g.scene), reject);
   });
-  // The BODY specifically. The asset now carries eyeballs, which are also
+  // The body specifically. The asset now carries eyeballs, which are also
   // skinned, so "the last skinned mesh" is an eye -- see findBodyMesh.
   mesh = findBodyMesh(scene)!;
 }, 60_000);
@@ -61,11 +61,11 @@ describe("facial damage model", () => {
 
   it("tracks eye closure as a metric even though nothing renders it", () => {
     // The generated eyeballs and lids this used to drive were removed on
-    // 2026-09-16 — see blender/README.md. Closure is still computed
-    // because the HUD and the AI both want to know a fighter is losing an eye,
+    // 2026-09-16 - see blender/README.md. Closure is still computed
+    // because the HUD and the CPU both want to know a fighter is losing an eye,
     // and because the Blender-authored head will have real lids to drive.
     //
-    // It CANNOT be driven through the rig: the eye bones carry zero skin
+    // It cannot be driven through the rig: the eye bones carry zero skin
     // weight (asserted below), so scaling them deforms nothing at all.
     const f = make();
     for (let i = 0; i < 8; i++) f.hit("temple_left", 1);
@@ -88,8 +88,8 @@ describe("facial damage model", () => {
   });
 
   it("never compounds swelling into a balloon across frames", () => {
-    // Scale is always applied relative to the BIND pose. Applying it relative
-    // to the CURRENT scale would multiply every frame and inflate the jaw
+    // Scale is always applied relative to the bind pose. Applying it relative
+    // to the current scale would multiply every frame and inflate the jaw
     // without bound within a second.
     const jaw = scene.getObjectByName("c_jaw")!;
     const f = make();
@@ -189,8 +189,8 @@ describe("facial damage model", () => {
 });
 
 /**
- * Eye bind positions in geometry space. Needed because l_eye/r_eye carry ZERO
- * skin weight on this rig, so there are no eye vertices to average — measured,
+ * Eye bind positions in geometry space. Needed because l_eye/r_eye carry zero
+ * skin weight on this rig, so there are no eye vertices to average - measured,
  * not assumed, and asserted below.
  */
 const eyeBinds = () => {
@@ -205,8 +205,8 @@ const eyeBinds = () => {
 describe("face feature UVs", () => {
   it("confirms the eye bones carry no skin weight at all", () => {
     // The measurement that forced generated eye geometry. If a future
-    // re-export ever DOES weight these bones, this test fails and the simpler
-    // bone-driven path becomes available again — which is worth knowing.
+    // re-export ever does weight these bones, this test fails and the simpler
+    // bone-driven path becomes available again - which is worth knowing.
     const names = mesh.skeleton.bones.map((b) => b.name);
     const si = mesh.geometry.getAttribute("skinIndex");
     const sw = mesh.geometry.getAttribute("skinWeight");
@@ -221,7 +221,7 @@ describe("face feature UVs", () => {
       }
     }
     expect(eyeWeight).toBe(0);
-    // The jaw IS weighted, which is why cheek puff stays bone-driven.
+    // The jaw is weighted, which is why cheek puff stays bone-driven.
     expect(jawWeight).toBeGreaterThan(50);
   });
 

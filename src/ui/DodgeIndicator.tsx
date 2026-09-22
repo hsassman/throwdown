@@ -3,8 +3,8 @@ import type { HeadState } from "../perception/dodgeDetector";
 
 // Milestone 2's done-when is that dodging and ducking "visibly and promptly"
 // move an on-screen indicator, with no noticeable false triggers. So this is
-// the acceptance surface for that milestone, not just a debug readout — it
-// shows the committed 0..1 values AND the raw measurements behind them, so a
+// the acceptance surface for that milestone, not just a debug readout - it
+// shows the committed 0..1 values and the raw measurements behind them, so a
 // false trigger can be traced to which signal caused it.
 
 interface Props {
@@ -16,9 +16,9 @@ interface Props {
 const REFRESH_MS = 60;
 
 /**
- * Thresholds at which this panel NAMES a dodge or duck.
+ * Thresholds at which this panel names a dodge or duck.
  *
- * These are display labels only — `dodgeDetector` owns the actual committed
+ * These are display labels only - `dodgeDetector` owns the actual committed
  * 0..1 values, and nothing downstream reads these. They live here rather than
  * in config/tuning.ts for that reason, but are named and documented rather
  * than inlined, because this panel is Milestone 2's acceptance surface and a

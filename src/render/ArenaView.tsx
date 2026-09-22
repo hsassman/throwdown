@@ -7,7 +7,7 @@ import { buildRing } from "./arena/Ring";
 import { RING, platformHalfSpan } from "./arena/ringSpec";
 
 // Standalone dim-lit view of the octagon. No character, no camera feed, no
-// pose tracking — this exists so the arena can be judged on its own, which
+// pose tracking - this exists so the arena can be judged on its own, which
 // every previous visual problem in this project would have been caught by.
 //
 // Lazy-loaded by App like BoxerModel, for the same reason: it pulls three.js.
@@ -16,7 +16,7 @@ export type StageId = "octagon" | "ring";
 
 interface Props {
   /** Which venue to build. Rebuilds the scene when it changes, which is
-   *  correct — it is a different structure, not a different setting. */
+   *  correct - it is a different structure, not a different setting. */
   stage?: StageId;
   /** Slowly orbits the camera. Off by default so the arena can be inspected
    *  from a fixed angle without fighting the animation. */
@@ -34,7 +34,7 @@ export function ArenaView({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Mirrored into refs so toggling them never tears down and rebuilds the
-  // whole arena — the same pattern BoxerModel uses for its props.
+  // whole arena - the same pattern BoxerModel uses for its props.
   const autoRotateRef = useRef(autoRotate);
   autoRotateRef.current = autoRotate;
   const readyRef = useRef(onReady);
@@ -80,7 +80,7 @@ export function ArenaView({
     scene.add(lighting.group);
 
     // The hall floor the platform stands on. Large, dark, and just reflective
-    // enough to catch the truss spots — without it the platform legs end in
+    // enough to catch the truss spots - without it the platform legs end in
     // nothing.
     const floorGeo = new THREE.PlaneGeometry(120, 120);
     const floorMat = new THREE.MeshStandardMaterial({
@@ -129,7 +129,7 @@ export function ArenaView({
       if (disposed) return;
       const dt = clock.getDelta();
       if (autoRotateRef.current) {
-        // Orbit by rotating the CAMERA about the target rather than spinning
+        // Orbit by rotating the camera about the target rather than spinning
         // the arena: spinning the arena would carry the lighting rig with it,
         // and the whole point of a fixed truss is that the highlights stay put
         // while the view moves.

@@ -92,7 +92,7 @@ describe("profile bookkeeping", () => {
     for (let i = 0; i < 20; i++) recordOutcome(p, miss(nose));
     expect(p.zones.nose.bias.height).toBe(withHits);
     expect(p.zones.nose.biasSamples).toBe(10);
-    // But a miss IS evidence about accuracy.
+    // But a miss is evidence about accuracy.
     expect(p.zones.nose.accuracy).toBeLessThan(0.8);
   });
 
@@ -177,7 +177,7 @@ describe("bias estimation", () => {
     const b = estimateBias(p);
     expect(b.confident).toBe(true);
     expect(b.height).toBeCloseTo(-0.15, 1);
-    // Correction is the NEGATION, under-applied by the gain.
+    // Correction is the negation, under-applied by the gain.
     const c = calibrationFrom(p);
     expect(c.height).toBeGreaterThan(0);
     expect(c.height).toBeCloseTo(0.15 * ADAPT_CONFIG.gain, 1);
@@ -220,7 +220,7 @@ describe("bias estimation", () => {
     expect(Math.abs(c.lateral)).toBeLessThanOrEqual(ADAPT_CONFIG.maxCorrection);
   });
 
-  it("exposes ONLY a coordinate correction — never a hit threshold", () => {
+  it("exposes ONLY a coordinate correction - never a hit threshold", () => {
     // The architectural line, asserted structurally exactly as
     // trackingMonitor.test.ts does. A loop that could relax the reach
     // threshold because the player was missing would make the game easier the
@@ -233,7 +233,7 @@ describe("bias estimation", () => {
 describe("skill and target weighting", () => {
   it("rates an untrained zone as weakest, not as average", () => {
     // A neutral seed would make untrained targets look competent and stop them
-    // being drilled — the exact opposite of what the loop is for.
+    // being drilled - the exact opposite of what the loop is for.
     const p = train([ZONE_BY_ID.get("nose")!], {});
     expect(zoneSkill(p, "nose")).toBeGreaterThan(0);
     expect(zoneSkill(p, "liver")).toBe(0);

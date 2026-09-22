@@ -1,44 +1,31 @@
-// Latency compensation: draws the character where you ARE, not where you were.
-// THE LAG, ACCOUNTED FOR HONESTLY
+// Latency compensation: draws the character where you are, not where you were.
 //
 // A landmark reaching the screen has already accumulated, on this machine:
 //
-//   camera exposure + transfer      ~16 ms   (one frame at 60 FPS capture)
-//   inference                       ~36 ms   (measured)
-//   waiting for the next whole
-//     video frame callback          ~16-33 ms (the quantisation that pins the
-//                                              pose rate to ~15 FPS)
-//   one-euro filter group delay     ~20-40 ms (it is a low-pass; that is what
-//                                              a low-pass does)
+//   camera exposure + transfer      ~16 ms
+//   inference                       ~36 ms  (measured)
+//   wait for the next video frame   ~16-33 ms
+//   one-euro filter group delay     ~20-40 ms
 //   render + present                ~16 ms
 //                                   ~105-140 ms
 //
-// A hundred milliseconds is roughly a fifth of a jab. It is not subtle: the
-// character visibly trails the player, and every previous attempt to fix that
-// feeling by loosening the smoothing traded it for jitter, because lag and
-// jitter are the two ends of one filter and you cannot win both by tuning it.
-//
-// Prediction is the way out, because it is not on that axis at all. Estimate
-// velocity, extrapolate forward by the measured age of the sample, and the
+// That is about a fifth of a jab, and the character visibly trails the player.
+// Loosening the smoothing to fix it just trades lag for jitter, because they
+// are the two ends of one filter. Prediction is off that axis entirely:
+// estimate velocity, extrapolate by the measured age of the sample, and the
 // smoothing can stay as strong as it needs to be.
 //
-// WHY THIS IS SAFE HERE AND OFTEN IS NOT
+// Naive extrapolation overshoots on direction changes. Four things stop it:
 //
-// Naive extrapolation is notorious for overshoot — it turns a direction change
-// into a visible flick past the target. Four things keep that in check, and
-// all four matter:
-//
-//   1. The velocity is filtered far harder than the position. Velocity from
-//      two samples 66 ms apart is extremely noisy and prediction multiplies
-//      that noise by the lead time, so the derivative gets its own heavy
-//      low-pass.
-//   2. A deadband. A stationary hand is not predicted at all, so resting
-//      jitter is never amplified.
+//   1. Velocity is filtered far harder than position - it comes from samples
+//      66 ms apart and prediction multiplies its noise by the lead time.
+//   2. A deadband, so a resting hand is never predicted and its jitter never
+//      amplified.
 //   3. A hard cap on lead time, so a latency spike cannot become a lunge.
-//   4. A cap on total displacement relative to the body, so no landmark can
-//      be flung off the figure by a bad velocity estimate.
+//   4. A cap on displacement relative to the body, so a bad velocity estimate
+//      cannot fling a landmark off the figure.
 //
-// STANDING RULE: `z` is never read. Prediction is applied to x/y only.
+// `z` is never read. Prediction is x/y only.
 
 import { ALL_POSE_KEYS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { PREDICT_CONFIG } from "../config/tuning";
@@ -65,13 +52,13 @@ export interface PredictorDebug {
 
 export class PosePredictor {
   /**
-   * Multiplier from the tracking monitor, 0..1. Pulled DOWN when the signal is
+   * Multiplier from the tracking monitor, 0..1. Pulled down when the signal is
    * gappy.
    *
    * Prediction extrapolates from a velocity estimate, and a velocity estimate
    * built from a stream with holes in it is mostly noise. Leading on that noise
    * flings landmarks around far more visibly than the latency it was correcting
-   * for — so when dropout rises, the right answer is to predict LESS and accept
+   * for - so when dropout rises, the right answer is to predict less and accept
    * being a little behind.
    */
   private scale = 1;
@@ -129,7 +116,7 @@ export class PosePredictor {
       const vx = (kp.x - prev.x) / dt;
       const vy = (kp.y - prev.y) / dt;
 
-      // Exponential smoothing on the DERIVATIVE, framed so the time constant
+      // Exponential smoothing on the derivative, framed so the time constant
       // means the same thing regardless of the sample interval. A raw alpha
       // would make the filter behave differently every time the pose rate
       // wobbled, which it does constantly.
@@ -152,7 +139,7 @@ export class PosePredictor {
   }
 
   /**
-   * The pose as it should be drawn NOW.
+   * The pose as it should be drawn now.
    *
    * `nowMs` must be on the same clock as the pose timestamps. Returns null
    * before the first sample.

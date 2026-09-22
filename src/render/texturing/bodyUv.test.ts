@@ -18,7 +18,7 @@ beforeAll(async () => {
   const scene = await new Promise<THREE.Object3D>((resolve, reject) => {
     new GLTFLoader().parse(ab as ArrayBuffer, "", (g) => resolve(g.scene), reject);
   });
-  // The BODY specifically. The asset now carries eyeballs, which are also
+  // The body specifically. The asset now carries eyeballs, which are also
   // skinned, so "the last skinned mesh" is an eye -- see findBodyMesh.
   mesh = findBodyMesh(scene)!;
 }, 60_000);
@@ -57,7 +57,7 @@ describe("body UV map", () => {
   it("puts head impacts inside the head's own UV island", () => {
     // Measured with tools/uv-regions.mjs: the head owns u 0.003-0.499,
     // v 0.003-0.453. A head bruise landing outside that rectangle would appear
-    // somewhere else entirely on the body — a leg, most likely.
+    // somewhere else entirely on the body - a leg, most likely.
     const map = build();
     for (const lane of ["left", "centre", "right"]) {
       const site = map.sites.get(`head/${lane}`)!;
@@ -89,7 +89,7 @@ describe("body UV map", () => {
   });
 
   it("puts the left and right lanes on opposite sides of the face", () => {
-    // The lanes are named from the PUNCHER's point of view and the target
+    // The lanes are named from the puncher's point of view and the target
     // faces them, so the puncher's left must land on the target's own right.
     // Getting this backwards puts every bruise on the wrong cheek.
     const map = build();

@@ -1,8 +1,8 @@
 // Confusion matrix and accuracy scoring for Milestone 1.
 //
 // Reports per-class recall/precision/F1 and a macro average, never a single
-// blended number — headline accuracy is misleading under class imbalance. The
-// bars below were fixed BEFORE any data was collected (risk log OQ2).
+// blended number - headline accuracy is misleading under class imbalance. The
+// bars below were fixed before any data was collected (risk log OQ2).
 
 import { PUNCH_FAMILY, type PunchEvent, type PunchType } from "../perception/punchTypes";
 
@@ -39,7 +39,7 @@ export interface Evaluation {
   familyAccuracy: number;
   /** Accuracy of lead-vs-rear hand, over detected punches only. */
   handAccuracy: number;
-  /** Mean pose samples per detected punch — low values mean frame starvation. */
+  /** Mean pose samples per detected punch - low values mean frame starvation. */
   meanSampleCount: number;
 }
 

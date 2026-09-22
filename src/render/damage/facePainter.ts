@@ -4,24 +4,24 @@ import type { FaceDamageState, FacePainter } from "./faceDamage";
 import type { ImpactSite } from "../texturing/bodyUv";
 
 // The painted half of facial damage: eyes, blood, discolouration.
-// WHY THE EYES ARE PAINTED HERE RATHER THAN SHIPPED IN THE MESH
+// Why the eyes are painted here rather than shipped in the mesh
 //
-// The exported character arrives with NO textures at all — the body texture is
+// The exported character arrives with no textures at all - the body texture is
 // already built procedurally at load. So the face is currently a flat skin
 // fill with eyeball geometry the same colour as the skin around it, which is
 // why the figures read as mannequins. Painting a sclera and an iris at the
 // eye's own UV is the smallest change that makes them read as a person.
 //
-// WHERE THE FEATURES GO
+// Where the features go
 //
-// Located by BONE, not by hardcoded UV coordinates. The rig has `l_eye`,
+// Located by bone, not by hardcoded UV coordinates. The rig has `l_eye`,
 // `r_eye` and `c_jaw` as real skin joints, so the vertices weighted to each
 // one give that feature's UV footprint directly. Hardcoding coordinates would
-// break silently the moment the mesh is re-exported — and re-exporting through
+// break silently the moment the mesh is re-exported - and re-exporting through
 // Blender is now on the table, which makes that a live risk rather than a
 // hypothetical one.
 //
-// BLOOD FLOWS DOWN
+// Blood flows down
 //
 // Drawn as streaks from the nose toward the chin in UV space. That only works
 // because the head's UV island happens to be laid out upright; the direction
@@ -51,12 +51,12 @@ export function locateFaceFeatures(
    * Bind-pose positions of the eye bones, in geometry space.
    *
    * Required, and not optional, because of a measured fact about this rig:
-   * `l_eye` and `r_eye` carry ZERO skin weight (0 dominant vertices), so there
+   * `l_eye` and `r_eye` carry zero skin weight (0 dominant vertices), so there
    * is no set of "eye vertices" whose UVs could be averaged. The first version
    * of this function tried exactly that and returned null on the real asset.
    *
-   * Instead the eye's UV is taken from the nearest HEAD vertex to the eye
-   * bone — the skin that sits over the socket, which is what a bruise or a
+   * Instead the eye's UV is taken from the nearest head vertex to the eye
+   * bone - the skin that sits over the socket, which is what a bruise or a
    * closing lid should be painted on anyway.
    */
   eyeBindPositions?: { left: THREE.Vector3; right: THREE.Vector3 } | null
@@ -147,7 +147,7 @@ export function locateFaceFeatures(
 
 export interface FacePainterOptions {
   features: FaceFeatureUv;
-  /** Canvas to draw into — the same one the body texture uses. */
+  /** Canvas to draw into - the same one the body texture uses. */
   canvas: HTMLCanvasElement;
 }
 
@@ -159,7 +159,7 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
   const f = options.features;
   const cfg = FACE_CONFIG;
 
-  // Which way is DOWN the face in UV space. Derived from where the jaw sits
+  // Which way is down the face in UV space. Derived from where the jaw sits
   // relative to the eyes, so blood runs toward the chin even if the head's UV
   // island is laid out upside down.
   const eyeMidV = (f.eyeLeft.v + f.eyeRight.v) / 2;
@@ -171,13 +171,13 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
   // Socket discolouration only.
   //
   // This used to draw a sclera, iris, pupil, catchlight and a closing lid. All
-  // of it was REMOVED on 2026-09-16: painting an eye onto flat head skin gives
+  // of it was removed on 2026-09-16: painting an eye onto flat head skin gives
   // a decal with no socket depth behind it, and it read as a staring mannequin
   // rather than a face. Eyes are now authored as real geometry in Blender and
-  // baked into the exported mesh — see blender/README.md.
+  // baked into the exported mesh - see blender/README.md.
   //
   // The bruising stays, because a dark ring around the socket is surface
-  // colour and is exactly the kind of thing a texture SHOULD carry.
+  // colour and is exactly the kind of thing a texture should carry.
   const drawSocket = (site: ImpactSite, swelling: number) => {
     if (swelling < 0.02) return;
     const cx = px(site.u);
@@ -276,9 +276,9 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
 
   return {
     render(state: FaceDamageState) {
-      // NOTE: the clean skin underneath has already been laid down by
-      // BodyTexture, which calls this as an OVERLAY at the end of its own
-      // repaint. Damage is cumulative in the STATE, never on the canvas —
+      // Note: the clean skin underneath has already been laid down by
+      // BodyTexture, which calls this as an overlay at the end of its own
+      // repaint. Damage is cumulative in the state, never on the canvas -
       // compositing each frame onto the last would darken the face
       // indefinitely and make fading impossible.
       drawCheek(f.eyeLeft, -1, state.sites.cheekLeft.swelling);

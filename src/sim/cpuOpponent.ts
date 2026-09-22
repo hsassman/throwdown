@@ -1,28 +1,28 @@
 // An opponent that fights back.
-// TWO DESIGN COMMITMENTS
+// Two design commitments
 //
-// 1. IT TELEGRAPHS. Every attack has a visible wind-up before it can hurt you.
-//    That is not a concession to make it easy — it is the entire basis of the
+// 1. It telegraphs. Every attack has a visible wind-up before it can hurt you.
+//    That is not a concession to make it easy - it is the entire basis of the
 //    genre. A fight against an opponent that strikes instantly is a reaction
 //    test; a fight against one that shows you what is coming is a game. The
-//    wind-up window is the ONLY thing that makes defence meaningful, and it is
+//    wind-up window is the only thing that makes defence meaningful, and it is
 //    doubly necessary here because the player's own input arrives at ~15 FPS
 //    through a webcam, so anything faster than about 250ms is not defendable
 //    even in principle.
 //
-// 2. IT IS DETERMINISTIC. All randomness comes from a seeded generator held in
+// 2. It is deterministic. All randomness comes from a seeded generator held in
 //    this object, never from Math.random. That makes every test reproducible,
-//    and — more importantly — it is a hard prerequisite for the rollback
+//    and - more importantly - it is a hard prerequisite for the rollback
 //    netcode in the netcode notes. Rollback replays past frames and
-//    requires identical results; an AI calling Math.random would desync two
+//    requires identical results; a CPU calling Math.random would desync two
 //    peers the first time it threw a punch. Building it non-deterministically
 //    now would mean rewriting it later, so it is deterministic from the start.
 
 import type { Evasion, GuardPosture } from "./fightState";
 import type { ImpactPoint } from "../perception/strikeGeometry";
-import { AI_CONFIG, FIGHT_GEOMETRY } from "../config/tuning";
+import { CPU_CONFIG, FIGHT_GEOMETRY } from "../config/tuning";
 
-export type AiState = "circling" | "telegraph" | "striking" | "recovering" | "hurt";
+export type CpuState = "circling" | "telegraph" | "striking" | "recovering" | "hurt";
 
 /**
  * What the feet are doing. Independent of what the hands are doing, on purpose.
@@ -31,24 +31,24 @@ export type AiState = "circling" | "telegraph" | "striking" | "recovering" | "hu
  * after a combination. Folding footwork into the attack state machine would
  * have meant the opponent stood perfectly still between punches, which is the
  * single most obvious tell that something is a state machine and not a person.
- * So this is a SECOND machine on its own clock, and the two only interact
- * where a fight says they should — you do not back away mid-combination, and
+ * So this is a second machine on its own clock, and the two only interact
+ * where a fight says they should - you do not back away mid-combination, and
  * you do not circle while hurt.
  */
-export type AiFootwork = "hold" | "advance" | "retreat" | "circleLeft" | "circleRight";
+export type CpuFootwork = "hold" | "advance" | "retreat" | "circleLeft" | "circleRight";
 
 /**
- * Where the opponent's body is, in the SAME channels the camera produces for
+ * Where the opponent's body is, in the same channels the camera produces for
  * the player (`perception/bodyMotion.ts`).
  *
  * This is the piece that makes the render layer simple. There is one movement
- * vocabulary in the game — lateral, depth, crouch, lean — and two sources for
+ * vocabulary in the game - lateral, depth, crouch, lean - and two sources for
  * it: a webcam for the player, this state machine for the opponent. The
  * animator does not need to know which is which, and a channel that reads
  * correctly for one reads correctly for the other.
  */
-export interface AiStance {
-  /** Torso units, positive toward the AI's own right. */
+export interface CpuStance {
+  /** Torso units, positive toward the CPU's own right. */
   lateral: number;
   /** Torso units, positive = closer to the player. */
   depth: number;
@@ -60,8 +60,8 @@ export interface AiStance {
 
 export type Difficulty = "rookie" | "contender" | "champion";
 
-export interface AiIntent {
-  /** A strike is being thrown NOW. */
+export interface CpuIntent {
+  /** A strike is being thrown now. */
   strike?: {
     impact: ImpactPoint;
     power: number;
@@ -69,7 +69,7 @@ export interface AiIntent {
     /**
      * Deterministic spread in [-0.5, 0.5] for the caller's approach vector.
      *
-     * Emitted from HERE rather than rolled by the caller because the approach
+     * Emitted from here rather than rolled by the caller because the approach
      * decides the punch's arc, and the arc feeds `damageOf` through the
      * rising-chin bonus. A caller reaching for Math.random would have made the
      * fight non-reproducible from outside the one class that guarantees it.
@@ -78,19 +78,19 @@ export interface AiIntent {
   };
   /** Guard changed this tick. */
   guard?: GuardPosture;
-  /** Head movement started or ended this tick. Emitted only on CHANGE, like
+  /** Head movement started or ended this tick. Emitted only on change, like
    *  the guard, so the caller can hand it straight to `FightSim.setEvasion`
    *  without re-charging the stamina cost every frame. */
   evasion?: Evasion;
 }
 
-/** What the AI can see. Deliberately narrow — it gets what a human would. */
-export interface AiPerception {
+/** What the CPU can see. Deliberately narrow - it gets what a human would. */
+export interface CpuPerception {
   /** Our own remaining stamina, 0-1. */
   stamina: number;
   /** Opponent's remaining health, 0-1. */
   opponentHealth: number;
-  /** True while the opponent is stunned — the opening to press. */
+  /** True while the opponent is stunned - the opening to press. */
   opponentStunned: boolean;
   /** True while the opponent's fist is extended toward us. */
   opponentThrowing: boolean;
@@ -100,16 +100,16 @@ export interface AiPerception {
    * Gap to the opponent, torso units. 0 is chest to chest.
    *
    * Supplied by the caller rather than simulated here, because the player's
-   * half of it is a camera measurement (`BodyMotion.depth`) and the AI's half
+   * half of it is a camera measurement (`BodyMotion.depth`) and the CPU's half
    * is `stance.depth`. Keeping the subtraction outside means this class never
    * has to know that one of the two fighters is a person.
    */
   range: number;
   /**
-   * Which side the incoming punch is arriving on, in the AI's OWN frame, or
+   * Which side the incoming punch is arriving on, in the CPU's own frame, or
    * null when it cannot tell. Only meaningful while `opponentThrowing`.
    *
-   * Gated by the difficulty's discipline roll before it is acted on — a rookie
+   * Gated by the difficulty's discipline roll before it is acted on - a rookie
    * that always slipped the correct way would be reading the player's mind.
    */
   incomingSide?: "left" | "right" | null;
@@ -124,13 +124,13 @@ interface Profile {
   tempo: number;
   /** Probability of raising the correct guard against a read punch. */
   discipline: number;
-  /** 0-1 — how willing it is to trade rather than reset. */
+  /** 0-1 - how willing it is to trade rather than reset. */
   aggression: number;
   /** Punches in a combination, maximum. */
   maxCombo: number;
   /** Multiplier on footwork travel speed. */
   footSpeed: number;
-  /** Probability of answering a read punch with a SLIP rather than a guard.
+  /** Probability of answering a read punch with a slip rather than a guard.
    *  A slip is the better answer when it works and the worse one when it does
    *  not, so this is a measure of nerve as much as skill. */
   evasiveness: number;
@@ -173,7 +173,7 @@ const PROFILES: Record<Difficulty, Profile> = {
 };
 
 /**
- * mulberry32. Small, fast, and good enough for behaviour selection — this is
+ * mulberry32. Small, fast, and good enough for behaviour selection - this is
  * choosing between four target zones, not generating keys.
  */
 function clamp(v: number, lo: number, hi: number): number {
@@ -200,19 +200,19 @@ const TARGETS: { name: string; impact: ImpactPoint; high: boolean }[] = [
   { name: "ribs", impact: { lateral: 0.28, height: 0.62 }, high: false },
 ];
 
-export class AiOpponent {
-  state: AiState = "circling";
+export class CpuOpponent {
+  state: CpuState = "circling";
   private profile: Profile;
   private rand: () => number;
   private timer: number;
   private comboLeft = 0;
-  private pending: NonNullable<AiIntent["strike"]> | null = null;
+  private pending: NonNullable<CpuIntent["strike"]> | null = null;
   private guard: GuardPosture = "high";
 
-  /** The feet, on their own clock. See `AiFootwork`. */
-  footwork: AiFootwork = "hold";
+  /** The feet, on their own clock. See `CpuFootwork`. */
+  footwork: CpuFootwork = "hold";
   private footTimer = 0;
-  /** Which way it is currently circling. Held across `hold` states so the AI
+  /** Which way it is currently circling. Held across `hold` states so the CPU
    *  drifts consistently rather than jittering left-right around one spot. */
   private circleSign = 1;
 
@@ -221,11 +221,11 @@ export class AiOpponent {
   private evadeTimer = 0;
   private evadeCooldown = 0;
 
-  /** Commanded stance — where the body is being asked to go. */
-  private commanded: AiStance = { lateral: 0, depth: 0, crouch: 0, lean: 0 };
-  /** Shown stance — where it actually is. Chases `commanded`, because a body
+  /** Commanded stance - where the body is being asked to go. */
+  private commanded: CpuStance = { lateral: 0, depth: 0, crouch: 0, lean: 0 };
+  /** Shown stance - where it actually is. Chases `commanded`, because a body
    *  is a thing with mass and a state machine's output is a step function. */
-  private shown: AiStance = { lateral: 0, depth: 0, crouch: 0, lean: 0 };
+  private shown: CpuStance = { lateral: 0, depth: 0, crouch: 0, lean: 0 };
 
   readonly difficulty: Difficulty;
 
@@ -237,7 +237,7 @@ export class AiOpponent {
   }
 
   /** Where the body actually is, for the render layer. */
-  get stance(): AiStance {
+  get stance(): CpuStance {
     return this.shown;
   }
 
@@ -258,7 +258,7 @@ export class AiOpponent {
     // is supposed to open.
     this.evasion = "none";
     this.evadeTimer = 0;
-    this.evadeCooldown = AI_CONFIG.evadeCooldown;
+    this.evadeCooldown = CPU_CONFIG.evadeCooldown;
     // Hurt fighters give ground. Standing in front of someone who has just
     // hurt you is the one thing no boxer does.
     this.setFootwork("retreat", seconds);
@@ -269,15 +269,15 @@ export class AiOpponent {
   }
 
   /** Advances by `dt` seconds and returns whatever it wants to do. */
-  update(dt: number, see: AiPerception): AiIntent {
-    const intent: AiIntent = {};
+  update(dt: number, see: CpuPerception): CpuIntent {
+    const intent: CpuIntent = {};
     this.timer -= dt;
 
     switch (this.state) {
       case "hurt":
         if (this.timer <= 0) {
           this.state = "circling";
-          this.timer = this.profile.tempo * AI_CONFIG.resetAfterHurt;
+          this.timer = this.profile.tempo * CPU_CONFIG.resetAfterHurt;
           intent.guard = this.setGuard("high");
         }
         break;
@@ -291,7 +291,7 @@ export class AiOpponent {
         // Gassed fighters stop throwing and cover up. This is what makes
         // draining the opponent a real strategy rather than a stat that ticks
         // down cosmetically.
-        if (see.stamina < AI_CONFIG.exhaustedFraction) {
+        if (see.stamina < CPU_CONFIG.exhaustedFraction) {
           intent.guard = this.setGuard("high");
           this.timer = Math.max(this.timer, this.profile.tempo);
           break;
@@ -300,15 +300,15 @@ export class AiOpponent {
           // Press a stunned opponent hard. The window after a knockdown is
           // where fights are actually finished.
           const urgency = see.opponentStunned
-            ? AI_CONFIG.stunnedUrgency
+            ? CPU_CONFIG.stunnedUrgency
             : 1 - this.profile.aggression * 0.5;
           // Out of range is not a reason to punch the air. An opponent that
           // lands blows from across the ring is the most obvious way this
-          // reads as fake, so it closes the distance FIRST and reconsiders
+          // reads as fake, so it closes the distance first and reconsiders
           // when it arrives.
           if (see.range > FIGHT_GEOMETRY.strikingRange) {
-            this.setFootwork("advance", AI_CONFIG.footworkMin);
-            this.timer = AI_CONFIG.footworkMin;
+            this.setFootwork("advance", CPU_CONFIG.footworkMin);
+            this.timer = CPU_CONFIG.footworkMin;
           } else if (see.opponentStunned || this.rand() < this.profile.aggression) {
             this.beginCombo(see);
           } else {
@@ -351,29 +351,29 @@ export class AiOpponent {
 
     this.updateEvasion(dt, see, intent);
     this.updateFootwork(dt, see);
-    this.integrateStance(dt);
+    this.integrateStance(dt, see.range);
 
     return intent;
   }
 
-  // HEAD MOVEMENT
+  // Head movement
   //
   // Answering an incoming punch with a slip instead of a guard. The decision
   // is one roll deep on purpose - this is a fighter choosing between two
   // defences it already knows, not a planner.
 
-  private updateEvasion(dt: number, see: AiPerception, intent: AiIntent): void {
+  private updateEvasion(dt: number, see: CpuPerception, intent: CpuIntent): void {
     this.evadeCooldown = Math.max(0, this.evadeCooldown - dt);
 
     if (this.evasion !== "none") {
       this.evadeTimer -= dt;
       if (this.evadeTimer <= 0) {
-        // A slip is a MOVE, not a posture. Letting it expire on a clock is
+        // A slip is a move, not a posture. Letting it expire on a clock is
         // what stops it becoming permanent invulnerability, and it is why the
-        // cooldown exists as well: without one the AI simply re-slips on the
+        // cooldown exists as well: without one the CPU simply re-slips on the
         // next tick and is never hittable.
         this.evasion = "none";
-        this.evadeCooldown = AI_CONFIG.evadeCooldown;
+        this.evadeCooldown = CPU_CONFIG.evadeCooldown;
         intent.evasion = "none";
       }
       return;
@@ -392,30 +392,30 @@ export class AiOpponent {
     // is an opponent that always slips the correct way, which is
     // indistinguishable from it reading the player's input.
     const side = see.incomingSide ?? (this.rand() < 0.5 ? "left" : "right");
-    // Slipping AWAY from where the punch is arriving. Slipping toward it is
+    // Slipping away from where the punch is arriving. Slipping toward it is
     // the classic error and would look identical on screen.
     const move: Evasion =
-      this.rand() < AI_CONFIG.duckShare
+      this.rand() < CPU_CONFIG.duckShare
         ? "duck"
         : side === "left"
           ? "slipRight"
           : "slipLeft";
 
     this.evasion = move;
-    this.evadeTimer = AI_CONFIG.evadeSeconds;
+    this.evadeTimer = CPU_CONFIG.evadeSeconds;
     intent.evasion = move;
   }
 
-  // FOOTWORK
+  // Footwork
 
-  private setFootwork(f: AiFootwork, seconds: number): void {
+  private setFootwork(f: CpuFootwork, seconds: number): void {
     this.footwork = f;
     this.footTimer = seconds;
     if (f === "circleLeft") this.circleSign = -1;
     if (f === "circleRight") this.circleSign = 1;
   }
 
-  private updateFootwork(dt: number, see: AiPerception): void {
+  private updateFootwork(dt: number, see: CpuPerception): void {
     this.footTimer -= dt;
 
     // Mid-combination the feet follow the hands. A fighter that wandered off
@@ -435,9 +435,9 @@ export class AiOpponent {
 
     const tooFar = see.range > FIGHT_GEOMETRY.preferredRange;
     const tooClose = see.range < FIGHT_GEOMETRY.clinchRange;
-    const gassed = see.stamina < AI_CONFIG.exhaustedFraction;
+    const gassed = see.stamina < CPU_CONFIG.exhaustedFraction;
 
-    let next: AiFootwork;
+    let next: CpuFootwork;
     if (tooClose) {
       // Nobody fights from inside their own guard.
       next = "retreat";
@@ -470,26 +470,26 @@ export class AiOpponent {
 
     // Do not circle straight out of the ring. At the lateral limit the only
     // circling direction available is back toward the middle.
-    if (next === "circleLeft" && this.commanded.lateral <= -AI_CONFIG.lateralLimit) {
+    if (next === "circleLeft" && this.commanded.lateral <= -CPU_CONFIG.lateralLimit) {
       next = "circleRight";
-    } else if (next === "circleRight" && this.commanded.lateral >= AI_CONFIG.lateralLimit) {
+    } else if (next === "circleRight" && this.commanded.lateral >= CPU_CONFIG.lateralLimit) {
       next = "circleLeft";
     }
 
     this.setFootwork(
       next,
-      AI_CONFIG.footworkMin +
-        this.rand() * (AI_CONFIG.footworkMax - AI_CONFIG.footworkMin)
+      CPU_CONFIG.footworkMin +
+        this.rand() * (CPU_CONFIG.footworkMax - CPU_CONFIG.footworkMin)
     );
   }
 
-  // STANCE
+  // Stance
   //
   // Turns the two state machines above into the continuous channels the render
   // layer consumes. Commanded first, then chased - see `shown`.
 
-  private integrateStance(dt: number): void {
-    const speed = AI_CONFIG.stepSpeed * this.profile.footSpeed * dt;
+  private integrateStance(dt: number, range: number): void {
+    const speed = CPU_CONFIG.stepSpeed * this.profile.footSpeed * dt;
     const c = this.commanded;
 
     switch (this.footwork) {
@@ -508,29 +508,65 @@ export class AiOpponent {
       case "hold":
         break;
     }
-    c.lateral = clamp(c.lateral, -AI_CONFIG.lateralLimit, AI_CONFIG.lateralLimit);
-    c.depth = clamp(c.depth, -AI_CONFIG.depthLimit, AI_CONFIG.depthLimit);
+    c.lateral = clamp(c.lateral, -CPU_CONFIG.lateralLimit, CPU_CONFIG.lateralLimit);
+    c.depth = clamp(c.depth, -CPU_CONFIG.depthLimit, CPU_CONFIG.depthLimit);
 
-    // Head movement rides ON TOP of the feet rather than replacing them, which
+    // Where the other fighter's side of the gap is, in this fighter's frame.
+    //
+    // `range` arrives measured against the current `shown.depth`, so adding it
+    // back gives the half of the gap this fighter does not own - the neutral
+    // separation less however far the player has stepped in. It is the thing
+    // the body below has to stop short of.
+    const theirSide = range + this.shown.depth;
+
+    // Head movement rides on top of the feet rather than replacing them, which
     // is what a slip actually is: the body keeps its position and the head
     // leaves the centre line.
     let slip = 0;
     let crouch = 0;
-    if (this.evasion === "slipLeft") slip = -AI_CONFIG.slipTravel;
-    else if (this.evasion === "slipRight") slip = AI_CONFIG.slipTravel;
-    else if (this.evasion === "duck") crouch = AI_CONFIG.duckDepth;
+    if (this.evasion === "slipLeft") slip = -CPU_CONFIG.slipTravel;
+    else if (this.evasion === "slipRight") slip = CPU_CONFIG.slipTravel;
+    else if (this.evasion === "duck") crouch = CPU_CONFIG.duckDepth;
 
     const targetLateral = c.lateral + slip;
-    const targetLean = (slip / AI_CONFIG.slipTravel) * AI_CONFIG.slipLean;
+    const targetLean = (slip / CPU_CONFIG.slipTravel) * CPU_CONFIG.slipLean;
 
     // One time constant for everything, so the whole body arrives together.
     // Separate ones let the lean land before the travel, which reads as the
     // figure tipping over rather than moving.
-    const a = 1 - Math.exp(-dt / AI_CONFIG.stanceTau);
+    const a = 1 - Math.exp(-dt / CPU_CONFIG.stanceTau);
     this.shown.lateral += (targetLateral - this.shown.lateral) * a;
     this.shown.depth += (c.depth - this.shown.depth) * a;
     this.shown.crouch += (crouch - this.shown.crouch) * a;
     this.shown.lean += (targetLean - this.shown.lean) * a;
+
+    // A fighter cannot stand inside another fighter.
+    //
+    // A hard constraint on the body, applied after the chase, not a decision
+    // taken before it. `clinchRange` has always been the gap inside which the
+    // two are on top of each other, but the only thing that ever read it was
+    // `tooClose`, which picks a retreat state - and a footwork state is held
+    // for up to 1.6 seconds before it is reconsidered.
+    //
+    // That is survivable while the CPU owns the whole gap, and it does not: the
+    // player's half is a camera measurement obeying no rule at all. A player
+    // who walks in while the CPU is mid-advance closes both halves at once, and
+    // the depth integrator's only bound was `depthLimit` - 1.4 torso units
+    // against a starting gap of 1.66. The two figures ended up 0.17 world
+    // units apart, gloves through heads, and nothing objected.
+    //
+    // Expressed as a ceiling on where the body may be rather than on what it
+    // may want, because that is what makes it hold in the case that actually
+    // breaks: a fighter already deep in the pocket when the other one steps
+    // in. Being pushed back is the correct outcome - it is what a clinch is -
+    // so the ceiling is allowed to drive `shown.depth` Down, and the command
+    // is pulled along with it so the CPU does not spring forward the moment the
+    // player gives ground.
+    const ceiling = theirSide - FIGHT_GEOMETRY.clinchRange;
+    if (this.shown.depth > ceiling) {
+      this.shown.depth = Math.max(-CPU_CONFIG.depthLimit, ceiling);
+      c.depth = Math.min(c.depth, this.shown.depth);
+    }
   }
 
   private setGuard(g: GuardPosture): GuardPosture | undefined {
@@ -539,12 +575,12 @@ export class AiOpponent {
     return g;
   }
 
-  private beginCombo(see: AiPerception): void {
+  private beginCombo(see: CpuPerception): void {
     this.comboLeft = 1 + Math.floor(this.rand() * this.profile.maxCombo);
     this.nextInCombo(see);
   }
 
-  private nextInCombo(see: AiPerception): void {
+  private nextInCombo(see: CpuPerception): void {
     this.comboLeft--;
 
     // Go where the guard is not. This is the single behaviour that makes the
@@ -559,18 +595,18 @@ export class AiOpponent {
     const pool = TARGETS.filter((t) => t.high === wantHigh);
     const pick = pool[Math.floor(this.rand() * pool.length)] ?? TARGETS[0];
 
-    // Power falls off through a combination — the last punch of a five-piece
+    // Power falls off through a combination - the last punch of a five-piece
     // is an arm punch, not a knockout blow.
-    const decay = Math.pow(AI_CONFIG.comboPowerDecay, this.profile.maxCombo - this.comboLeft - 1);
+    const decay = Math.pow(CPU_CONFIG.comboPowerDecay, this.profile.maxCombo - this.comboLeft - 1);
     const power = (0.45 + this.rand() * 0.55) * decay * (0.6 + see.stamina * 0.4);
 
     this.pending = {
       jitter: this.rand() - 0.5,
       impact: {
         // Jitter, so repeated punches at the same target do not stack in one
-        // pixel — and so the bruising spreads the way it does on a real face.
-        lateral: pick.impact.lateral + (this.rand() - 0.5) * AI_CONFIG.aimJitter,
-        height: pick.impact.height + (this.rand() - 0.5) * AI_CONFIG.aimJitter,
+        // pixel - and so the bruising spreads the way it does on a real face.
+        lateral: pick.impact.lateral + (this.rand() - 0.5) * CPU_CONFIG.aimJitter,
+        height: pick.impact.height + (this.rand() - 0.5) * CPU_CONFIG.aimJitter,
       },
       power: Math.max(0.1, Math.min(1, power)),
       hand: this.rand() < 0.5 ? "left" : "right",

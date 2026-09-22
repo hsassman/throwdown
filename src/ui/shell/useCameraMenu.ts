@@ -3,24 +3,22 @@ import type { PoseFrame } from "../../pose/poseTypes";
 import { CameraPointer, type PointerTarget } from "./pointerModel";
 
 // Binds the camera pointer to real DOM rows.
-// WHY THIS DOES NOT PUT THE CURSOR IN REACT STATE
-//
 // The pointer updates every animation frame. Putting its position in state
 // would re-render the whole menu sixty times a second to move one dot, and on
 // a machine already spending ~36ms per frame on pose inference that is exactly
 // the budget the game cannot spare.
 //
-// So the fast-changing things — cursor position, dwell progress — are written
-// DIRECTLY to the DOM: a transform on the cursor element, and a CSS custom
+// So the fast-changing things - cursor position, dwell progress - are written
+// Directly to the DOM: a transform on the cursor element, and a CSS custom
 // property on the hovered row that its ring reads. React state is updated only
-// when the hovered row CHANGES, which happens a few times a second at most and
+// when the hovered row changes, which happens a few times a second at most and
 // is what the detail panel actually needs.
-// RECTS ARE RE-MEASURED, NOT CACHED FOREVER
+// Rects are re-measured, not cached forever
 //
 // `getBoundingClientRect` is measured once per frame for the rows. That sounds
 // wasteful and is not: reading layout once per frame in a single batch, before
 // any writes, is the cheap pattern. Caching the rects instead would break the
-// moment the list scrolled, the window resized, or a row animated — and the
+// moment the list scrolled, the window resized, or a row animated - and the
 // failure mode is invisible and horrible, because the cursor would activate
 // rows that are no longer where it thinks they are.
 

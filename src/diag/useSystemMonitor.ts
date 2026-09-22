@@ -5,14 +5,14 @@ import type { DrillStats } from "../training/drill";
 import type { StrikeDebugState, StrikeEvent } from "../perception/strikeResolver";
 import type { RollingStats } from "../debug/perfStats";
 
-// Wires the live pipeline into SystemMonitor and polls it, the same POLLED-
-// NOT-SUBSCRIBED shape TrackingPanel uses: strikes and reach samples arrive
+// Wires the live pipeline into SystemMonitor and polls it, the same polled-
+// Not-subscribed shape TrackingPanel uses: strikes and reach samples arrive
 // at pose rate, but nothing here needs to be read faster than a few times a
 // second, so the report is recomputed on an interval rather than on every
 // tick.
 //
-// The monitor instance is created ONCE, here, and outlives whichever screen
-// happens to be open — a player who fought for two minutes and then opened
+// The monitor instance is created once, here, and outlives whichever screen
+// happens to be open - a player who fought for two minutes and then opened
 // the Tracking screen should see those two minutes' worth of strike history,
 // not a monitor that just woke up.
 
@@ -34,7 +34,7 @@ export function useSystemMonitor(
   if (!monitorRef.current) monitorRef.current = new SystemMonitor();
   const reportRef = useRef<SystemReport | null>(null);
 
-  // Mirrored into refs, like every other prop this hook reads on a timer —
+  // Mirrored into refs, like every other prop this hook reads on a timer -
   // so neither effect below ever has to restart just because a value changed.
   const trackingReportRef = options.trackingReportRef;
   const strikeDebugRef = options.strikeDebugRef;

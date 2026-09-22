@@ -9,7 +9,7 @@ import {
 } from "./shellModel";
 
 // These enforce the honesty rule. They are cheap and they are the reason the
-// menu cannot quietly start claiming more than the code does — which has
+// menu cannot quietly start claiming more than the code does - which has
 // already happened once in this project's own status docs.
 
 describe("the honesty rule", () => {
@@ -42,12 +42,23 @@ describe("the honesty rule", () => {
     expect(lab.detail).toMatch(/19%/);
   });
 
-  it("marks multiplayer locked, not preview", () => {
-    // Networking is genuinely not started. "Preview" would imply a player
-    // could get into a fight and be disappointed rather than informed.
-    for (const id of ["lan", "internet", "local"]) {
+  it("marks the multiplayer that is not built as locked", () => {
+    // Still genuinely not started. "Preview" would imply a player could get
+    // into a fight and be disappointed rather than informed.
+    for (const id of ["internet", "local"]) {
       expect(ITEM_BY_ID.get(id)!.availability).toBe("locked");
     }
+  });
+
+  it("does not oversell same-network play", () => {
+    // This one is built and does connect two people, so "locked" would now be
+    // the dishonest answer. It is also host-authoritative with no lag
+    // compensation, which is exactly the kind of thing a player finds out the
+    // hard way unless the menu says it first.
+    const lan = ITEM_BY_ID.get("lan")!;
+    expect(lan.availability).toBe("preview");
+    expect(lan.detail).toMatch(/not rollback netcode/i);
+    expect(lan.detail).toMatch(/round trip late/i);
   });
 
   it("offers at least one thing that actually works", () => {

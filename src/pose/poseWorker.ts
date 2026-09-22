@@ -5,7 +5,7 @@
 // Milestone 0 measured inference at ~36ms against a 33.3ms camera frame
 // period. Running that on the main thread means inference cannot overlap frame
 // delivery, so every inference misses the next frame and the pipeline settles
-// on every second frame — 15 FPS instead of 30. Moving inference here lets it
+// on every second frame - 15 FPS instead of 30. Moving inference here lets it
 // pipeline against capture. See the risk log.
 //
 // Frames arrive as transferred ImageBitmaps (zero-copy) and results go back as

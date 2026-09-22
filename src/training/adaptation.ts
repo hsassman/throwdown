@@ -3,54 +3,32 @@ import { HIT_ZONES, ZONE_BY_ID, type HitZone } from "./hitZones";
 import type { TrainingProfile, ZoneRecord } from "./profile";
 
 // The learning loop: what the system does with everything it has recorded.
-// THE LINE THIS FILE IS NOT ALLOWED TO CROSS
 //
-// `blender/README.md` and `trackingMonitor.ts` establish the rule and the
-// reason: no automatic process may adjust a threshold that decides whether a
-// punch LANDED. If it could, the game would quietly reward a worse webcam, and
-// it would do it invisibly — a player in bad light would find the game getting
-// easier and have no way to know.
+// Hard rule: no automatic process may adjust a threshold that decides whether
+// a punch landed. Otherwise the game quietly rewards a worse webcam, and a
+// player in bad light finds it getting easier with no way to know. This file
+// may only (1) correct a common-mode coordinate bias and (2) choose which
+// targets to show. It may not touch reachThreshold, the accuracy falloff,
+// zone radii or the damage table; adaptation.test.ts asserts the returned
+// shape structurally so adding a third knob breaks a test.
 //
-// So this file may do exactly two things:
+// Every landed punch yields a signed miss vector. Averaged per zone they
+// decompose into two things:
 //
-//   1. Correct a COMMON-MODE coordinate bias. Explained at length below.
-//   2. Choose WHICH targets to show, and say what it thinks of the player.
+//   Common mode - the same on every zone. Landing 6cm low on temple, chin,
+//   liver and ribs alike is not four faults that agree, it is the frame of
+//   reference being off: camera mounted high, or torso scale running large.
+//   A setup error, not the player's, and correcting it is calibration.
 //
-// It may not touch `reachThreshold`, the accuracy falloff, zone radii, or the
-// damage table. `adaptation.test.ts` asserts the shape of the returned object
-// structurally, the same way `trackingMonitor.test.ts` does, so adding a third
-// knob has to be a deliberate act that breaks a test.
-// COMMON-MODE VERSUS DIFFERENTIAL BIAS — the idea the whole file turns on
+//   Differential - what is left. Landing low on the liver while head shots are
+//   centred is technique. That is the player's to fix, so it is reported,
+//   never corrected.
 //
-// Every landed punch yields a signed miss vector. Averaged per zone, those
-// vectors decompose into two very different things:
-//
-//   COMMON MODE — the part that is the SAME on every zone. If a player lands
-//   6cm low on the temple, the chin, the liver and the ribs alike, that is not
-//   four independent technical faults that happen to agree. It is the frame of
-//   reference being off: the camera is mounted high, or the torso-scale
-//   estimate is running large. It is a SETUP error, it is not the player's
-//   fault, and correcting it is calibration in exactly the sense this project
-//   already accepts for limb lengths (`perception/calibration.ts`).
-//
-//   DIFFERENTIAL — what is left once common mode is removed. Landing low on
-//   the liver specifically, while the head shots are centred, is technique:
-//   the player is dropping their hand on body shots. That is a real fault, it
-//   is the player's to fix, and correcting it in software would be cheating
-//   them out of the training. So it is never corrected — it is REPORTED.
-//
-// Getting this decomposition backwards would be the worst possible outcome:
-// silently "fixing" the player's technique while leaving the camera error in
-// place. Hence the guards below, and hence `minDistinctZones`.
-//
-// WHY THE MEDIAN, NOT THE MEAN
-//
-// The common-mode estimate is the median of the per-zone biases, not their
-// average. One zone with a genuinely large technical fault would drag a mean
-// a long way and get baked into the correction for every other target. The
-// median ignores it, which is the behaviour wanted: the common-mode term
-// should be whatever the MAJORITY of zones agree on. Same robust-statistics
-// reasoning as the median/MAD work in `trackingMonitor.ts`.
+// Getting the decomposition backwards would silently "fix" the player's
+// technique while leaving the camera error in place. Hence the guards below
+// and minDistinctZones. The common-mode estimate is the median of the
+// per-zone biases: one zone with a large real fault would drag a mean into
+// every other target's correction.
 
 export interface BiasEstimate {
   /** Median per-zone bias, torso units. */
@@ -98,7 +76,7 @@ function trustedZones(profile: TrainingProfile): [string, ZoneRecord][] {
  *
  * Reports its own confidence rather than returning a bare number, because the
  * caller genuinely needs to know the difference between "no bias detected" and
- * "not enough evidence to say" — they are the same number and opposite facts.
+ * "not enough evidence to say" - they are the same number and opposite facts.
  */
 export function estimateBias(profile: TrainingProfile): BiasEstimate {
   const trusted = trustedZones(profile);
@@ -130,8 +108,8 @@ export function estimateBias(profile: TrainingProfile): BiasEstimate {
 /**
  * The correction to apply to incoming impact points, bounded.
  *
- * Note the sign: the bias is where punches LAND relative to the target, so the
- * correction is its negation — if every punch reads 6cm low, impacts must be
+ * Note the sign: the bias is where punches land relative to the target, so the
+ * correction is its negation - if every punch reads 6cm low, impacts must be
  * shifted UP by 6cm to sit where the player actually put them.
  *
  * Deliberately under-corrects by `gain`. The estimate is noisy, and a
@@ -174,7 +152,7 @@ export function weakestZones(profile: TrainingProfile): HitZone[] {
  * Selection weights for the drill, favouring what the player is bad at.
  *
  * A weight floor of 1 is deliberate: even a mastered zone keeps appearing.
- * Drilling ONLY weaknesses produces a player who has drilled away their
+ * Drilling only weaknesses produces a player who has drilled away their
  * strengths, and it makes the session monotonous at exactly the moment the
  * player is struggling most.
  */
@@ -191,8 +169,8 @@ export function zoneWeights(profile: TrainingProfile): Map<string, number> {
  * A `pick` function for `Drill`, weighted by the profile.
  *
  * This is how the drill gets smarter with use, and it is intentionally the
- * ONLY place the profile changes what happens during a round. Scoring stays
- * identical no matter how much the player has trained — a 90% on the liver
+ * only place the profile changes what happens during a round. Scoring stays
+ * identical no matter how much the player has trained - a 90% on the liver
  * means the same thing in session one and session fifty. A system that
  * silently raised its own standards would make improvement invisible.
  */
@@ -226,9 +204,9 @@ export interface CoachingNote {
  * What the system has to say about the player's training.
  *
  * The `kind` field is the important part. A note that reads "you are landing
- * low" is actively harmful when the real cause is a high camera — the player
+ * low" is actively harmful when the real cause is a high camera - the player
  * changes a technique that was fine. So the common-mode component is reported
- * as SETUP and the residual as TECHNIQUE, and the two are never mixed.
+ * as setup and the residual as technique, and the two are never mixed.
  */
 export function coachingNotes(profile: TrainingProfile): CoachingNote[] {
   const notes: CoachingNote[] = [];
@@ -244,7 +222,7 @@ export function coachingNotes(profile: TrainingProfile): CoachingNote[] {
       notes.push({
         zoneId: null,
         kind: "setup",
-        text: `Everything is landing ${parts.join(" and ")} by the same amount across ${bias.contributingZones} targets — that is the camera framing, not your punches. Corrected automatically.`,
+        text: `Everything is landing ${parts.join(" and ")} by the same amount across ${bias.contributingZones} targets - that is the camera framing, not your punches. Corrected automatically.`,
       });
     }
   }

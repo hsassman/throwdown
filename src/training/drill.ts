@@ -10,25 +10,23 @@ import {
 } from "./hitZones";
 
 // The drill: light a target on the dummy, open a window, score what arrives.
-// WHAT THIS REPLACES, AND WHY
-//
-// The previous training mode asked the player to throw a named punch TYPE
+// The previous training mode asked the player to throw a named punch type
 // (jab, cross, hook, uppercut) and graded the four-way classifier's answer.
 // That trained the wrong thing, on two counts. It inherited the classifier's
 // ~19% detection rate, so most correct punches scored nothing and the player
 // could not tell their own technique apart from the software's failure. And a
-// punch type is not really a skill in the first place — landing on a spot is.
+// punch type is not really a skill in the first place - landing on a spot is.
 //
-// A lit zone sidesteps the classifier entirely. WHERE a punch landed and HOW
-// HARD are measurements this project can already make reliably (reach and body
+// A lit zone sidesteps the classifier entirely. Where a punch landed and how
+// Hard are measurements this project can already make reliably (reach and body
 // frame, both proven and tested), so the drill is built only on those. A punch
 // type can be displayed alongside the moment it earns its place, and nothing
 // in this file has to change when it does.
-// TIME IS INJECTED, NEVER READ
+// Time is injected, never read
 //
 // Every method takes `now`. Nothing in this file calls `performance.now()`.
 // A drill is a state machine over time, and one that reads the clock itself
-// can only be tested by sleeping — which makes the suite slow, flaky, and
+// can only be tested by sleeping - which makes the suite slow, flaky, and
 // unable to test the interesting cases (a punch landing 1ms before the window
 // shuts) at all.
 
@@ -63,8 +61,8 @@ export interface DrillOutcome {
   /** 0..1, how close to the zone centre. */
   accuracy: number;
   /**
-   * Miss from the zone centre. The SIGNED components are kept alongside the
-   * distance because a consistent direction is the valuable signal — landing
+   * Miss from the zone centre. The signed components are kept alongside the
+   * distance because a consistent direction is the valuable signal - landing
    * low on every target is a different fact from landing 8cm away on every
    * target, and only the signed form can tell them apart. See `adaptation.ts`.
    */
@@ -83,8 +81,8 @@ export interface DrillStats {
   presented: number;
   landed: number;
   /**
-   * Means over LANDED targets only. A missed target pulls `landed` down rather
-   * than dragging the accuracy average — otherwise standing perfectly still
+   * Means over landed targets only. A missed target pulls `landed` down rather
+   * than dragging the accuracy average - otherwise standing perfectly still
    * would report 100% accuracy on zero punches, which is the most misleading
    * number the drill could possibly show.
    */
@@ -97,8 +95,8 @@ export interface DrillStats {
   bestStreak: number;
   streak: number;
   /**
-   * Punches thrown while nothing was lit. Not scored — there is no target to
-   * compare them against — but reported, because a high count means the player
+   * Punches thrown while nothing was lit. Not scored - there is no target to
+   * compare them against - but reported, because a high count means the player
    * is punching through the rest gap and their real accuracy is worse than the
    * scored figure suggests.
    */
@@ -169,7 +167,7 @@ export class Drill {
         options.pick ??
         ((zones, previous) => {
           // Never light the same target twice running. A repeat measures
-          // nothing — the player already has their hand there — and it reads
+          // nothing - the player already has their hand there - and it reads
           // as the drill being broken.
           const choices =
             zones.length > 1 && previous
@@ -211,7 +209,7 @@ export class Drill {
   }
 
   /**
-   * Advances the clock. Returns any outcome produced by time alone — which is
+   * Advances the clock. Returns any outcome produced by time alone - which is
    * only ever an expiry.
    */
   update(now: number): DrillOutcome | null {
@@ -248,7 +246,7 @@ export class Drill {
    * Which hand a zone should be thrown with, when the drill demands one.
    *
    * Derived from the anatomy rather than randomised. A target on the puncher's
-   * LEFT (negative lateral — the liver, or the target's right jaw) is what a
+   * left (negative lateral - the liver, or the target's right jaw) is what a
    * left hook reaches; one on the right is what a right hand reaches. Asking
    * for the crossing hand on a wide target would drill a punch that cannot
    * physically land, and the player would rightly read that as a bug.
@@ -288,7 +286,7 @@ export class Drill {
     }
 
     if (t.hand && strike.hand !== t.hand) {
-      // Reported, but it deliberately does NOT clear the target: the player
+      // Reported, but it deliberately does not clear the target: the player
       // still has the rest of the window to throw the correct hand. Clearing
       // it would punish a twitch far more harshly than missing outright.
       this.streak = 0;

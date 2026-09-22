@@ -11,43 +11,33 @@ import {
   type ImpactPoint,
 } from "./strikeGeometry";
 
-// Resolves punches into LANDED STRIKES against a training target.
-// WHAT THIS IS, AND THE CONSTRAINT IT IS BUILT AROUND
+// Resolves punches into landed strikes against a training target.
 //
-// Risk log 13 records the structural limit: in a 1v1 there is no shared
-// physical space. Two players stand in two rooms and there is no real distance
-// between them, so "did the punch reach?" is a game-design decision, not a
-// measurement. Against a TRAINING target the same thing is true — the dummy is
-// at a virtual range we choose.
+// In a 1v1 there is no shared physical space: two players stand in two rooms
+// and there is no real distance between them, so "did the punch reach?" is a
+// design decision, not a measurement. Against a training target the same is
+// true - the dummy is at a virtual range we choose. So this does not measure a
+// collision. It measures how far the player extended and in which direction,
+// and resolves that against a chosen reach.
 //
-// So this does not attempt to measure a collision. It measures how far the
-// player extended and in which direction, and resolves that against a chosen
-// reach. That is a deliberate design position, not a shortcut.
+// Two rules it keeps:
 //
-// TWO RULES IT DELIBERATELY KEEPS
+// 1. Landmarks only, never the character mesh. Retargeting lives under render/
+//    precisely so the drawn skeleton cannot influence hit resolution; the
+//    drawn arm's forward extension is a cosmetic estimate recovered from
+//    foreshortening, and feeding it back would make what you hit depend on how
+//    you are drawn.
+// 2. MediaPipe's z is never read. Depth comes from x/y foreshortening.
 //
-// 1. It reads LANDMARKS ONLY — never the character mesh. docs/ARCHITECTURE.md
-//    puts retargeting under render/ precisely so the rendered skeleton cannot
-//    influence hit resolution, and the rendered arm's forward extension is a
-//    cosmetic estimate recovered from foreshortening. Feeding that back into
-//    hits would make what you hit depend on how you are drawn.
-// 2. It never reads MediaPipe's z. Depth here comes from foreshortening of
-//    x/y, the same derivation the retargeting layer uses and the same one
-//    the gesture-classification notes permits.
-//
-// RELATIONSHIP TO THE PUNCH CLASSIFIER
-//
-// None. This is deliberately independent of punchClassifier.ts, which is still
-// unproven (Milestone 1, ~19% detection) and is the project's risk-critical
-// path. A training target that only registered hits when the four-way type
-// classifier agreed would inherit that failure rate and confuse two separate
-// questions. Reach and zone are a much easier measurement than punch TYPE, and
-// keeping them apart means the training mode works now and can display a punch
-// type alongside once the classifier earns it.
+// Deliberately independent of punchClassifier.ts, which is still ~19%. A
+// target that only registered hits when the type classifier agreed would
+// inherit that failure rate. Reach and zone are a much easier measurement than
+// punch type, so training works now and can show a type alongside once the
+// classifier earns it.
 
 /** Vertical band a strike arrives at. */
 export type StrikeHeight = "head" | "body";
-/** Lateral band, from the PLAYER's point of view facing the target. */
+/** Lateral band, from the player's point of view facing the target. */
 export type StrikeLane = "left" | "centre" | "right";
 
 export interface TargetZone {
@@ -59,7 +49,7 @@ export interface StrikeEvent {
   hand: HandSide;
   /**
    * Coarse 2x3 zone. Still here because the texture map and the target's
-   * reaction animations are authored against it — but it is now DERIVED from
+   * reaction animations are authored against it - but it is now derived from
    * `impact` rather than being the measurement. See strikeGeometry.ts.
    */
   zone: TargetZone;
@@ -73,17 +63,17 @@ export interface StrikeEvent {
   damage: number;
   /**
    * How far past the reach threshold the punch got, 0-1, after which it is
-   * clamped. Drives impact strength — a fully committed cross should move the
+   * clamped. Drives impact strength - a fully committed cross should move the
    * target more than a flicked jab.
    */
   power: number;
   /** Peak fist speed during the strike, torso-widths per second. */
   speed: number;
   /**
-   * How far the GLOVE'S striking surface was from the shoulder when the strike
-   * landed, in torso units — i.e. wrist extension plus the glove.
+   * How far the glove's striking surface was from the shoulder when the strike
+   * landed, in torso units - i.e. wrist extension plus the glove.
    *
-   * The threshold still gates on WRIST extension, because that is what
+   * The threshold still gates on wrist extension, because that is what
    * measures commitment and it is what the detection was calibrated against.
    * This is what actually made contact, and it is what TARGET_CONFIG.distance
    * is derived from so the glove meets the face instead of passing through it.
@@ -96,13 +86,13 @@ export interface StrikeEvent {
 }
 
 interface HandState {
-  /** True while the fist is past the reach threshold — used for edge
+  /** True while the fist is past the reach threshold - used for edge
    * detection, so one long extension registers one strike, not sixty. */
   extended: boolean;
   /** Last extension reading, torso units. */
   lastReach: number;
   lastPos: { x: number; y: number } | null;
-  /** Previous out-of-plane extension, torso units — differentiated to get the
+  /** Previous out-of-plane extension, torso units - differentiated to get the
    *  forward component of travel without ever reading MediaPipe's z. */
   lastDepth: number;
   lastT: number;
@@ -145,16 +135,16 @@ interface ArmSpan {
 }
 
 /**
- * Measures reach as on-screen extension PLUS how far the arm points out of the
+ * Measures reach as on-screen extension plus how far the arm points out of the
  * image plane.
  *
- * The depth half must be measured PER SEGMENT, against each segment's own full
+ * The depth half must be measured per segment, against each segment's own full
  * length. An earlier version compared the sum of both segments against a
  * straight arm, which is wrong in a way that matters: bending your elbow also
- * shortens that sum, so a normal guard — elbow folded, fist at the chin —
+ * shortens that sum, so a normal guard - elbow folded, fist at the chin -
  * registered as a heavily foreshortened arm and sat most of the way to a
  * landed hit. Comparing each segment to itself separates the two: bending
- * changes the angle BETWEEN segments, foreshortening shortens each one.
+ * changes the angle between segments, foreshortening shortens each one.
  *
  * Both halves are needed. A hook travels a long way on screen and barely
  * foreshortens; a straight punch down the lens barely moves on screen and
@@ -169,7 +159,7 @@ function reachOf(
 ): { reach: number; depth: number } {
   const planar = Math.hypot(wrist.x - shoulder.x, wrist.y - shoulder.y) / torso;
 
-  // sqrt(1 - (projected/full)^2) — the same derivation the retargeting layer
+  // sqrt(1 - (projected/full)^2) - the same derivation the retargeting layer
   // uses, from x/y only. MediaPipe's z is never read.
   const depthOf = (projected: number, fullLen: number) => {
     if (!(fullLen > 1e-6)) return 0;
@@ -181,7 +171,7 @@ function reachOf(
 
   // Out-of-plane distance the fist has travelled, in the same torso units as
   // `planar`. Returned alongside the reach so the caller can differentiate it
-  // over time and recover a forward VELOCITY — which is what separates a
+  // over time and recover a forward velocity - which is what separates a
   // straight punch down the lens from a hook, now that the arc descriptor is
   // measured rather than classified.
   const forward = depth * (full.upper + full.lower);
@@ -194,8 +184,8 @@ function reachOf(
 /**
  * Where a fist sits in the body frame, as continuous coordinates.
  *
- * Height is measured from the HIP line and divided by the torso scale, which
- * is itself the shoulder-to-hip distance — so the shoulder line lands at
+ * Height is measured from the hip line and divided by the torso scale, which
+ * is itself the shoulder-to-hip distance - so the shoulder line lands at
  * exactly 1.0 for every player, of any height, at any distance from the
  * camera. The anatomical table in strikeGeometry.ts is written against that
  * normalisation, which is why its numbers are proportions and not centimetres.
@@ -222,14 +212,14 @@ export class StrikeResolver {
     right: freshHand(),
   };
   /**
-   * Longest length seen for each arm SEGMENT, torso units — the reference
+   * Longest length seen for each arm segment, torso units - the reference
    * foreshortening is measured against.
    *
    * Seeded from anthropometry rather than starting at zero, and this matters:
    * starting from the first observation would make the threshold depend on
    * whatever the player happened to be doing when training mode opened. It
-   * only ever grows, because a shorter reading is foreshortening — the signal
-   * — not a better measurement.
+   * only ever grows, because a shorter reading is foreshortening - the signal
+   * - not a better measurement.
    */
   private fullArm: Record<HandSide, ArmSpan> = {
     left: { ...STRIKE_CONFIG.seedArmSpan },
@@ -263,7 +253,7 @@ export class StrikeResolver {
       speed: { left: this.hands.left.speed, right: this.hands.right.speed },
       zone: { ...this.zone },
       impact: { ...this.impact },
-      // Live region readout — this is what makes the new model legible while
+      // Live region readout - this is what makes the new model legible while
       // training: you can see the name of the spot your fist is currently
       // pointing at, before you commit to the punch.
       region: {
@@ -295,7 +285,7 @@ export class StrikeResolver {
         wrist.confidence < minConf
       ) {
         // Losing the arm must not fire a strike, and must not leave the hand
-        // latched "extended" — otherwise the next good frame registers a hit
+        // latched "extended" - otherwise the next good frame registers a hit
         // the player never threw.
         state.extended = false;
         state.lastPos = null;
@@ -303,7 +293,7 @@ export class StrikeResolver {
       }
 
       // Learn this player's segment lengths. Grows immediately (a longer
-      // observation is real evidence), never shrinks — a shorter reading is
+      // observation is real evidence), never shrinks - a shorter reading is
       // foreshortening, which is the signal, not noise.
       const span: ArmSpan = {
         upper: Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) / torso,

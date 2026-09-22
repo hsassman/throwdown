@@ -4,9 +4,9 @@ import { SYNTHETIC_TORSO_SCALE, syntheticIdle } from "./synthetic";
 import { TEST_CALIBRATION as CAL } from "./testCalibration";
 import type { PoseFrame } from "../pose/poseTypes";
 
-// Milestone 2's done-when has two halves: dodges must register promptly, AND
+// Milestone 2's done-when has two halves: dodges must register promptly, and
 // ordinary movement must not trigger them. The false-trigger tests below carry
-// as much weight as the positive ones — a detector that fires on every
+// as much weight as the positive ones - a detector that fires on every
 // sidestep would technically "detect dodges" while being useless in a fight.
 
 
@@ -15,7 +15,7 @@ function neutralFrame(): PoseFrame {
   return syntheticIdle(1)[0];
 }
 
-/** Moves the whole body by (dx, dy) — a step, not a dodge. */
+/** Moves the whole body by (dx, dy) - a step, not a dodge. */
 function translate(f: PoseFrame, dx: number, dy: number): PoseFrame {
   const out = { timestamp: f.timestamp } as PoseFrame;
   for (const k of Object.keys(f) as (keyof PoseFrame)[]) {
@@ -29,7 +29,7 @@ function translate(f: PoseFrame, dx: number, dy: number): PoseFrame {
   return out;
 }
 
-/** Moves only the head, leaving the shoulders put — an actual slip. */
+/** Moves only the head, leaving the shoulders put - an actual slip. */
 function moveHead(f: PoseFrame, dx: number, dy: number): PoseFrame {
   return {
     ...f,
@@ -39,7 +39,7 @@ function moveHead(f: PoseFrame, dx: number, dy: number): PoseFrame {
 
 const S = SYNTHETIC_TORSO_SCALE;
 
-describe("dodge detector — neutral and false triggers", () => {
+describe("dodge detector - neutral and false triggers", () => {
   it("reports no dodge when standing at the calibrated neutral", () => {
     const d = new DodgeDetector();
     const s = d.update(neutralFrame(), CAL);
@@ -63,7 +63,7 @@ describe("dodge detector — neutral and false triggers", () => {
   });
 });
 
-describe("dodge detector — real dodges", () => {
+describe("dodge detector - real dodges", () => {
   it("reports a lean when the head slips sideways over the shoulders", () => {
     const d = new DodgeDetector();
     const right = d.update(moveHead(neutralFrame(), 0.3 * S, 0), CAL);
@@ -89,8 +89,8 @@ describe("dodge detector — real dodges", () => {
   });
 
   it("reports a duck when the whole body crouches", () => {
-    // Bending the knees lowers head AND shoulders together, so their relative
-    // distance is unchanged — this is caught by the body-drop signal instead,
+    // Bending the knees lowers head and shoulders together, so their relative
+    // distance is unchanged - this is caught by the body-drop signal instead,
     // and would be missed entirely by head-drop alone.
     const d = new DodgeDetector();
     const crouched = translate(neutralFrame(), 0, 0.3 * S);
@@ -99,7 +99,7 @@ describe("dodge detector — real dodges", () => {
   });
 });
 
-describe("dodge detector — tracking loss", () => {
+describe("dodge detector - tracking loss", () => {
   it("holds the last state rather than snapping upright when the nose is lost", () => {
     // Snapping to neutral mid-dodge would let the simulation score a hit that
     // the player had actually slipped.

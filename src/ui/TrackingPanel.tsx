@@ -5,15 +5,13 @@ import { MONITOR_CONFIG } from "../config/tuning";
 import "./trackingPanel.css";
 
 // The standing assessment of the camera signal, made visible.
-// WHY THIS EXISTS AS A SCREEN
-//
 // The monitor runs continuously whatever the player is doing, and it already
 // decides how hard to filter and how far to predict. Two things follow from
 // that, and they are the whole argument for showing it:
 //
 //   The player needs to be able to see it. "The game feels laggy" and "my
 //   webcam is delivering 11 frames a second in a dark room" are the same
-//   experience, and only one of them is fixable — by the player, in about
+//   experience, and only one of them is fixable - by the player, in about
 //   thirty seconds, by turning a light on. A score with no explanation would
 //   leave them blaming the game.
 //
@@ -21,7 +19,7 @@ import "./trackingPanel.css";
 //   underneath the player without being asked. Something that quietly changes
 //   how the game responds must be able to say what it changed and why, or it
 //   is indistinguishable from the game being inconsistent.
-// POLLED, NOT SUBSCRIBED
+// Polled, not subscribed
 //
 // The report is produced on every pose sample (~15/s). Pushing each one into
 // React state would re-render this panel fifteen times a second to move a
@@ -32,7 +30,7 @@ const POLL_MS = 400;
 /**
  * Each metric in its own units.
  *
- * A bare number is close to useless here — 0.0043 means nothing without
+ * A bare number is close to useless here - 0.0043 means nothing without
  * knowing it is torso units of frame-to-frame shake, and a player reading
  * "rate 14.9" needs the Hz to know whether that is good.
  */
@@ -65,7 +63,7 @@ export function TrackingPanel({ reportRef }: Props) {
   }, [reportRef]);
 
   if (!report) {
-    return <p className="muted small">Waiting for the camera…</p>;
+    return <p className="muted small">Waiting for the camera...</p>;
   }
 
   // "No signal yet" and "a terrible signal" are the same score and completely
@@ -76,7 +74,7 @@ export function TrackingPanel({ reportRef }: Props) {
     return (
       <div className="tpanel">
         <div className="tpanel-score" data-grade="waiting">
-          <div className="tpanel-score-value">—</div>
+          <div className="tpanel-score-value">-</div>
           <div className="tpanel-score-label">
             Tracking quality
             <span>Not measured yet</span>
@@ -105,12 +103,12 @@ export function TrackingPanel({ reportRef }: Props) {
               ? "Good signal"
               : grade === "fair"
                 ? "Usable, not great"
-                : "Poor — see below"}
+                : "Poor - see below"}
           </span>
         </div>
       </div>
 
-      {/* Every metric, always — including the healthy ones. Showing only
+      {/* Every metric, always - including the healthy ones. Showing only
           problems means a player with a perfect signal sees an empty panel and
           cannot tell it from a broken one. */}
       <ul className="tpanel-metrics">
@@ -176,14 +174,14 @@ export function TrackingPanel({ reportRef }: Props) {
  * The whole-body channels, live.
  *
  * Shown wherever the character is on screen, because these are the numbers a
- * player can verify with their own body in about two seconds — step forward
+ * player can verify with their own body in about two seconds - step forward
  * and `depth` should rise, crouch and `crouch` should fill, blade and `turn`
  * should open. A channel that is silently dead is otherwise indistinguishable
  * from one the player is not moving enough to trigger.
  */
 export function BodyChannels({ body }: { body: BodyMotion }) {
   if (!body.tracked) {
-    return <p className="muted small">Body not tracked — step into frame.</p>;
+    return <p className="muted small">Body not tracked - step into frame.</p>;
   }
   const rows: { label: string; value: number; unit: string; range: number }[] = [
     { label: "Slip", value: body.lateral, unit: "torso", range: 0.7 },

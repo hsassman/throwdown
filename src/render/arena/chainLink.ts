@@ -2,13 +2,13 @@ import * as THREE from "three";
 
 // Procedural chain-link fencing.
 //
-// WHY A TEXTURE AND NOT GEOMETRY
+// Why a texture and not geometry
 //
 // Modelled wire is the obvious answer and the wrong one. One wall of 2-inch
 // diamonds is about 140 x 70 = ~9800 links; at even 40 triangles for a link's
 // tube that is ~400k triangles per panel and 3.1M for the cage, before a
 // single fighter is drawn. The mesh is also the one thing in the scene the
-// camera is almost always looking THROUGH rather than at.
+// camera is almost always looking through rather than at.
 //
 // So: one alpha-masked quad per wall, with the diamond pattern drawn into a
 // tiling texture. The cost is that the wire has no thickness in silhouette;
@@ -16,7 +16,7 @@ import * as THREE from "three";
 // grey haze anyway, and the diamonds still read correctly because the pattern
 // is generated at the true physical aperture rather than eyeballed.
 //
-// The tile is ONE diamond, repeated by the sampler. Drawing a whole wall into
+// The tile is one diamond, repeated by the sampler. Drawing a whole wall into
 // a texture instead would need a ~4096px map to keep the wire crisp, and would
 // have to be regenerated whenever a wall's size changed.
 
@@ -45,7 +45,7 @@ export function chainLinkTexture(options: ChainLinkOptions): {
   const res = options.resolution ?? 128;
   const colour = options.colour ?? "#d8dce2";
   // Wire width in tile pixels, from the real ratio. A 0.18" wire in a 2"
-  // aperture is 9% of the tile — thin, but never thinner than one pixel or the
+  // aperture is 9% of the tile - thin, but never thinner than one pixel or the
   // canvas rasteriser drops it entirely and the fence renders invisible.
   const w = Math.max(1.4, (options.wire / options.aperture) * res);
 
@@ -60,8 +60,8 @@ export function chainLinkTexture(options: ChainLinkOptions): {
   ctx.lineCap = "square";
   ctx.strokeStyle = colour;
 
-  // One diamond = two crossing diagonals. Each is drawn three times — once
-  // through the tile and once shifted by a full tile in each direction — so
+  // One diamond = two crossing diagonals. Each is drawn three times - once
+  // through the tile and once shifted by a full tile in each direction - so
   // the strokes meet exactly at the seam instead of stopping a half-width
   // short and leaving a visible grid of dashes when tiled.
   const diagonals: [number, number, number, number][] = [

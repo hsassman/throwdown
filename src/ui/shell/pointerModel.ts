@@ -2,50 +2,30 @@ import { torsoScaleOf, type PoseFrame } from "../../pose/poseTypes";
 import { POINTER_CONFIG } from "../../config/tuning";
 
 // Driving the menu with your hands.
-// THE PROBLEM THIS IS ACTUALLY SOLVING
 //
-// A camera cursor has no button. Every gesture interface has to answer one
-// question — "did they mean that?" — and gets it wrong in two directions:
+// A camera cursor has no button, so it has to answer "did they mean that?" and
+// can get it wrong two ways. A false press drops the player into a mode they
+// did not choose - and in a boxing game their hands are up and moving
+// constantly, so that is the default state of the input, not an edge case. A
+// missed press costs a second and is obviously theirs to retry. This is tuned
+// hard toward missing rather than firing.
 //
-//   FALSE PRESS. The player scratches their nose, rests a hand, or drifts
-//   across a tile while reaching for their coffee, and the menu fires. In a
-//   boxing game the player's hands are up and moving CONSTANTLY, so this is
-//   not an edge case; it is the default state of the input.
+// Four defences, separate because they fail separately:
 //
-//   MISSED PRESS. The confirmation is so guarded that the player waves at the
-//   screen and nothing happens, which reads as the tracking being broken.
+//   Dwell       hand must stay on a target for dwellMs.
+//   Steadiness  and stay still while it does; motion past steadyRadius
+//               restarts it. Catches a hand moving slowly through a tile,
+//               which dwell alone cannot tell from intent.
+//   Re-arm      after a press the hand must leave before it can press again.
+//               Stops one dwell firing repeatedly because the hand is, quite
+//               naturally, still there.
+//   Settle      a short window on entering a target where dwell does not
+//               accumulate, so a fast hand overshooting onto a neighbour does
+//               not immediately start arming it.
 //
-// The project owner asked specifically to "avoid accidental button presses
-// entirely", so this is tuned toward the second failure. A missed press costs
-// a second and is obviously the player's move to retry; a false press drops
-// them into a mode they did not choose and may not know how to leave.
-// FOUR INDEPENDENT DEFENCES, EACH FOR A DIFFERENT FALSE PRESS
-//
-// 1. DWELL. The hand must stay on a target for `dwellMs`. Stops anything that
-//    merely passes over a tile.
-//
-// 2. STEADINESS. It must stay still while dwelling — motion beyond
-//    `steadyRadius` restarts the dwell. Stops a hand that happens to be moving
-//    THROUGH a tile slowly, which pure dwell cannot distinguish from intent.
-//
-// 3. RE-ARM. After a press, the hand must LEAVE the target before it can press
-//    anything again. Stops the single most common gesture-UI failure: one
-//    dwell firing repeatedly because the hand is, naturally, still there.
-//
-// 4. SETTLE. On entering a target, a short window during which dwell does not
-//    accumulate at all. Stops a fast hand overshooting onto a neighbour and
-//    immediately beginning to arm it.
-//
-// Dwell alone gives none of the other three. They are separate mechanisms
-// because they fail separately, and a single combined timer cannot express
-// "moved away and came back" at all.
-// WHY NORMALISED BY THE TORSO, AND NOT BY THE IMAGE
-//
-// The hand's position is measured RELATIVE TO THE SHOULDERS and divided by the
-// torso scale — the same normalisation the whole perception layer uses. Raw
-// image coordinates would mean the cursor's reach depended on how far the
-// player was sitting from the camera: stand back and the menu becomes
-// unreachable, lean in and a twitch crosses the whole screen.
+// Positions are measured relative to the shoulders and divided by torso scale,
+// like the rest of perception. Raw image coordinates would make the cursor's
+// reach depend on how far away the player sat.
 
 export type PointerHand = "left" | "right";
 
@@ -81,22 +61,12 @@ export interface PointerTarget {
   disabled?: boolean;
 }
 
-export const IDLE: PointerState = {
-  x: 0.5,
-  y: 0.5,
-  hand: "right",
-  tracked: false,
-  hoverId: null,
-  progress: 0,
-  pressed: null,
-  reason: null,
-};
 
 /**
  * Maps a pose frame to a raw cursor position, before any smoothing.
  *
  * Returns null when neither hand is usable, which the caller must render as
- * "no pointer" rather than as a cursor parked at the last position — a stale
+ * "no pointer" rather than as a cursor parked at the last position - a stale
  * cursor sitting on a tile is precisely the state that dwell would then
  * happily confirm.
  */
@@ -110,7 +80,7 @@ export function cursorFromPose(
   const shoulderMidX = (pose.leftShoulder.x + pose.rightShoulder.x) / 2;
   const shoulderMidY = (pose.leftShoulder.y + pose.rightShoulder.y) / 2;
 
-  // The HIGHER hand drives, which is how people actually point — and in this
+  // The higher hand drives, which is how people actually point - and in this
   // game the raised hand is the one deliberately out of guard. Picking a fixed
   // hand would force right-handed use; picking the more confident one would
   // make the cursor jump between hands as tracking fluttered.
@@ -119,14 +89,14 @@ export function cursorFromPose(
     { kp: pose.leftWrist, hand: "left" as PointerHand },
   ].filter((c) => c.kp.confidence >= minConfidence);
   if (candidates.length === 0) return null;
-  // Image y grows downward, so the higher hand is the SMALLER y.
+  // Image y grows downward, so the higher hand is the smaller y.
   const best = candidates.reduce((a, b) => (b.kp.y < a.kp.y ? b : a));
 
   const dx = (best.kp.x - shoulderMidX) / scale.value;
   const dy = (best.kp.y - shoulderMidY) / scale.value;
 
   // Map the reach box onto the screen. The player's camera image is mirrored
-  // for display, so moving the RIGHT hand right must move the cursor right:
+  // for display, so moving the right hand right must move the cursor right:
   // the x term is negated to undo the mirror. Getting this backwards makes the
   // menu feel possessed, and it is invisible in a static screenshot.
   const { reachX, reachY, restY } = POINTER_CONFIG;
@@ -195,7 +165,7 @@ export class CameraPointer {
   /**
    * Feeds one pose frame.
    *
-   * `pose` may be null, meaning tracking is lost — which is NOT the same as
+   * `pose` may be null, meaning tracking is lost - which is not the same as
    * the hand being still, and must abandon any dwell in progress.
    */
   update(
@@ -284,7 +254,7 @@ export class CameraPointer {
 
   /**
    * `reason` is passed in rather than re-derived here, because only the caller
-   * knows WHICH of the four defences held the dwell back on this frame, and
+   * knows which of the four defences held the dwell back on this frame, and
    * the whole point of surfacing it is to tell the player what to do about it.
    */
   private snapshot(

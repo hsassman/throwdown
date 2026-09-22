@@ -10,7 +10,7 @@ import type { PipelineDebug, PoseStatus } from "../pose/usePoseTracking";
 // frame rate on your actual target hardware", and the fallback trigger is
 // "well below 24-30 FPS". A single instantaneous FPS number can't answer that,
 // so this reports the distribution and calls out the p5 (worst 5% of frames)
-// explicitly — that's the figure that decides whether fast punches get dropped.
+// explicitly - that's the figure that decides whether fast punches get dropped.
 
 interface Props {
   frameIntervalStats: RollingStats;
@@ -26,7 +26,7 @@ interface Props {
   onReset: () => void;
 }
 
-/** Interval (ms) -> rate (Hz). p5 interval is the WORST case, so it maps to the
+/** Interval (ms) -> rate (Hz). p5 interval is the worst case, so it maps to the
  *  lowest rate; the naming below keeps that straight deliberately. */
 function intervalToRate(ms: number): number {
   return ms > 0 ? 1000 / ms : 0;
@@ -102,13 +102,13 @@ export function DebugHud({
   return (
     <div className="hud">
       <div className="hud-row">
-        <strong>Milestone 0 — pose tracking</strong>
+        <strong>Milestone 0 - pose tracking</strong>
         <button onClick={onReset}>reset stats</button>
       </div>
 
       <div className="hud-row">
         <span>pose: {poseStatus}</span>
-        <span>delegate: {delegate ?? "—"}</span>
+        <span>delegate: {delegate ?? "-"}</span>
       </div>
 
       <div className="hud-row">
@@ -120,7 +120,7 @@ export function DebugHud({
           camera:{" "}
           {camera
             ? `${camera.width}x${camera.height} @ ${camera.frameRate.toFixed(0)}fps`
-            : "—"}
+            : "-"}
         </span>
       </div>
 
@@ -134,8 +134,8 @@ export function DebugHud({
         </span>
       </div>
       <div className="hud-note">
-        pose sample rate — {bar}
-        {bar === "poor" ? " · below the 24–30 FPS floor" : ""}
+        pose sample rate - {bar}
+        {bar === "poor" ? " · below the 24-30 FPS floor" : ""}
       </div>
       <div className={found < 0.5 ? "hud-poor" : "hud-note"}>
         body detected in {(found * 100).toFixed(0)}% of frames
@@ -149,14 +149,14 @@ export function DebugHud({
       <div className="hud-block">
         <div className="hud-label">frame interval</div>
         <div className="hud-stat">
-          {interval ? formatStats(interval, "ms") : "—"}
+          {interval ? formatStats(interval, "ms") : "-"}
         </div>
       </div>
 
       <div className="hud-block">
         <div className="hud-label">inference cost</div>
         <div className="hud-stat">
-          {inference ? formatStats(inference, "ms") : "—"}
+          {inference ? formatStats(inference, "ms") : "-"}
         </div>
       </div>
 

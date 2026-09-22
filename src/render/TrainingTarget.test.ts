@@ -34,8 +34,8 @@ beforeEach(() => {
   target.setHome(new THREE.Vector3(0, 0, 1.15));
 });
 
-// Built from a landing POINT rather than a hand-written zone, so the fixture
-// exercises the same derivation the live resolver does — a test that hardcoded
+// Built from a landing point rather than a hand-written zone, so the fixture
+// exercises the same derivation the live resolver does - a test that hardcoded
 // both the point and the zone could not catch them disagreeing.
 const strike = (over: Partial<StrikeEvent> = {}): StrikeEvent => {
   const impact = over.impact ?? { lateral: 0, height: 1.22 };
@@ -68,7 +68,7 @@ function headWorld(): THREE.Vector3 {
 /**
  * The head's position relative to the figure's own root.
  *
- * Needed to see the POSTURE separately from the whole-body knockback: every
+ * Needed to see the posture separately from the whole-body knockback: every
  * punch pushes the target backwards along +Z, and at a realistic knockback
  * that translation is larger than the body-fold rotation, so measuring the
  * head in world space says "moved backwards" for every kind of hit.
@@ -90,7 +90,7 @@ function settle(seconds: number, step = 1 / 60): THREE.Vector3[] {
 describe("TrainingTarget", () => {
   it("clones into an independent skeleton, not one sharing the player's bones", () => {
     // The reason cloneSkinned is used rather than Object3D.clone: a plain
-    // clone leaves the copy's SkinnedMesh bound to the ORIGINAL bones, so the
+    // clone leaves the copy's SkinnedMesh bound to the original bones, so the
     // target would deform with the player's character. Silent and baffling.
     const playerBone = source.getObjectByName("c_head")!;
     const targetBone = model.getObjectByName("c_head")!;

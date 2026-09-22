@@ -2,14 +2,14 @@ import * as THREE from "three";
 
 /**
  * Finds the character's own skin among the skinned meshes under `root`.
- * WHY THIS EXISTS RATHER THAN AN INLINE `traverse`
+ * Why this exists rather than an inline `traverse`
  *
  * Every caller used to do this:
  *
  *     let mesh = null;
  *     root.traverse((o) => { if (o.isSkinnedMesh) mesh = o; });
  *
- * which takes the LAST skinned mesh in traversal order. That was correct for
+ * which takes the last skinned mesh in traversal order. That was correct for
  * exactly as long as the asset contained one skinned mesh, and it broke
  * silently the moment the Blender pipeline added eyeballs: the figure now
  * carries three skinned meshes (`body`, `eye_L`, `eye_R`), and "the last one"
@@ -21,15 +21,15 @@ import * as THREE from "three";
  * sphere. The test suite caught it as ten failing assertions about UVs, which
  * is a long way from the actual cause.
  *
- * LARGEST, NOT FIRST. Traversal order is an accident of how the exporter wrote
- * the file, so "first" is no more principled than "last" — a re-export that
+ * Largest, not first. Traversal order is an accident of how the exporter wrote
+ * the file, so "first" is no more principled than "last" - a re-export that
  * reorders nodes would flip it. Vertex count is a property of the geometry,
  * and the body outweighs any single piece of kit by a wide margin (5429
- * against 423 for an eye). Kit added later — gloves, shorts, boots — is also
+ * against 423 for an eye). Kit added later - gloves, shorts, boots - is also
  * skinned, so this only gets more important, not less.
  */
 export function findBodyMesh(root: THREE.Object3D): THREE.SkinnedMesh | null {
-  // BY NAME first -- the Blender pipeline (blender/scripts/01_import.py)
+  // By name first -- the Blender pipeline (blender/scripts/01_import.py)
   // names the body node "body" on the way in, and glTF export preserves it.
   //
   // This used to be "largest skinned mesh, no other signal", which broke the
@@ -61,15 +61,4 @@ export function findBodyMesh(root: THREE.Object3D): THREE.SkinnedMesh | null {
     }
   });
   return best;
-}
-
-/** Every skinned mesh under `root`, body and kit alike. For the cases that
- *  genuinely mean all of them — frustum culling, disposal. */
-export function allSkinnedMeshes(root: THREE.Object3D): THREE.SkinnedMesh[] {
-  const found: THREE.SkinnedMesh[] = [];
-  root.traverse((o) => {
-    const m = o as THREE.SkinnedMesh;
-    if (m.isSkinnedMesh) found.push(m);
-  });
-  return found;
 }

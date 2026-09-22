@@ -6,8 +6,8 @@ import { midpoint, type Keypoint, type PoseFrame } from "../pose/poseTypes";
 const kp = (x: number, y: number, confidence = 1): Keypoint => ({ x, y, confidence });
 
 /**
- * Poses in the RAW (unmirrored) camera frame: the player faces the camera, so
- * their anatomical LEFT sits at larger image x.
+ * Poses in the raw (unmirrored) camera frame: the player faces the camera, so
+ * their anatomical left sits at larger image x.
  *
  * The right arm's three postures are laid out with real proportions, so the
  * measured segment lengths actually mean what the resolver assumes. Torso here
@@ -17,7 +17,7 @@ const kp = (x: number, y: number, confidence = 1): Keypoint => ({ x, y, confiden
  */
 type Arm = { elbow: [number, number]; wrist: [number, number] };
 
-/** Elbow folded, fist at the chin. Both segments at close to full ON-SCREEN
+/** Elbow folded, fist at the chin. Both segments at close to full on-screen
  * length, so there is no foreshortening to mistake for extension. */
 const GUARD: Arm = { elbow: [0.4, 0.56], wrist: [0.47, 0.37] };
 
@@ -147,7 +147,7 @@ describe("StrikeResolver", () => {
     expect(run(r, frames)).toHaveLength(0);
   });
 
-  it("reads landmarks only — no dependency on MediaPipe z", () => {
+  it("reads landmarks only - no dependency on MediaPipe z", () => {
     // Every z carries a wild value; the result must be identical without it.
     const clean = new StrikeResolver();
     const poisoned = new StrikeResolver();
@@ -180,7 +180,7 @@ describe("zoneOf", () => {
 
   it("reports the lane from the PLAYER's point of view, not the image's", () => {
     // The raw camera image is unmirrored, so the player's own right hand sits
-    // at SMALLER x. Reporting the image side here would label every right hook
+    // at smaller x. Reporting the image side here would label every right hook
     // as arriving on the left.
     const wide = STRIKE_CONFIG.laneHalfWidth * torso * 2;
     const mid = (shoulders.x + hips.x) / 2;

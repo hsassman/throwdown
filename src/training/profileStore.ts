@@ -1,14 +1,14 @@
 import { reviveProfile, type TrainingProfile } from "./profile";
 
 // localStorage persistence for the training profile.
-// EVERY OPERATION HERE IS ALLOWED TO FAIL, AND NONE OF THEM MAY THROW
+// Every operation here is allowed to fail, and none of them may throw
 //
 // `localStorage` is not the reliable key-value store it looks like:
 //
 //   * It is absent entirely in a Vitest/node environment, and in a worker.
-//   * Access to it THROWS (not returns null) in a browser configured to block
+//   * Access to it throws (not returns null) in a browser configured to block
 //     site data, and in some private-browsing modes.
-//   * `setItem` throws `QuotaExceededError` when full — and Safari reports a
+//   * `setItem` throws `QuotaExceededError` when full - and Safari reports a
 //     zero quota in private mode, so the very first write can fail.
 //
 // A training mode that dies because the browser declined to remember a score
@@ -30,7 +30,7 @@ export interface StoreResult {
 /** Narrow wrapper so a missing or hostile localStorage is handled in one place. */
 function storage(): Storage | null {
   try {
-    // The access itself can throw, so it must be inside the try — checking
+    // The access itself can throw, so it must be inside the try - checking
     // `typeof localStorage` first is not enough.
     const s = globalThis.localStorage;
     if (!s) return null;

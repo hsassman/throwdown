@@ -13,11 +13,11 @@ import { POINTER_CONFIG } from "../../config/tuning";
 import "./shell.css";
 
 // The menu.
-// TWO INPUTS, ONE SOURCE OF TRUTH
+// Two inputs, one source of truth
 //
-// The list is driven by BOTH the camera pointer and the keyboard, and they
+// The list is driven by both the camera pointer and the keyboard, and they
 // must never disagree about where focus is. So there is exactly one `focusId`
-// in state, and each input writes to it — the camera on hover, the keyboard on
+// in state, and each input writes to it - the camera on hover, the keyboard on
 // arrow keys. The detail panel reads only that.
 //
 // The alternative, which is what usually gets built, is a `hoverIndex` for the
@@ -25,7 +25,7 @@ import "./shell.css";
 // bug where the panel shows one thing and the confirm activates another.
 //
 // Real DOM focus is kept in sync too, so a screen reader and Tab still work.
-// The camera is an ADDITION to the keyboard here, never a replacement — a
+// The camera is an addition to the keyboard here, never a replacement - a
 // player whose camera is not working must still be able to reach the tracking
 // diagnostics that would tell them why.
 
@@ -51,8 +51,8 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
       if (!item) return;
       setFocusId(id);
       if (!isPlayable(item)) {
-        // Pressing a locked row must EXPLAIN, not silently do nothing. Silence
-        // is indistinguishable from the input being broken — and with a camera
+        // Pressing a locked row must explain, not silently do nothing. Silence
+        // is indistinguishable from the input being broken - and with a camera
         // pointer the player's first assumption will always be that the
         // tracking failed.
         setRejected(id);
@@ -70,7 +70,7 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
     disabledIds: LOCKED,
   });
 
-  // The camera's hover IS the focus. One source of truth.
+  // The camera's hover is the focus. One source of truth.
   useEffect(() => {
     if (camera.hoverId) setFocusId(camera.hoverId);
   }, [camera.hoverId]);
@@ -89,7 +89,7 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
       if (i < 0) return;
       const move = (d: number) => {
         e.preventDefault();
-        // Wrapping, not clamping — pressing down on the last row to reach the
+        // Wrapping, not clamping - pressing down on the last row to reach the
         // first is the convention and it is genuinely faster.
         const next = FLAT[(((i + d) % FLAT.length) + FLAT.length) % FLAT.length];
         setFocusId(next.id);
@@ -117,8 +117,12 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
 
   const focused = useMemo(() => ITEM_BY_ID.get(focusId) ?? FLAT[0], [focusId]);
 
+  // What the camera is doing right now. Only ever about the camera, because
+  // that is the input whose state the player cannot see for themselves - the
+  // keyboard and mouse either work or the machine is broken, and reporting on
+  // them frame by frame would be noise.
   const hint = !cameraReady
-    ? "Camera not running — use the arrow keys and Enter."
+    ? "Camera not running."
     : !camera.tracked
       ? "Raise a hand into frame to point."
       : camera.reason === "moving"
@@ -141,6 +145,22 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
         <p className="shell-hint" role="status">
           {hint}
         </p>
+        {/* Every input the shell accepts, stated once and always visible. The
+            three are genuinely equal here - the camera is the headline, but a
+            player whose webcam is covered, or who is simply sitting down,
+            needs to know the list is fully navigable without it, and that was
+            previously only mentioned once the camera had already failed. */}
+        <ul className="shell-inputs" aria-label="How to navigate">
+          <li>
+            <kbd>&uarr;</kbd>
+            <kbd>&darr;</kbd> move
+          </li>
+          <li>
+            <kbd>Enter</kbd> select
+          </li>
+          <li>Mouse: hover and click</li>
+          <li>Camera: hold a hand over a row</li>
+        </ul>
       </header>
 
       <div className="shell-body">
@@ -162,8 +182,8 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
                           data-focused={item.id === focusId}
                           data-rejected={rejected === item.id}
                           data-locked={!playable}
-                          /* Deliberately NOT aria-disabled. A locked row is
-                             not a dead control — activating it explains why it
+                          /* Deliberately not aria-disabled. A locked row is
+                             not a dead control - activating it explains why it
                              is locked, which is the whole point. Marking it
                              disabled would promise assistive technology that
                              pressing it does nothing, which is false, and it
@@ -215,7 +235,7 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
           )}
           {rejected === focused.id && (
             <p className="shell-detail-reject" role="alert">
-              Not available yet — {focused.lockedReason}
+              Not available yet - {focused.lockedReason}
             </p>
           )}
           <p className="shell-detail-dwell">

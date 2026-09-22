@@ -11,7 +11,7 @@ import {
 // Structured like usePunchDetection: its own rAF loop reading poseRef, so
 // perception stays decoupled from inference and nothing here depends on where
 // the pose came from. Landed strikes go into a queue the render layer drains,
-// rather than through React state — at pose rate a state update per strike
+// rather than through React state - at pose rate a state update per strike
 // would re-render the tree in the middle of a combination.
 
 export interface StrikeTrainingHandle {
@@ -20,8 +20,8 @@ export interface StrikeTrainingHandle {
   /**
    * Subscribes to every resolved strike.
    *
-   * Separate from `strikeQueueRef` on purpose. The queue is DRAINED by whoever
-   * reads it, so it supports exactly one consumer — the renderer, which plays
+   * Separate from `strikeQueueRef` on purpose. The queue is drained by whoever
+   * reads it, so it supports exactly one consumer - the renderer, which plays
    * each hit on the target. The simulation is a second, independent consumer
    * that must see every strike too, and adding a second drainer would mean the
    * two race and each gets roughly half the punches.
@@ -30,7 +30,7 @@ export interface StrikeTrainingHandle {
   /** Live reach/zone readout for the diagnostics panel. */
   debugRef: React.RefObject<StrikeDebugState | null>;
   /** The most recent strike, for a human-readable readout. State, not a ref,
-   * because this one IS meant to trigger a re-render — at most a few times a
+   * because this one is meant to trigger a re-render - at most a few times a
    * second, and only while the training panel is open. */
   lastStrike: StrikeEvent | null;
   reset: () => void;

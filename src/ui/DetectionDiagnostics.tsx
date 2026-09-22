@@ -79,7 +79,7 @@ export function DetectionDiagnostics({ diagnosticsRef, onReset }: Props) {
         Excursion is how far the fist travels from its calibrated guard. If
         these stay below the gate while you punch hard, the threshold is
         unreachable rather than strict. The excursion gate shown is the
-        EFFECTIVE one — it rises above the configured {C.minPunchExcursion} when
+        EFFECTIVE one - it rises above the configured {C.minPunchExcursion} when
         your measured guard jitter demands it.
       </div>
       <table className="features">

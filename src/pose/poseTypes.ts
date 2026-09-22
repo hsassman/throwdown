@@ -10,7 +10,7 @@ export interface Keypoint {
   x: number; // normalized [0,1], relative to video width
   y: number; // normalized [0,1], relative to video height
   /**
-   * Normalized depth. Treat as the LEAST reliable axis — see
+   * Normalized depth. Treat as the least reliable axis - see
    * the gesture-classification notes. Punches travel toward the camera, which is
    * exactly where this signal degrades, so the punch classifier must not lean
    * on z magnitude. Kept here for debug inspection, not for classification.
@@ -29,7 +29,7 @@ export interface Keypoint {
 export interface PoseFrame {
   timestamp: number;
 
-  // Arm chain — punch classification (Milestone 1).
+  // Arm chain - punch classification (Milestone 1).
   leftShoulder: Keypoint;
   rightShoulder: Keypoint;
   leftElbow: Keypoint;
@@ -37,18 +37,18 @@ export interface PoseFrame {
   leftWrist: Keypoint;
   rightWrist: Keypoint;
 
-  // Torso reference — scale normalization and guard-height reference.
+  // Torso reference - scale normalization and guard-height reference.
   leftHip: Keypoint;
   rightHip: Keypoint;
 
-  // Head — dodge/duck detection (Milestone 2).
+  // Head - dodge/duck detection (Milestone 2).
   nose: Keypoint;
   leftEye: Keypoint;
   rightEye: Keypoint;
   leftEar: Keypoint;
   rightEar: Keypoint;
 
-  // --- Extended landmarks, OPTIONAL by design. ---
+  // --- Extended landmarks, optional by design. ---
   //
   // Only the cosmetic retargeting layer (Track B) reads these: legs give the
   // character a stance, hand points give its fists an orientation. They are
@@ -157,7 +157,7 @@ export function midpoint(a: Keypoint, b: Keypoint): Keypoint {
 
 /**
  * Approximate shoulder-hip distance as a multiple of shoulder width, used when
- * the hips aren't visible. Rough anthropometric ratio — shoulder breadth and
+ * the hips aren't visible. Rough anthropometric ratio - shoulder breadth and
  * shoulder-to-hip height are broadly comparable, with the torso slightly the
  * longer of the two. Only a scale reference, so being a few percent off shifts
  * all thresholds together rather than distorting any one feature.
@@ -175,7 +175,7 @@ export interface TorsoScale {
  * Body-scale reference that normalizes every perception threshold, so the same
  * tuning holds at any distance or body size. Prefers shoulder-to-hip distance
  * (invariant to a bladed boxing stance, unlike shoulder width, which shrinks
- * side-on) and falls back to shoulder width when the hips aren't tracked — as
+ * side-on) and falls back to shoulder width when the hips aren't tracked - as
  * they often aren't at a desk webcam.
  */
 export function torsoScaleOf(

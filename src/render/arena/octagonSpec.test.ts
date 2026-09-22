@@ -11,7 +11,7 @@ import {
   walls,
 } from "./octagonSpec";
 
-// These assert the arena against the REFERENCE SHEET, not against the code's
+// These assert the arena against the reference sheet, not against the code's
 // own arithmetic. The sheet gives three figures; if the interpretation of
 // "30 feet across" were wrong, two of the three would disagree, so this is a
 // real check rather than a restatement.
@@ -39,7 +39,7 @@ describe("octagon dimensions", () => {
   it("has a circumradius larger than its apothem", () => {
     // Trivially true for any polygon, but it is the direction of this
     // inequality that the flat-to-flat reading hinges on: corner-to-corner
-    // must come out LARGER than 30 ft, not smaller.
+    // must come out larger than 30 ft, not smaller.
     expect(circumradius()).toBeGreaterThan(apothem());
     expect((circumradius() * 2) / FT).toBeGreaterThan(30);
   });
@@ -110,8 +110,8 @@ describe("wall orientation", () => {
         .normalize();
       const inward = new THREE.Vector3(-wall.mid.x, 0, -wall.mid.z).normalize();
 
-      // Either face will do — the material is DoubleSide — but the panel has
-      // to lie ACROSS the opening, not point through it.
+      // Either face will do - the material is DoubleSide - but the panel has
+      // to lie across the opening, not point through it.
       expect(Math.abs(normal.dot(inward))).toBeCloseTo(1, 6);
     }
   });

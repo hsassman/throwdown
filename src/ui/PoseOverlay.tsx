@@ -23,22 +23,22 @@ interface Props {
 }
 
 const BONES: [AnyPoseKey, AnyPoseKey][] = [
-  // Arm chain — the punch classification signal.
+  // Arm chain - the punch classification signal.
   ["leftShoulder", "rightShoulder"],
   ["leftShoulder", "leftElbow"],
   ["leftElbow", "leftWrist"],
   ["rightShoulder", "rightElbow"],
   ["rightElbow", "rightWrist"],
-  // Torso — scale reference.
+  // Torso - scale reference.
   ["leftShoulder", "leftHip"],
   ["rightShoulder", "rightHip"],
   ["leftHip", "rightHip"],
-  // Head — the dodge/duck signal.
+  // Head - the dodge/duck signal.
   ["leftEar", "leftEye"],
   ["leftEye", "nose"],
   ["nose", "rightEye"],
   ["rightEye", "rightEar"],
-  // Legs and hands — not used by perception, but they drive the character's
+  // Legs and hands - not used by perception, but they drive the character's
   // stance and fists, so seeing whether they are tracked at all matters when
   // the boxer's lower body refuses to move.
   ["leftHip", "leftKnee"],
@@ -75,7 +75,7 @@ const POINTS: AnyPoseKey[] = [
   "rightPinky",
 ];
 
-/** Landmarks nothing in perception reads — drawn dimmer so the overlay still
+/** Landmarks nothing in perception reads - drawn dimmer so the overlay still
  * reads as "these are the signals the game runs on" at a glance. */
 const COSMETIC_ONLY = new Set<AnyPoseKey>([
   "leftKnee", "rightKnee", "leftAnkle", "rightAnkle",
@@ -103,8 +103,8 @@ export function PoseOverlay({
     function resize() {
       if (!canvas || !ctx) return;
       // Backing store in device pixels for crispness, but the context is then
-      // scaled so ALL drawing below is in CSS pixels. Without that scale, line
-      // widths and dot radii are device pixels — on a 3x phone the skeleton
+      // scaled so all drawing below is in CSS pixels. Without that scale, line
+      // widths and dot radii are device pixels - on a 3x phone the skeleton
       // renders a third of its intended size, which is exactly the hardware
       // this most needs to be readable on.
       const dpr = window.devicePixelRatio || 1;
@@ -129,7 +129,7 @@ export function PoseOverlay({
     /**
      * Where the video image actually sits inside the canvas, in CSS pixels.
      * `object-fit: cover` scales the stream to fill the box and crops the
-     * overflow, centred — so normalized landmarks map into that cropped rect,
+     * overflow, centred - so normalized landmarks map into that cropped rect,
      * not the whole element.
      */
     function coverRect() {

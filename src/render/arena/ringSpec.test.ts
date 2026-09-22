@@ -42,7 +42,7 @@ describe("ring dimensions", () => {
     expect(RING.ropeHeights).toEqual(sorted);
   });
 
-  it("runs sixteen rope segments — four sides at four heights", () => {
+  it("runs sixteen rope segments - four sides at four heights", () => {
     expect(ropes()).toHaveLength(16);
   });
 
@@ -99,7 +99,7 @@ describe("the built ring", () => {
       )!;
       expect(rope).toBeDefined();
 
-      // A cylinder runs along its OWN +Y.
+      // A cylinder runs along its own +Y.
       const end = new THREE.Vector3(0, length / 2, 0)
         .applyQuaternion(rope.quaternion)
         .add(rope.position);
@@ -134,7 +134,7 @@ describe("the built ring", () => {
     });
     ring.dispose();
     // Geometries are shared between repeated parts, so this is not one per
-    // mesh — the point is that dispose actually reaches them.
+    // mesh - the point is that dispose actually reaches them.
     expect(disposed).toBeGreaterThan(0);
   });
 });

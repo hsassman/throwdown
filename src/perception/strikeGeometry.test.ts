@@ -9,7 +9,7 @@ import {
 import { StrikeResolver, impactPointOf } from "./strikeResolver";
 import type { PoseFrame } from "../pose/poseTypes";
 
-// The point of phase 2 is that a strike resolves from GEOMETRY, never from a
+// The point of phase 2 is that a strike resolves from geometry, never from a
 // classifier's label. These tests are written to fail if that regresses.
 
 const kp = (x: number, y: number, confidence = 1) => ({ x, y, z: 0, confidence });
@@ -19,7 +19,7 @@ describe("anatomical map", () => {
     // Encoded striking knowledge, asserted so a future tuning pass cannot
     // quietly invert it: chin and jaw rotate the head, the liver and solar
     // plexus fold people up, the crown is the hardest bone in the body and the
-    // shoulder is what you are SUPPOSED to be hit on.
+    // shoulder is what you are supposed to be hit on.
     const by = (id: string) => allRegions().find((r) => r.id === id)!;
     expect(by("chin").damage).toBeGreaterThan(by("nose").damage);
     expect(by("jaw_left").damage).toBeGreaterThan(by("forehead").damage);
@@ -44,9 +44,9 @@ describe("anatomical map", () => {
   });
 
   it("resolves every point on the body to something, never to nothing", () => {
-    // The core claim of the rework: a strike can land ANYWHERE and always
+    // The core claim of the rework: a strike can land anywhere and always
     // produces a result. Sweeping the whole reachable envelope is the only
-    // honest way to assert that — a handful of spot checks would pass even
+    // honest way to assert that - a handful of spot checks would pass even
     // with a hole in the middle of the table.
     for (let h = -0.4; h <= 2.0; h += 0.02) {
       for (let lat = -0.8; lat <= 0.8; lat += 0.02) {
@@ -104,8 +104,8 @@ describe("impact point", () => {
   const torso = 0.3;
 
   it("puts the shoulder line at exactly 1.0 for any fighter", () => {
-    // Falls out of the normalisation rather than being a chosen constant —
-    // the torso scale IS the shoulder-to-hip distance. The anatomical table is
+    // Falls out of the normalisation rather than being a chosen constant -
+    // the torso scale is the shoulder-to-hip distance. The anatomical table is
     // written against this, so if it ever stopped holding every region
     // boundary would shift.
     const at = impactPointOf(kp(0.5, 0.4), shoulders, hips, torso);
@@ -157,7 +157,7 @@ describe("resolver still honours the standing rules", () => {
 
   it("produces identical results with every z poisoned", () => {
     // The rule is absolute: MediaPipe's z is never read. Poisoning it must
-    // change nothing, including the new approach vector — whose forward
+    // change nothing, including the new approach vector - whose forward
     // component comes from x/y foreshortening, not from z.
     const run = (z: number) => {
       const r = new StrikeResolver();

@@ -1,12 +1,12 @@
 # Kit drop folder
 
 Put the source garment meshes here. The fit scripts look for these exact
-filenames (any of `.glb`, `.gltf`, `.fbx`, `.obj` — change the `SOURCE`
+filenames (any of `.glb`, `.gltf`, `.fbx`, `.obj` - change the `SOURCE`
 constant at the top of the script if you use a different extension):
 
 | File         | Used by          | Notes |
 |--------------|------------------|-------|
-| `glove.glb`  | `03_gloves.py`   | **One** glove. The other hand is mirrored automatically — do not supply a pair. |
+| `glove.glb`  | `03_gloves.py`   | **One** glove. The other hand is mirrored automatically - do not supply a pair. |
 | `shorts.glb` | `04_shorts.py`   | Boxing trunks. Modelled as a closed garment, not a cloth sheet. |
 | `shoe.glb`   | `05_shoes.py`    | **One** boot. Mirrored automatically, same as the glove. |
 
@@ -30,7 +30,7 @@ fix bad source geometry. Before dropping a file in here, check:
 - **It does not need to be skinned.** Weights are transferred from the body.
   Any armature it arrives with is discarded.
 - **Its material is plain PBR.** `KHR_materials_pbrSpecularGlossiness` is not
-  usable — three.js dropped support in r165, so such an asset loads untextured.
+  usable - three.js dropped support in r165, so such an asset loads untextured.
   Convert to metallic/roughness first.
 - **It faces the same way the rig does.** The scripts position and scale, but
   they do not guess rotation. Orient it in Blender and re-export if needed.

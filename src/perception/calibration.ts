@@ -3,7 +3,7 @@
 // Every classifier threshold is expressed relative to the player's own body
 // (torso scale) rather than raw image units, so one set of constants works
 // across builds and camera distances. Captures neutral pose, guard position,
-// torso scale and stance — stance is captured, not inferred, because inferring
+// torso scale and stance - stance is captured, not inferred, because inferring
 // which hand leads would lean on the unreliable z axis.
 
 import {
@@ -20,16 +20,16 @@ export interface CalibrationData {
   stance: Stance;
   /** Shoulder-to-hip distance in normalized units. The unit for all thresholds. */
   torsoScale: number;
-  /** Mean y of the shoulder line — the reference for "below shoulder height". */
+  /** Mean y of the shoulder line - the reference for "below shoulder height". */
   shoulderY: number;
-  /** Mean x of the shoulder midpoint — the body midline, for inward travel. */
+  /** Mean x of the shoulder midpoint - the body midline, for inward travel. */
   midlineX: number;
   /** Mean wrist-to-shoulder distance at guard, torso-normalized, per hand. */
   guardExtension: Record<HandSide, number>;
 
   /**
-   * Guard position of each wrist as a shoulder-relative offset, torso units —
-   * the origin punches are measured as excursions FROM. Shoulder-relative so it
+   * Guard position of each wrist as a shoulder-relative offset, torso units -
+   * the origin punches are measured as excursions from. Shoulder-relative so it
    * survives the player moving around the frame, and a vector (not the scalar
    * `guardExtension`) because a punch at the camera barely changes distance
    * from the shoulder while clearly leaving this position.
@@ -39,7 +39,7 @@ export interface CalibrationData {
   /**
    * How far each fist wandered while holding guard, torso units (90th
    * percentile of distance from the median guard position). Makes the punch
-   * threshold partly self-calibrating — it scales to this player's stance and
+   * threshold partly self-calibrating - it scales to this player's stance and
    * camera noise instead of a constant guessed in advance.
    */
   guardJitter: Record<HandSide, number>;
@@ -63,7 +63,7 @@ export interface CalibrationData {
   /**
    * Which reference the scale came from. A session calibrated on shoulder width
    * (hips out of frame) isn't directly comparable to one on shoulder-hip
-   * distance — worth knowing when comparing matrices across sessions.
+   * distance - worth knowing when comparing matrices across sessions.
    */
   scaleSource: TorsoScaleSource;
 }
@@ -146,7 +146,7 @@ export class CalibrationCollector {
    */
   sample(pose: PoseFrame): boolean {
     const minConf = PERCEPTION_CONFIG.minLandmarkConfidence;
-    // Hips are not required — torsoScaleOf falls back to shoulder width, so
+    // Hips are not required - torsoScaleOf falls back to shoulder width, so
     // calibration still works at a desk where a webcam sees only head and torso.
     if (
       !allVisible(
@@ -197,7 +197,7 @@ export class CalibrationCollector {
       angleDeg(pose.rightShoulder, pose.rightElbow, pose.rightWrist)
     );
 
-    // Head reference, against the shoulder line. Needs the nose specifically —
+    // Head reference, against the shoulder line. Needs the nose specifically -
     // the arm landmarks checked above say nothing about whether the face tracks.
     if (pose.nose.confidence >= minConf) {
       this.acc.headLateral.push((pose.nose.x - shoulders.x) / scale.value);
@@ -246,7 +246,7 @@ export class CalibrationCollector {
     };
   }
 
-  /** Mean torso scale so far — used for live calibration feedback. */
+  /** Mean torso scale so far - used for live calibration feedback. */
   get liveTorsoScale(): number {
     return mean(this.acc.torso);
   }

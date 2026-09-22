@@ -5,12 +5,12 @@ import { TrackingMonitor } from "./trackingMonitor";
 import { MONITOR_CONFIG } from "../config/tuning";
 import { POSE_KEYS, type PoseFrame, type PoseKey } from "./poseTypes";
 
-// The loop that makes the tracking monitor DO something.
+// The loop that makes the tracking monitor do something.
 //
 // Until these knobs existed the monitor was a thermometer with nothing
 // attached: it measured the signal every frame, computed a correction, and
 // nothing read it. These tests cover the two things it is allowed to move, and
-// — just as importantly — that it still cannot move anything else.
+// - just as importantly - that it still cannot move anything else.
 
 const BASE: Record<PoseKey, { x: number; y: number }> = {
   leftShoulder: { x: 0.58, y: 0.4 },
@@ -61,9 +61,9 @@ describe("smoothing scale", () => {
 
   it("filters HARDER as the scale rises, not softer", () => {
     // The direction is the whole point and it is easy to get backwards: a One
-    // Euro cutoff is a FREQUENCY, so more smoothing means a LOWER number. A
+    // Euro cutoff is a frequency, so more smoothing means a lower number. A
     // scale that multiplied the cutoff would have made a noisy signal twitchier
-    // — the exact opposite of what the monitor asked for, and it would have
+    // - the exact opposite of what the monitor asked for, and it would have
     // looked like the auto-tuner making things worse.
     const soft = stepResponse(1);
     const hard = stepResponse(2.5);
@@ -77,7 +77,7 @@ describe("smoothing scale", () => {
 
   it("retunes in place instead of restarting the filters", () => {
     // Rebuilding a filter discards its history and restarts it from the next
-    // sample — a visible jump on every landmark, every time the auto-tuner
+    // sample - a visible jump on every landmark, every time the auto-tuner
     // nudged anything.
     const s = new PoseSmoother();
     let t = 0;
@@ -141,7 +141,7 @@ describe("prediction scale", () => {
 
 describe("what the loop is allowed to touch", () => {
   it("still exposes ONLY smoothing and prediction", () => {
-    // The architectural line, re-asserted at the point of USE rather than only
+    // The architectural line, re-asserted at the point of use rather than only
     // where the values are produced. Now that something consumes the tuning,
     // a third knob would actually reach the pipeline.
     const m = new TrackingMonitor();

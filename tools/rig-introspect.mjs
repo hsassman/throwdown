@@ -1,7 +1,7 @@
 // Prints ground truth about the exported MHR rig: real child bones, bind-pose
 // world positions/directions, and the model bounding box.
 //
-// Exists because the retargeting code was written against ASSUMPTIONS about
+// Exists because the retargeting code was written against assumptions about
 // the rig (which child continues each chain, which side "l_" is on in world
 // space) and those assumptions produced a visibly broken character. Everything
 // here is read from the actual asset. Run: node tools/rig-introspect.mjs
@@ -70,7 +70,7 @@ new GLTFLoader().parse(
         c.getWorldPosition(cwp);
         const d = cwp.distanceTo(wp);
         const dir = cwp.clone().sub(wp);
-        const dirStr = d > 1e-6 ? v(dir.normalize()) : "*** ZERO LENGTH — normalize() would yield NaN ***";
+        const dirStr = d > 1e-6 ? v(dir.normalize()) : "*** ZERO LENGTH - normalize() would yield NaN ***";
         console.log(
           `    ${c.name.padEnd(26)} isBone=${!!c.isBone} dist=${d.toFixed(5)} dir=${dirStr}`
         );

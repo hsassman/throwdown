@@ -1,15 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { STRIKE_CONFIG, TARGET_CONFIG } from "../config/tuning";
 
-// Guards the ONE number that ties perception to the render layer.
-// WHY THIS TEST EXISTS
-//
+// Guards the one number that ties perception to the render layer.
 // Hit detection reads landmarks only and never the character mesh, so it
 // cannot see the glove. The glove's reach therefore enters as a constant
 // measured offline (STRIKE_CONFIG.gloveNoseReach), while the distance the
 // target stands at lives in the render layer (TARGET_CONFIG.distance).
 //
-// Those two are only correct TOGETHER. Nothing in the type system relates
+// Those two are only correct together. Nothing in the type system relates
 // them, and the last time they drifted the symptom was the glove passing
 // straight through the opponent's head on every straight punch -- the target
 // distance had been derived for a bare fist, before gloves existed, and was
@@ -32,7 +30,7 @@ const RIG = {
   bareFist: 0.15009,
   /** Target's head front surface, forward of that figure's own centre. */
   headFront: 0.1551,
-  /** Allowed glove compression at FULL extension. A padded glove squashes on
+  /** Allowed glove compression at full extension. A padded glove squashes on
    *  impact; one that stops dead on the skin reads as a mime. */
   maxCompression: 0.05,
 };

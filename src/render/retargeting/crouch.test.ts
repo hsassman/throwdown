@@ -79,7 +79,7 @@ describe("the duck", () => {
 
   it("keeps the feet on the canvas", () => {
     // The entire reason the drop is derived from the bone lengths. Without it
-    // the bend swings the feet up instead of lowering the hips — the figure
+    // the bend swings the feet up instead of lowering the hips - the figure
     // stays at the same height with its legs folded under it, which is the
     // levitation this replaced, now with knees.
     const before = world("l_foot").y;
@@ -98,7 +98,7 @@ describe("the duck", () => {
     // off the punch line. A duck that only bent the knees would lower a
     // perfectly upright figure, like a lift.
     // Differential: the bind pose does not stand with the head exactly over
-    // the hip, so what matters is that the duck moves it FORWARD of wherever
+    // the hip, so what matters is that the duck moves it forward of wherever
     // it started, not where it ends up in absolute terms.
     duck(0);
     const upright = world("c_head").z - world("c_spine0").z;
@@ -145,7 +145,7 @@ describe("repeated frames", () => {
   it("does not accumulate when asked to start from bind", () => {
     // The real bug: a caller that poses only the arms has nothing resetting
     // the legs, so composing a fresh bend every frame folded the figure inside
-    // out within a second — its feet ended up above its head.
+    // out within a second - its feet ended up above its head.
     const first = applyCrouch(figure, rig, 1, { fromBind: true });
     const afterOne = world("l_foot").clone();
     for (let i = 0; i < 120; i++) applyCrouch(figure, rig, 1, { fromBind: true });

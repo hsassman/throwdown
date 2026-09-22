@@ -4,7 +4,7 @@ import { coarseZone, regionAt, type ImpactPoint } from "../perception/strikeGeom
 
 // A builder for synthetic strikes, shared by the training tests.
 //
-// It deliberately DERIVES `zone` and `region` from the impact point using the
+// It deliberately derives `zone` and `region` from the impact point using the
 // real strikeGeometry functions, rather than letting each test hand-write
 // them. A test fixture that carried a hand-chosen region would happily assert
 // that a punch to the temple scored as a liver shot, and the test would pass.

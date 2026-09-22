@@ -7,8 +7,8 @@ import { torsoScaleOf } from "../pose/poseTypes";
 import type { PunchEvent } from "./punchTypes";
 import { PERCEPTION_CONFIG } from "../config/tuning";
 
-// These tests check the perception layer's PLUMBING against idealised motion.
-// They deliberately do not claim anything about real-world accuracy — see the
+// These tests check the perception layer's plumbing against idealised motion.
+// They deliberately do not claim anything about real-world accuracy - see the
 // header of synthetic.ts for why that distinction matters here.
 
 
@@ -126,9 +126,9 @@ describe("feature signs", () => {
 });
 
 describe("classification of idealised motion", () => {
-  // If these fail, Approach A has a bug. If these pass but a real measured run
+  // If these fail, Approach a has a bug. If these pass but a real measured run
   // fails, that is the documented frontal-camera limitation rather than a
-  // defect — the distinction this whole file exists to make.
+  // defect - the distinction this whole file exists to make.
   it("classifies an unambiguous hook as a hook", () => {
     for (const hand of ["left", "right"] as const) {
       expect(run(syntheticPunch("hook", { hand }))[0].type).toBe("hook");
@@ -208,7 +208,7 @@ describe("detection robustness", () => {
           : f;
       events.push(...c.update(dropped, CAL, dropped.timestamp));
     });
-    // Either it recovers and reports a punch, or it discards it — but it must
+    // Either it recovers and reports a punch, or it discards it - but it must
     // never report one built from a trajectory with a hole in it.
     for (const e of events) {
       expect(e.features.sampleCount).toBeGreaterThanOrEqual(

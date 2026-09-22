@@ -1,5 +1,5 @@
 // Perception-layer vocabulary. These are the discrete outputs the rest of the
-// game consumes — the simulation and netcode layers see only these, never
+// game consumes - the simulation and netcode layers see only these, never
 // landmarks (docs/ARCHITECTURE.md).
 
 /** Which physical arm moved. Independent of stance. */
@@ -30,7 +30,7 @@ export const PUNCH_FAMILY: Record<PunchType, PunchFamily> = {
 /** Features measured over a single punch, from launch to peak extension. */
 export interface PunchFeatures {
   /** Peak distance the fist travelled from its calibrated guard, torso units.
-   *  This is the signal detection gates on — see Sample.excursion. */
+   *  This is the signal detection gates on - see Sample.excursion. */
   peakExcursion: number;
   /** Horizontal wrist travel, torso-normalized. Positive = toward body midline. */
   inwardTravel: number;
@@ -53,7 +53,7 @@ export interface PunchFeatures {
   lowestHeight: number;
   /** Milliseconds from launch to peak. */
   durationMs: number;
-  /** Frames sampled during the punch — low counts mean the pose rate starved
+  /** Frames sampled during the punch - low counts mean the pose rate starved
    *  the classifier, which matters when interpreting a misclassification. */
   sampleCount: number;
 }
@@ -64,7 +64,7 @@ export interface PunchEvent {
   hand: HandSide;
   /** "lead" or "rear" given the calibrated stance. */
   role: "lead" | "rear";
-  /** [0,1] — margin between the winning score and the runner-up. */
+  /** [0,1] - margin between the winning score and the runner-up. */
   confidence: number;
   /** Per-type scores, for debugging why a call was made. */
   scores: Record<PunchType, number>;

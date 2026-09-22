@@ -1,49 +1,33 @@
-// Region-of-interest cropping: spend the model's pixels on the PLAYER.
-// WHY THIS IS THE BIGGEST SINGLE LEVER IN THE PIPELINE
+// Region-of-interest cropping: spend the model's pixels on the player.
 //
-// pose_landmarker_lite resizes whatever you hand it down to a small square
-// tensor. At a desk webcam the player occupies maybe a third of the frame's
-// width and rather less of its height, so after that resize the actual body —
-// the only part anything cares about — is left with a small fraction of the
-// available pixels. Every landmark's precision is bounded by that.
+// pose_landmarker_lite resizes whatever it is given down to a small square
+// tensor. At a desk webcam the player fills maybe a third of the frame, so
+// after that resize the body gets a small fraction of the available pixels,
+// and every landmark's precision is bounded by it. Cropping first gives the
+// same model roughly 2-3x the linear resolution on every joint, and uploads a
+// few hundred pixels square instead of a full frame.
 //
-// Cropping to the player before inference fixes both halves of this brief at
-// once, which is rare:
-//
-//   ACCURACY  the body fills the tensor instead of a third of it, so the same
-//             model sees roughly 2-3x the linear resolution on every joint.
-//             Landmark noise is largely a function of pixels-on-target.
-//   SPEED     the texture uploaded per frame is a few hundred pixels square
-//             instead of a full camera frame.
-//
-// WHY IT IS DONE BY HAND AND NOT THROUGH THE API
-//
-// tasks-vision DOES define `imageProcessingOptions.regionOfInterest`, and it
-// looks like exactly the right tool. It is not usable here. Every vision task
-// carries a "ROI allowed" flag set in its constructor, and PoseLandmarker
-// passes FALSE:
+// Done by hand rather than through the API. tasks-vision defines
+// `imageProcessingOptions.regionOfInterest`, but every vision task carries a
+// "ROI allowed" flag and PoseLandmarker passes false:
 //
 //     class extends dc { constructor(t,e){ super(new ac(t,e),
 //         "image_in", "norm_rect", !1 ), ... } }
 //                                    ^^^ roiAllowed = false
 //
-// Passing a regionOfInterest to PoseLandmarker throws "This task doesn't
-// support region-of-interest." at runtime. Verified by reading the shipped
-// bundle, not assumed. So the crop is done into a canvas we own, and the
-// landmarks are mapped back afterwards.
+// Passing one throws "This task doesn't support region-of-interest." Read out
+// of the shipped bundle, not assumed.
 //
-// THE THING THAT MAKES OR BREAKS IT
-//
-// A jittering crop window injects its own jitter into every landmark, because
-// a landmark that is stationary in the world moves within a window that is
-// itself moving. That would trade pixel precision for a new noise source and
-// come out behind. So the window is heavily damped, snaps outward instantly
-// but contracts slowly, and is quantised so tiny changes do not move it at all.
+// The thing that makes or breaks it: a jittering crop window injects its own
+// jitter into every landmark, because a landmark stationary in the world moves
+// within a window that is itself moving. That trades pixel precision for a new
+// noise source and comes out behind. So the window is heavily damped, snaps
+// outward instantly but contracts slowly, and is quantised.
 
 import { ALL_POSE_KEYS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { ROI_CONFIG } from "../config/tuning";
 
-/** A crop window in SOURCE PIXELS. */
+/** A crop window in source pixels. */
 export interface CropRect {
   x: number;
   y: number;
@@ -84,7 +68,7 @@ export class RoiTracker {
   /**
    * Updates the window from the most recent pose.
    *
-   * Takes the pose in FULL-FRAME normalized coordinates — i.e. after
+   * Takes the pose in full-frame normalized coordinates - i.e. after
    * mapBack() has already run. Feeding it crop-space coordinates would make
    * the window chase its own tail and converge on a point.
    */
@@ -130,8 +114,8 @@ export class RoiTracker {
     let y1 = maxY * videoH;
 
     // Margin. Asymmetric on purpose: a punch sends a wrist well outside the
-    // body's box and the crop must already contain where the hand is GOING,
-    // not where it was — a landmark that leaves the window is not merely
+    // body's box and the crop must already contain where the hand is going,
+    // not where it was - a landmark that leaves the window is not merely
     // imprecise, it is unobservable.
     const w = Math.max(1, x1 - x0);
     const h = Math.max(1, y1 - y0);
@@ -165,7 +149,7 @@ export class RoiTracker {
       return;
     }
 
-    // Asymmetric damping. Growing is urgent — if the player has moved out of
+    // Asymmetric damping. Growing is urgent - if the player has moved out of
     // the box, every frame spent easing toward the new one is a frame of bad
     // data. Shrinking is never urgent, so it is slow enough to be invisible.
     const grow = want.w > this.rect.w;
@@ -199,9 +183,9 @@ export class RoiTracker {
       coverage: r && area > 0 ? (r.w * r.h) / area : 1,
       // How much bigger the body is in the tensor than it would otherwise be.
       //
-      // Compared against the LETTERBOXED full frame, which is the actual
-      // alternative — not against the frame's shorter edge. Fitting a 640x480
-      // frame into a square tensor is limited by its LONGER edge (640), and
+      // Compared against the letterboxed full frame, which is the actual
+      // alternative - not against the frame's shorter edge. Fitting a 640x480
+      // frame into a square tensor is limited by its longer edge (640), and
       // the short edge is padded with black. Measuring against 480 understated
       // the real gain by a third, which I only noticed because a test asserted
       // a number I had predicted by hand and it came out low.
@@ -217,7 +201,7 @@ export class RoiTracker {
   }
 
   /**
-   * Converts a landmark expressed in CROP space back to full-frame normalized
+   * Converts a landmark expressed in crop space back to full-frame normalized
    * coordinates. A no-op when no crop is active.
    */
   mapBack(nx: number, ny: number, videoW: number, videoH: number): [number, number] {
@@ -242,7 +226,7 @@ function clampToFrame(rect: CropRect, videoW: number, videoH: number): CropRect 
  * The scratch canvas inference actually reads from.
  *
  * Deliberately a single reused canvas. Allocating one per frame would hand the
- * GC a multi-megabyte object 15-25 times a second, and — worse — would force a
+ * GC a multi-megabyte object 15-25 times a second, and - worse - would force a
  * new GPU texture allocation on every upload, which is the exact cost this
  * whole module exists to reduce.
  */
@@ -277,7 +261,7 @@ export class CropCanvas {
       if (rect) {
         ctx.drawImage(video, rect.x, rect.y, rect.w, rect.h, 0, 0, size, size);
       } else {
-        // No crop yet: fit the whole frame into the square WITHOUT stretching,
+        // No crop yet: fit the whole frame into the square without stretching,
         // letterboxing instead. A stretched person is a person the model has
         // never seen, and the first few frames are what acquire the pose that
         // everything after depends on.

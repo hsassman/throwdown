@@ -1,12 +1,12 @@
 // A camera director.
 //
-// Produces a DESIRED camera pose each frame; the renderer eases toward it.
-// Deliberately free of three.js so the shot logic can be tested headlessly —
+// Produces a desired camera pose each frame; the renderer eases toward it.
+// Deliberately free of three.js so the shot logic can be tested headlessly -
 // "did it cut to the right shot at the right moment" is a scheduling question,
 // not a rendering one.
-// THE RULE THIS IS BUILT AROUND: NEVER CUT AWAY FROM A LIVE EXCHANGE
+// The rule it is built around: never cut away from a live exchange.
 //
-// Broadcast fight coverage is famously conservative — one wide camera holds
+// Broadcast fight coverage is famously conservative - one wide camera holds
 // almost the entire fight, and the dramatic angles only appear in replay. That
 // is not a lack of ambition, it is because a cut mid-exchange costs the viewer
 // a beat of reorientation, and a beat is a whole combination.
@@ -49,6 +49,18 @@ export interface DirectorInput {
   opponent: Vec3;
   /** Radius of the cage, for keeping shots inside it. */
   radius: number;
+  /**
+   * The fighter this moment is about, when there is one. Defaults to the
+   * midpoint between the two.
+   *
+   * Added because the knockdown shot was framed on the midpoint, and during a
+   * knockdown the midpoint is not where the story is: one fighter is on the
+   * canvas and the other is standing over them, so the middle of the two is
+   * the standing one's waist. The first real knockdown put the downed fighter
+   * in the bottom corner, half out of frame, behind the man who had just hit
+   * them.
+   */
+  subject?: Vec3;
 }
 
 interface Shot {
@@ -66,6 +78,10 @@ const mid = (a: Vec3, b: Vec3): Vec3 => ({
   z: (a.z + b.z) / 2,
 });
 
+/** What a shot should be pointed at: whoever the moment is about, or the
+ *  middle of the two when it is about both of them. */
+const focus = (i: DirectorInput): Vec3 => i.subject ?? mid(i.player, i.opponent);
+
 /** Unit vector from a to b on the ground plane, with a stable fallback. */
 function axis(a: Vec3, b: Vec3): Vec3 {
   const dx = b.x - a.x;
@@ -73,14 +89,14 @@ function axis(a: Vec3, b: Vec3): Vec3 {
   const d = Math.hypot(dx, dz);
   // Two fighters standing in exactly the same spot has no meaningful axis.
   // Without a fallback every shot derived from it becomes NaN and the camera
-  // vanishes — and a clinch is precisely when they are closest.
+  // vanishes - and a clinch is precisely when they are closest.
   if (d < 1e-4) return { x: 0, y: 0, z: 1 };
   return { x: dx / d, y: 0, z: dz / d };
 }
 
 const SHOTS: Record<ShotName, Shot> = {
   // The workhorse. Side-on to the line between the fighters, so both are
-  // visible and neither occludes the other — the single most important
+  // visible and neither occludes the other - the single most important
   // property of a fight camera and the reason broadcast sits side-on rather
   // than behind.
   broadcast: {
@@ -120,21 +136,27 @@ const SHOTS: Record<ShotName, Shot> = {
     },
   },
 
-  // The knockdown shot. Low, close, looking up — which is the angle that makes
+  // The knockdown shot. Low, close, looking up - which is the angle that makes
   // a downed fighter read as downed rather than just short.
   lowAngle: {
     hold: DIRECTOR_CONFIG.knockdownHold,
     ease: DIRECTOR_CONFIG.fastEase,
-    frame({ player, opponent }) {
-      const c = mid(player, opponent);
+    frame(input) {
+      const { player, opponent } = input;
+      // The downed fighter, when the caller says who that is - not the middle
+      // of the two. See DirectorInput.subject.
+      const c = focus(input);
       const a = axis(player, opponent);
+      const d = DIRECTOR_CONFIG.lowAngleDistance;
       return {
         position: {
-          x: c.x - a.z * 1.6 + a.x * 0.6,
+          x: c.x - a.z * d + a.x * d * 0.38,
           y: DIRECTOR_CONFIG.lowAngleHeight,
-          z: c.z + a.x * 1.6 + a.z * 0.6,
+          z: c.z + a.x * d + a.z * d * 0.38,
         },
-        target: { x: c.x, y: c.y + 1.1, z: c.z },
+        // Low: a fighter on the canvas is a metre below where they were
+        // standing, and an aim at chest height looks over the top of them.
+        target: { x: c.x, y: c.y + DIRECTOR_CONFIG.lowAngleAim, z: c.z },
         fov: 52,
       };
     },
@@ -143,10 +165,11 @@ const SHOTS: Record<ShotName, Shot> = {
   corner: {
     hold: DIRECTOR_CONFIG.cornerHold,
     ease: DIRECTOR_CONFIG.slowEase,
-    frame({ player, radius }) {
+    frame(input) {
+      const c = focus(input);
       return {
-        position: { x: player.x * 1.4, y: 2.2, z: player.z * 1.4 + radius * 0.5 },
-        target: { x: player.x, y: player.y + 1.3, z: player.z },
+        position: { x: c.x * 1.4, y: 2.2, z: c.z * 1.4 + input.radius * 0.5 },
+        target: { x: c.x, y: c.y + 1.3, z: c.z },
         fov: 38,
       };
     },
@@ -190,15 +213,61 @@ export class FightCamera {
   pose: CameraPose;
   private holdLeft = 0;
   private locked = false;
+  private house: CameraPose | null = null;
 
   constructor(input: DirectorInput) {
     this.pose = SHOTS.broadcast.frame(input);
   }
 
   /**
+   * The pose to rest at when no cinematic shot is running.
+   *
+   * This exists because the director is not the gameplay camera. Shadow Box is
+   * played by standing in front of a webcam, and the shot the player needs
+   * while they are actually boxing is the over-the-shoulder one the renderer
+   * already derives from the measured figure - the one where their own right
+   * hand is on the right of the screen. A side-on broadcast shot is a lovely
+   * replay angle and an unplayable gameplay angle.
+   *
+   * So the renderer hands its gameplay pose in as the house shot, and the
+   * director's job narrows to: take the camera somewhere for a knockdown, a
+   * round break or a decision, then put it back. Putting it back through the
+   * same ease is the whole point - without a house shot the only way back is
+   * a teleport, and the camera would snap on every return.
+   *
+   * Pass null to fall back to the built-in side-on broadcast frame, which is
+   * what a spectator or replay view wants.
+   */
+  setHouseShot(pose: CameraPose | null): void {
+    this.house = pose;
+  }
+
+  /** True while the director is showing something other than the house shot,
+   *  i.e. while it - rather than the caller - should own the camera. */
+  get cinematic(): boolean {
+    return this.shot !== "broadcast";
+  }
+
+  /** Distance from the current eased pose to where it is heading. The caller
+   *  uses this to know when a return to the house shot has finished and it can
+   *  take its camera back. */
+  settleError(input: DirectorInput): number {
+    const want = this.frameOf(this.shot, input);
+    return Math.max(
+      dist3(this.pose.position, want.position),
+      dist3(this.pose.target, want.target)
+    );
+  }
+
+  private frameOf(shot: ShotName, input: DirectorInput): CameraPose {
+    if (shot === "broadcast" && this.house) return this.house;
+    return SHOTS[shot].frame(input);
+  }
+
+  /**
    * Requests a shot.
    *
-   * Refused during live action unless `force` is set — see the header. The
+   * Refused during live action unless `force` is set - see the header. The
    * only callers that should force are knockdowns and round boundaries.
    */
   cut(shot: ShotName, force = false): boolean {
@@ -215,7 +284,7 @@ export class FightCamera {
 
   update(dt: number, input: DirectorInput): CameraPose {
     const shot = SHOTS[this.shot];
-    const want = shot.frame(input);
+    const want = this.frameOf(this.shot, input);
 
     if (this.holdLeft > 0) {
       this.holdLeft -= dt;
@@ -225,10 +294,10 @@ export class FightCamera {
       }
     }
 
-    // Exponential ease, framed so it is FRAME-RATE INDEPENDENT. The naive
+    // Exponential ease, framed so it is frame-rate independent. The naive
     // `current += (want - current) * k` moves further per second at 120 FPS
     // than at 30, which means the camera feels different on different
-    // machines — the same bug the bone smoothing in rigDriver.ts had to fix.
+    // machines - the same bug the bone smoothing in rigDriver.ts had to fix.
     const k = 1 - Math.exp(-shot.ease * dt);
     this.pose = {
       position: lerp3(this.pose.position, want.position, k),
@@ -240,7 +309,7 @@ export class FightCamera {
 
   /** Jumps straight to the current shot with no easing. For round starts. */
   snap(input: DirectorInput): CameraPose {
-    this.pose = SHOTS[this.shot].frame(input);
+    this.pose = this.frameOf(this.shot, input);
     return this.pose;
   }
 }
@@ -251,4 +320,8 @@ function lerp3(a: Vec3, b: Vec3, k: number): Vec3 {
     y: a.y + (b.y - a.y) * k,
     z: a.z + (b.z - a.z) * k,
   };
+}
+
+function dist3(a: Vec3, b: Vec3): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }

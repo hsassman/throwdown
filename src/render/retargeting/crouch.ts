@@ -4,8 +4,6 @@ import type { DrivenBoneName } from "./rigJointMap";
 import { CROUCH_CONFIG } from "../../config/tuning";
 
 // Ducking, with legs.
-// WHY THIS EXISTS
-//
 // The crouch channel used to move the character by translating its root
 // downward. Everything about that is wrong except the height: the figure sank
 // through the floor with its legs perfectly straight, which reads as
@@ -16,20 +14,20 @@ import { CROUCH_CONFIG } from "../../config/tuning";
 //
 //   1. The knees bend, which is where the height actually comes from.
 //   2. The waist folds, which is what takes the head off the punch line.
-//   3. The root drops by EXACTLY the height the knees gave up.
+//   3. The root drops by exactly the height the knees gave up.
 //
 // Without (3) the bend swings the feet up off the canvas instead of lowering
-// the hips, because the rig hangs from its root — the hip is the anchor and
+// the hips, because the rig hangs from its root - the hip is the anchor and
 // the feet are the free end. The drop is therefore computed from the bones'
 // own measured lengths rather than dialled in by eye, which is also what keeps
 // the feet planted when the figure is re-exported at another scale.
-// COMPOSED, NOT OVERWRITTEN
+// Composed, not overwritten
 //
 // The leg bones are already driven by the retargeting whenever the player's
-// legs are visible. This rotation is applied ON TOP of whatever pose they are
+// legs are visible. This rotation is applied on top of whatever pose they are
 // already in, so a tracked step and a duck add up instead of one erasing the
 // other. At a desk webcam the legs are usually out of frame and rejected by
-// the hallucinated-landmark guard, so in practice they are at bind — but that
+// the hallucinated-landmark guard, so in practice they are at bind - but that
 // must not be something the code relies on.
 
 export interface CrouchRig {
@@ -39,8 +37,8 @@ export interface CrouchRig {
   /** Bind-pose segment lengths, world units. The drop is derived from these. */
   thighLength: number;
   shinLength: number;
-  /** Which way round the lateral axis takes a knee FORWARD. Solved, not
-   *  assumed — see below. */
+  /** Which way round the lateral axis takes a knee forward. Solved, not
+   *  assumed - see below. */
   sign: number;
 }
 
@@ -108,7 +106,7 @@ export function captureCrouch(
  * The thigh tilts `angle` forward of vertical and the shin tilts the same
  * amount back, so the leg's vertical extent goes from `a + b` to
  * `(a + b)·cos(angle)` and the horizontal offset of the ankle is
- * `(a − b)·sin(angle)` — near zero for a human's near-equal segments, which is
+ * `(a − b)·sin(angle)` - near zero for a human's near-equal segments, which is
  * why the feet stay roughly under the body rather than sliding forward.
  */
 export function crouchDrop(rig: CrouchRig, crouch: number): number {
@@ -129,8 +127,8 @@ export function applyCrouch(
   const c = THREE.MathUtils.clamp(crouch, 0, 1);
   const angle = c * CROUCH_CONFIG.kneeAngle;
 
-  // This rotation COMPOSES onto whatever the bones are already holding, which
-  // makes the base pose the caller's responsibility — and the two callers
+  // This rotation composes onto whatever the bones are already holding, which
+  // makes the base pose the caller's responsibility - and the two callers
   // genuinely differ:
   //
   //   The rig driver writes every driven bone from its solve each frame, legs
@@ -138,7 +136,7 @@ export function applyCrouch(
   //
   //   The opponent animator poses only the arms, so nothing resets its legs.
   //   Composing there accumulated a fresh bend on top of the last one every
-  //   frame, and within a second the figure had folded itself inside out —
+  //   frame, and within a second the figure had folded itself inside out -
   //   its feet ended up higher than its head.
   //
   // Hence `fromBind`, rather than a reset that would silently cancel a tracked
@@ -152,31 +150,40 @@ export function applyCrouch(
   root.getWorldQuaternion(_parent);
   _axis.set(1, 0, 0).applyQuaternion(_parent).normalize();
 
-  for (const thigh of rig.thighs) compose(thigh, _axis, angle * rig.sign);
+  for (const thigh of rig.thighs) composeWorldRotation(thigh, _axis, angle * rig.sign);
   // Twice the thigh's angle, because the shin inherits the thigh's rotation
   // and has to come back through it to end up tilted the other way.
-  for (const shin of rig.shins) compose(shin, _axis, -2 * angle * rig.sign);
+  for (const shin of rig.shins) composeWorldRotation(shin, _axis, -2 * angle * rig.sign);
   if (rig.waist) {
-    // The OPPOSITE sign to the legs, and not as a correction — as geometry.
-    // `sign` was solved for a thigh, which points DOWN, so rotating it that
+    // The opposite sign to the legs, and not as a correction - as geometry.
+    // `sign` was solved for a thigh, which points down, so rotating it that
     // way about the lateral axis carries the knee forward. The spine points
     // UP, so the same rotation carries the head backward. Using the leg's sign
     // here folded the figure over backwards while its knees bent forwards.
-    compose(rig.waist, _axis, -c * CROUCH_CONFIG.waistFold * rig.sign);
+    composeWorldRotation(rig.waist, _axis, -c * CROUCH_CONFIG.waistFold * rig.sign);
   }
 
   return (rig.thighLength + rig.shinLength) * (1 - Math.cos(angle));
 }
 
 /**
- * Post-multiplies a world-space rotation onto a bone's CURRENT pose.
+ * Post-multiplies a world-space rotation onto a bone's current pose.
  *
  * Conjugated into the parent's frame, because the figure is rotated to face
- * the camera and its bones' parent frames are nowhere near world axes — using
+ * the camera and its bones' parent frames are nowhere near world axes - using
  * the rotation directly bends the leg sideways through the other one. This is
  * the same conjugation the spine bend and the hit reaction use.
+ *
+ * Exported because composing rather than overwriting is what any effect laid
+ * on top of a tracked pose needs, and the crouch is no longer the only one:
+ * the player's flinch has exactly the same requirement, since its head and
+ * neck are already being driven by the camera when the punch lands.
  */
-function compose(bind: BoneBindData, axisWorld: THREE.Vector3, angle: number): void {
+export function composeWorldRotation(
+  bind: BoneBindData,
+  axisWorld: THREE.Vector3,
+  angle: number
+): void {
   if (Math.abs(angle) < 1e-6) return;
   _rot.setFromAxisAngle(axisWorld, angle);
   bind.parent.updateWorldMatrix(true, false);

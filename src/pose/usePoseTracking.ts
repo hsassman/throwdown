@@ -53,7 +53,7 @@ export type PoseStatus = "loading" | "ready" | "error";
  * things: a real crop window when one has been acquired, and a letterboxed
  * fit of the whole frame before that. Applying the wrong one puts the whole
  * skeleton in the wrong place, which is why the caller passes `hasCrop`
- * explicitly rather than this function guessing from the tracker's state —
+ * explicitly rather than this function guessing from the tracker's state -
  * the tracker may have been updated since the frame was drawn.
  */
 function mapFrameToFullFrame(
@@ -111,14 +111,14 @@ export interface PoseTrackingHandle {
   /** Latest smoothed pose. Perception layer reads this. */
   poseRef: React.RefObject<PoseFrame | null>;
   /**
-   * The pose as it should be DRAWN right now — the smoothed pose extrapolated
+   * The pose as it should be drawn right now - the smoothed pose extrapolated
    * forward by the measured pipeline latency.
    *
    * Deliberately separate from `poseRef`. Perception must keep reading the
    * un-extrapolated pose: a strike is a decision about what actually happened,
    * and resolving hits against predicted positions would let a punch register
    * from a velocity estimate rather than from a punch. Rendering has the
-   * opposite requirement — it should show where you are, not where you were.
+   * opposite requirement - it should show where you are, not where you were.
    *
    * Read this through `samplePredicted()`, which advances it to the calling
    * instant; the ref itself only holds the last sample taken.
@@ -132,7 +132,7 @@ export interface PoseTrackingHandle {
   trackingReportRef: React.RefObject<TrackingReport | null>;
   /** Latest unsmoothed pose, for side-by-side debug comparison only. */
   rawPoseRef: React.RefObject<PoseFrame | null>;
-  /** Interval between completed inferences (ms) — the effective pose sample rate. */
+  /** Interval between completed inferences (ms) - the effective pose sample rate. */
   frameIntervalStats: RollingStats;
   /** Wall-clock cost of a single detectForVideo call (ms). */
   inferenceStats: RollingStats;
@@ -161,9 +161,9 @@ export function usePoseTracking(
   /**
    * Standing watchdog on tracking quality (trackingMonitor.ts).
    *
-   * Fed the RAW pose, deliberately. Measuring the smoothed signal would be
+   * Fed the raw pose, deliberately. Measuring the smoothed signal would be
    * measuring the filter: smoothing exists to hide jitter, so a monitor
-   * watching its output would report a calm signal in a shaking room — and
+   * watching its output would report a calm signal in a shaking room - and
    * then raise the smoothing that was already hiding the problem.
    */
   const monitorRef = useRef(new TrackingMonitor());
@@ -207,8 +207,8 @@ export function usePoseTracking(
 
     // Order matters and is not arbitrary.
     //
-    // CONSTRAIN, THEN SMOOTH. The solver corrects an error across SPACE (limbs
-    // that are the wrong length); the filter corrects an error across TIME.
+    // Constrain, then smooth. The solver corrects an error across space (limbs
+    // that are the wrong length); the filter corrects an error across time.
     // Running the filter first would hand the solver a temporally-blended
     // skeleton whose limb lengths are an average of several frames' worth of
     // wrong, and the solver would then faithfully rigidify that. Constraining
@@ -242,11 +242,11 @@ export function usePoseTracking(
     const report = monitorRef.current.report();
     trackingReportRef.current = report;
 
-    // CLOSE THE LOOP.
+    // Close the loop.
     //
     // The monitor measured the signal; this is where its conclusion is
     // actually acted on. Until this existed the monitor was a thermometer with
-    // nothing attached to it — it computed a correction every frame and
+    // nothing attached to it - it computed a correction every frame and
     // nothing read it.
     //
     // Only smoothing and prediction are touched, and that limit is enforced by
@@ -300,7 +300,7 @@ export function usePoseTracking(
         minPoseDetectionConfidence: POSE_CONFIG.minPoseDetectionConfidence,
         minPosePresenceConfidence: POSE_CONFIG.minPosePresenceConfidence,
         minTrackingConfidence: POSE_CONFIG.minTrackingConfidence,
-        // Segmentation masks are unused and cost inference time — leave off.
+        // Segmentation masks are unused and cost inference time - leave off.
         outputSegmentationMasks: false,
       });
     }
@@ -310,7 +310,7 @@ export function usePoseTracking(
         const resolver = await FilesetResolver.forVisionTasks(
           POSE_CONFIG.wasmRoot
         );
-        // GPU delegate first, CPU fallback — a non-negotiable ground rule.
+        // GPU delegate first, CPU fallback - a non-negotiable ground rule.
         // ?delegate=cpu|gpu overrides the first choice for measurement runs
         // only; the fallback still applies if the forced one won't start.
         const first = POSE_CONFIG.forceDelegate ?? "GPU";
@@ -342,7 +342,7 @@ export function usePoseTracking(
      * Schedules the next inference. Prefers requestVideoFrameCallback (one
      * inference per decoded camera frame, no re-detecting a stale image), which
      * also dodges the ~1 Hz rAF throttle Chrome applies to a backgrounded
-     * window — that throttle voided several early measurement runs. Falls back
+     * window - that throttle voided several early measurement runs. Falls back
      * to rAF where rVFC isn't available.
      */
     function scheduleNext() {
@@ -360,20 +360,20 @@ export function usePoseTracking(
     }
 
     function detect() {
-      // RE-ARM FIRST. This single reordering is the largest frame-rate win
+      // Re-arm first. This single reordering is the largest frame-rate win
       // available in this pipeline, and it is why the pose rate was pinned at
       // 15.1 FPS.
       //
-      // requestVideoFrameCallback fires on the next DECODED CAMERA FRAME after
-      // you register. Registering AFTER a 36 ms inference means the frame that
+      // requestVideoFrameCallback fires on the next decoded camera frame after
+      // you register. Registering after a 36 ms inference means the frame that
       // arrived during that inference has already been and gone, so the loop
-      // waits for the one after it — the wait and the work are serialised, and
+      // waits for the one after it - the wait and the work are serialised, and
       // the period is quantised up to a whole number of camera frames:
       //
       //     register after work, 30 FPS capture:  36 ms work -> next boundary
       //                                           at 66.7 ms -> 15.0 FPS
       //
-      // which is the measured 15.1 FPS, to within noise. Registering BEFORE
+      // which is the measured 15.1 FPS, to within noise. Registering before
       // the work lets the callback for the next frame queue up while inference
       // is still running, so it is already pending the moment the main thread
       // frees. The wait overlaps the work instead of following it, and the
@@ -395,7 +395,7 @@ export function usePoseTracking(
       // guarantees this, but the rAF fallback path does not.
       if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
-        // Timestamped at the START of the callback, not after inference. The
+        // Timestamped at the start of the callback, not after inference. The
         // sample's age is what the predictor extrapolates by, so stamping it
         // 36 ms late would under-report the latency by exactly the largest
         // term in it.
@@ -407,7 +407,7 @@ export function usePoseTracking(
           const crop = roi.crop;
           const cropped = cropper?.ready ? cropper.draw(video, crop) : false;
           // Falls back to the raw video element whenever the crop could not be
-          // drawn — a video mid-readyState-transition, or no 2D context.
+          // drawn - a video mid-readyState-transition, or no 2D context.
           const source: HTMLVideoElement | HTMLCanvasElement =
             cropped && cropper ? cropper.canvas : video;
 
@@ -419,7 +419,7 @@ export function usePoseTracking(
             raw = mapFrameToFullFrame(raw, roi, cropper, crop !== null, vw, vh);
           }
 
-          // Fed the FULL-FRAME pose. Handing it crop-space coordinates would
+          // Fed the full-frame pose. Handing it crop-space coordinates would
           // make the window chase its own output and converge on a point.
           roi.update(raw, vw, vh);
 
@@ -462,14 +462,14 @@ export function usePoseTracking(
     let lastVideoTime = -1;
     // Backpressure: only one frame in flight at a time. Without this, frames
     // queue up behind a slower-than-realtime worker and pose data arrives ever
-    // further behind the player — latency is worse than a dropped frame in a
+    // further behind the player - latency is worse than a dropped frame in a
     // game decided by punch timing.
     let inFlight = false;
     const lastEnd = { current: 0 };
     const smoother = new PoseSmoother();
 
     // Vite's `?worker` import respects the `worker.format: "iife"` config, so
-    // this is a classic worker — required for MediaPipe's importScripts-based
+    // this is a classic worker - required for MediaPipe's importScripts-based
     // WASM loading. See the comment in vite.config.ts.
     const worker = new PoseWorker();
 
@@ -569,11 +569,11 @@ export function usePoseTracking(
   };
 
   /**
-   * The pose to DRAW this instant.
+   * The pose to draw this instant.
    *
    * Called from the render loop at 60 Hz against a pose stream arriving at
    * 15-27 Hz, so most calls are extrapolating between samples rather than
-   * interpolating — which is the entire point. Returns the plain smoothed pose
+   * interpolating - which is the entire point. Returns the plain smoothed pose
    * when prediction is disabled, so ?predict=0 is a clean A/B.
    */
   const samplePredicted = (): PoseFrame | null => {

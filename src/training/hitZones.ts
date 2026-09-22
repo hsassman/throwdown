@@ -1,29 +1,29 @@
-import { regionAt, type ImpactPoint } from "../perception/strikeGeometry";
+import type { ImpactPoint } from "../perception/strikeGeometry";
 import { DUMMY, halfWidthAt, onDummy, type DummySpec } from "./dummySpec";
 
-// The lit target zones on the dummy — the "heat points" the player is asked to
+// The lit target zones on the dummy - the "heat points" the player is asked to
 // hit, and the thing accuracy is measured against.
-// ONE COORDINATE SYSTEM, NOT TWO
+// One coordinate system, not two
 //
 // Every zone centre is an `ImpactPoint`: the exact type `strikeResolver.ts`
 // produces when a punch lands. So scoring a punch against a lit zone is a
 // subtraction, with no transform in between and therefore no transform to get
 // wrong.
 //
-// Each zone also declares the anatomical region it is supposed to BE, and
+// Each zone also declares the anatomical region it is supposed to be, and
 // `hitZones.test.ts` asserts that `regionAt(zone.centre).id === zone.region`
 // for every one of them. That test is the whole reason this file is safe to
 // edit: the region table in strikeGeometry.ts and the target positions here
 // are two descriptions of the same anatomy, and nothing but a test keeps them
 // honest. Nudge a zone off its organ and the suite says so.
 //
-// WHY THE LATERAL BANDS HERE ARE TIGHTER THAN THE REGION TABLE'S
+// Why the lateral bands here are tighter than the region table's
 //
-// The region table's bands are deliberately generous — they must catch
+// The region table's bands are deliberately generous - they must catch
 // glancing blows and wild swings, so `temple` accepts anything from 0.13 to
 // 0.50 out from the midline. A person's temple is not 0.5 torso units wide;
 // that band is a catchment, not an anatomy. Target zones are the opposite
-// problem — they mark where the organ actually IS, so they sit near the inner
+// problem - they mark where the organ actually is, so they sit near the inner
 // edge of each band and are checked against the dummy's real silhouette by
 // `zonesAreOnTheBody` below. A temple target at 0.26 would have floated in the
 // air beside the head.
@@ -127,7 +127,7 @@ export const HIT_ZONES: HitZone[] = [
   {
     id: "liver",
     label: "Liver",
-    // The target's own right side, which appears on the PUNCHER's left — hence
+    // The target's own right side, which appears on the puncher's left - hence
     // a negative lateral. This is the asymmetry that makes a left hook to the
     // body the fight-ender it is, and it is real anatomy rather than a
     // balancing decision.
@@ -163,9 +163,9 @@ export function missDistance(p: ImpactPoint, zone: HitZone): number {
  * Accuracy of a punch against the zone it was asked to hit, 0..1.
  *
  * Full marks anywhere inside the circle, then a smooth falloff to zero over a
- * further `FALLOFF` radii. It is deliberately NOT a step function: a punch
+ * further `FALLOFF` radii. It is deliberately not a step function: a punch
  * that lands a centimetre outside the ring is a better punch than one that
- * lands on the other shoulder, and a pass/fail score cannot say so — which
+ * lands on the other shoulder, and a pass/fail score cannot say so - which
  * makes the resulting training data far less useful for the adaptation loop.
  */
 const FALLOFF = 2.2;
@@ -199,13 +199,13 @@ export function nearestZone(
  *
  * Exported rather than kept private because it is asserted to be empty in the
  * tests. A target painted on thin air is invisible to the player and
- * unhittable in principle, and the failure is entirely silent otherwise — the
+ * unhittable in principle, and the failure is entirely silent otherwise - the
  * drill would just look unfairly hard.
  */
 export function zonesOffTheBody(spec: DummySpec = DUMMY): HitZone[] {
   return HIT_ZONES.filter((z) => {
     // Vertical first: below the cut there is no body at all, and halfWidthAt
-    // already returns 0 there — but checking it explicitly says WHICH fault
+    // already returns 0 there - but checking it explicitly says which fault
     // was hit, and a zone hanging off the side is a different mistake from one
     // painted on the stand.
     const low = z.centre.height - z.radius < spec.base;
@@ -222,7 +222,3 @@ export function zonesUpTo(tier: ZoneTier): HitZone[] {
   return HIT_ZONES.filter((z) => TIER_ORDER.indexOf(z.tier) <= max);
 }
 
-/** Region ids that this zone set covers. Used by the coverage test. */
-export function coveredRegions(): Set<string> {
-  return new Set(HIT_ZONES.map((z) => regionAt(z.centre).id));
-}

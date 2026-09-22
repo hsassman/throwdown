@@ -22,9 +22,9 @@ import {
 } from "./rigJointMap";
 import type { Keypoint, PoseFrame } from "../../pose/poseTypes";
 
-// These run against the REAL exported asset, not a mock. The first version of
+// These run against the real exported asset, not a mock. The first version of
 // this retargeting code type-checked, built cleanly, and still produced a
-// visibly mangled character — every bug was in geometry that only a numerical
+// visibly mangled character - every bug was in geometry that only a numerical
 // assertion against the actual rig would have caught. A mocked skeleton would
 // have reproduced my wrong assumptions rather than the asset's real structure.
 
@@ -40,7 +40,7 @@ const REST_EPSILON = 1e-6;
 const MODEL_PATH = "public/models/boxer_lod3.glb";
 
 let model: THREE.Object3D;
-/** The model's PRISTINE local rotations, captured once before any test has
+/** The model's pristine local rotations, captured once before any test has
  * touched it. Tests share one loaded model (it is 8MB), so without restoring
  * from this every test would capture the previous test's leftover pose as its
  * "bind" and silently validate against the wrong reference. */
@@ -154,7 +154,7 @@ describe("rig structure", () => {
     // pose, so this guards the explicit child map in rigJointMap.ts.
     const binds = freshBinds();
     for (const [name, bind] of binds) {
-      // c_head is deliberately not aimed at anything — a swing solve cannot
+      // c_head is deliberately not aimed at anything - a swing solve cannot
       // express head yaw, so it is driven by an explicit rotation instead.
       if (!bind.aimed) {
         expect(BONE_AIM_CHILD[name], `${name} should declare no aim child`).toBeNull();
@@ -238,10 +238,10 @@ describe("aim correctness", () => {
 
     for (const [name, bind] of binds) {
       // Spine segments are governed by the distributed-bend contract, not by
-      // aiming individually — covered separately below.
+      // aiming individually - covered separately below.
       if (SPINE_CHAIN.some((s) => s.bone === name)) continue;
       // Not aimed at all (c_head), or deliberately damped below full swing
-      // (clavicles, wrists) — both have their own tests.
+      // (clavicles, wrists) - both have their own tests.
       if (!bind.aimed) continue;
       if ((BONE_GAIN[name] ?? 1) < 1) continue;
       applyPoseToRig(binds, { [name]: target });
@@ -263,7 +263,7 @@ describe("aim correctness", () => {
   it("solves a forearm against its CURRENT parent, not a stale bind parent", () => {
     // The regression this file exists for. The upper arm and forearm are
     // solved in the same frame; if the forearm is solved against the upper
-    // arm's BIND orientation rather than its freshly-updated one, the forearm
+    // arm's bind orientation rather than its freshly-updated one, the forearm
     // lands somewhere else entirely and the arm visibly folds wrong.
     const binds = freshBinds();
     // Unit length matters: these are compared against a normalized result, so
@@ -314,7 +314,7 @@ describe("aim correctness", () => {
 });
 
 describe("spine bends as a chain", () => {
-  /** World direction from the base of the spine to the neck — the torso's
+  /** World direction from the base of the spine to the neck - the torso's
    * overall lean, which is what the distributed bend is meant to control. */
   function torsoDir(): THREE.Vector3 {
     model.updateMatrixWorld(true);
@@ -327,7 +327,7 @@ describe("spine bends as a chain", () => {
 
   it("leans the torso by the angle actually requested, not a fraction of it", () => {
     // Regression guard. Distributing a bend across the chain made the visible
-    // torso lean only ~60% of what was asked for — consistently, because the
+    // torso lean only ~60% of what was asked for - consistently, because the
     // chord averages segment rotations that are each only partway through the
     // bend. chordCompensation() scales that back out; this pins the result.
     const binds = freshBinds();
@@ -417,8 +417,8 @@ describe("depth recovery from foreshortening", () => {
     const binds = freshBinds();
     // l_uparm is the clearer demonstration: its bind depth is only 0.053, so
     // without recovery a punch at the lens leaves it essentially flat to the
-    // screen. (l_lowarm already sits at 0.557 — the forearm angles forward
-    // even at rest — so there is far less headroom to show.)
+    // screen. (l_lowarm already sits at 0.557 - the forearm angles forward
+    // even at rest - so there is far less headroom to show.)
     const bind = binds.get("l_uparm")!;
 
     applyPoseToRig(binds, { l_uparm: { x: 0.0, y: -1.0 } });
@@ -486,8 +486,8 @@ describe("mirroring", () => {
 
 describe("damped joints", () => {
   it("rotates a gained bone, but by less than the full swing", () => {
-    // The clavicle must move — a frozen collarbone is why a raised guard read
-    // stiffly — but not track the shoulder-midpoint direction one-for-one,
+    // The clavicle must move - a frozen collarbone is why a raised guard read
+    // stiffly - but not track the shoulder-midpoint direction one-for-one,
     // which throws the whole shoulder around. This pins both halves.
     const binds = freshBinds();
     const name: DrivenBoneName = "l_clavicle";
@@ -523,7 +523,7 @@ describe("head orientation", () => {
     expect(straight).not.toBeNull();
     expect(straight.yaw, "symmetric face reads as no turn").toBeCloseTo(0, 6);
 
-    // Turn toward the player's own left: in the RAW image the nose slides
+    // Turn toward the player's own left: in the raw image the nose slides
     // toward the left ear (larger x) and that ear closes in behind the head.
     const turned = { ...centred, nose: kp(0.545, 0.25) };
     const t = measureHeadSignals(turned, false, 0.35)!;
@@ -595,7 +595,7 @@ describe("optional landmarks", () => {
     for (const name of ["l_upleg", "l_lowleg", "r_upleg", "r_lowleg", "l_wrist", "r_wrist"] as const) {
       expect(targets[name], `${name} must not be driven`).toBeUndefined();
     }
-    // The arms and torso, whose landmarks ARE present, still are.
+    // The arms and torso, whose landmarks are present, still are.
     expect(targets.l_uparm).toBeDefined();
     expect(targets.c_spine0).toBeDefined();
 
@@ -628,7 +628,7 @@ describe("optional landmarks", () => {
 describe("handedness contract", () => {
   it("puts the player's right arm on the character's right, in the default view", () => {
     // The whole point of the over-the-shoulder view: the camera sits behind
-    // the character at -Z, so world -X is SCREEN RIGHT and the anatomically
+    // the character at -Z, so world -X is screen right and the anatomically
     // correct r_* bones render on the same side the player sees their own
     // right arm on in the mirrored preview. Both halves are asserted, because
     // changing either one alone is exactly the bug this replaced.
@@ -638,8 +638,8 @@ describe("handedness contract", () => {
       .toBe(-1);
 
     const binds = freshBinds();
-    // Player's RIGHT arm raised: in the raw image their right side is at
-    // SMALLER x, and the arm points up.
+    // Player's right arm raised: in the raw image their right side is at
+    // smaller x, and the arm points up.
     const pose: PoseFrame = {
       ...synthPose({ mirrored: false }),
       rightShoulder: kp(0.4, 0.4),
@@ -678,7 +678,7 @@ describe("hallucinated landmarks", () => {
     expect(targets.l_upleg, "knee below the frame is a guess").toBeUndefined();
     expect(targets.l_lowleg).toBeUndefined();
 
-    // The arm chain is deliberately exempt — a punch at the camera pushes a
+    // The arm chain is deliberately exempt - a punch at the camera pushes a
     // wrist to the very edge of frame and must still drive the character.
     const wristAtEdge: PoseFrame = { ...pose, leftWrist: kp(1.08, 0.42) };
     expect(computeBoneTargets(wristAtEdge, false).l_lowarm).toBeDefined();

@@ -3,19 +3,19 @@ import "./fightHud.css";
 
 // The in-fight overlay.
 //
-// Laid out the way a broadcast graphic is — both fighters' bars mirrored across
-// a central clock — because that is the arrangement people can read without
+// Laid out the way a broadcast graphic is - both fighters' bars mirrored across
+// a central clock - because that is the arrangement people can read without
 // looking at it, which matters here more than usual: the player is physically
 // throwing punches and will catch this in peripheral vision at best.
 //
-// Stamina sits UNDER health as a thinner bar rather than beside it, because the
+// Stamina sits under health as a thinner bar rather than beside it, because the
 // two are read at different moments. Health is glanced at constantly; stamina
 // is checked when deciding whether to commit to a combination.
 
 interface Props {
   hud: FightHudState;
   /** Shown over the opponent while they wind up. This is the only reason the
-   *  AI's telegraph is legible to a player who is looking at the character
+   *  CPU's telegraph is legible to a player who is looking at the character
    *  rather than at an animation they have learned. */
   showWindup?: boolean;
 }
@@ -92,11 +92,26 @@ export function FightHud({ hud, showWindup = true }: Props) {
       </div>
 
       {showWindup && hud.windup > 0 && (
-        // Deliberately loud. The whole design of the AI rests on its wind-up
+        // Deliberately loud. The whole design of the CPU rests on its wind-up
         // being readable, and 260ms is not long enough to notice something
         // subtle while you are also moving.
         <div className="fh-windup" role="status" aria-label="Opponent winding up">
           <span style={{ transform: `scaleX(${hud.windup})` }} />
+        </div>
+      )}
+
+      {hud.count && (
+        // The count.
+        //
+        // A readout of the simulation's own knockdown window, not a second
+        // rule running beside it: the sim gives a downed fighter
+        // `knockdownSeconds` and then stands them up, and this is that timer
+        // as the number a spectator would hear. An independent 1-to-10 count
+        // that gated nothing would be theatre, and a count that reached ten
+        // while the fighter got up at eight would be a lie.
+        <div className="fh-count" role="status" aria-live="assertive">
+          <strong>{hud.count.at}</strong>
+          <span>{hud.count.who === "player" ? "You are down" : "Opponent down"}</span>
         </div>
       )}
 

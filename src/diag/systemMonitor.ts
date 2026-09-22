@@ -7,33 +7,33 @@ import { SYSTEM_CONFIG } from "../config/tuning";
 // The single aggregated report: pose tracking, frame timing, strike
 // resolution and drill health in one place.
 //
-// WHY THIS EXISTS SEPARATELY FROM trackingMonitor.ts
+// Why this exists separately from trackingMonitor.ts
 //
 // `TrackingMonitor` already answers "is the camera signal any good" and feeds
-// the auto-tuner. That is one question. This answers a different one — "is
-// the WHOLE pipeline healthy right now" — and the two must not be folded
-// together: the tracking monitor's report is consumed by code that ADJUSTS
+// the auto-tuner. That is one question. This answers a different one - "is
+// the whole pipeline healthy right now" - and the two must not be folded
+// together: the tracking monitor's report is consumed by code that adjusts
 // the pipeline, and widening what it measures would widen what a bug in the
-// auto-tuner could reach. This module only READS the other layers' own
+// auto-tuner could reach. This module only reads the other layers' own
 // reports; it has no write access to anything and cannot become a second path
 // by which the pipeline gets tuned.
 //
-// Each section can be MISSING — no tracking report yet, no drill running, no
-// strikes thrown — and missing is not the same as unhealthy. A section that
+// Each section can be missing - no tracking report yet, no drill running, no
+// strikes thrown - and missing is not the same as unhealthy. A section that
 // has not started reports null rather than a score, and the overall score is
 // the minimum of whichever sections are actually present. That mirrors
 // TrackingReport's own rule (its overall score is the minimum of its metrics,
 // not their average) at one level up: the system is only as healthy as its
-// worst PRESENT part, and a part that has not run yet is not a part that is
+// worst present part, and a part that has not run yet is not a part that is
 // failing.
 //
-// TIME IS ALWAYS INJECTED
+// Time is always injected
 //
 // Every method takes `atMs` explicitly, the same discipline `training/drill.ts`
 // uses, so the whole thing is testable without a clock and without waiting.
 
 export interface FrameHealth {
-  /** Delivered frame rate, from the render loop's own measured interval —
+  /** Delivered frame rate, from the render loop's own measured interval -
    *  deliberately separate from TrackingReport's `hz`, so a render-side stall
    *  is visible even when pose sampling itself is fine. */
   hz: number;
@@ -51,7 +51,7 @@ export interface StrikeHealth {
   /** Highest reach seen across both hands this frame, 0-1. */
   peakReach: number;
   /** Near-miss samples (reach above the threshold) inside the window with
-   *  nothing landed — see SYSTEM_CONFIG.nearMissReach. */
+   *  nothing landed - see SYSTEM_CONFIG.nearMissReach. */
   nearMisses: number;
 }
 
@@ -90,13 +90,13 @@ interface ReachSample {
 /**
  * Owns the rolling state the other layers don't keep: how strikes and near
  * misses are spaced out over time. Frame timing, tracking and drill stats
- * arrive already computed from their own owners and are only READ here.
+ * arrive already computed from their own owners and are only read here.
  */
 export class SystemMonitor {
   private strikes: StrikeSample[] = [];
   private reaches: ReachSample[] = [];
   private lastStrikeAtMs: number | null = null;
-  /** True once the resolver has reported ANYTHING, ever — distinct from the
+  /** True once the resolver has reported anything, ever - distinct from the
    *  windowed arrays above, which age out. A strike that happened nine
    *  seconds ago should still show "resolved: 0 now, last one 9s ago" rather
    *  than vanish back into "not measured yet" the moment the window passes. */
@@ -153,7 +153,7 @@ export class SystemMonitor {
    * Builds the aggregate report.
    *
    * `frame` takes the already-computed Stats objects from the render loop's
-   * own RollingStats — this module does not own a second copy of that data,
+   * own RollingStats - this module does not own a second copy of that data,
    * it only reads it.
    */
   report(
@@ -178,7 +178,7 @@ export class SystemMonitor {
     }
 
     // A tracking report exists from the first pose frame, but its score is a
-    // real 0 — not "unmeasured" — until enough samples have accumulated. Both
+    // real 0 - not "unmeasured" - until enough samples have accumulated. Both
     // the score and the advice below must skip it until then, or a player who
     // has not yet stepped into frame reads as "0% healthy" rather than as
     // nobody being there. See isMeasured()'s own note on why this check
@@ -188,7 +188,7 @@ export class SystemMonitor {
     const scores: number[] = [];
     if (trackingMeasured) scores.push(inputs.tracking!.score);
     if (frame) scores.push(frame.score);
-    // Drill and strike sections report DATA, not a pass/fail score — a drill
+    // Drill and strike sections report data, not a pass/fail score - a drill
     // in progress or a burst of strikes is not "unhealthy" at any pace, so
     // neither contributes to the minimum. They still drive advice below.
     const score = scores.length === 0 ? null : Math.min(...scores);
@@ -197,7 +197,7 @@ export class SystemMonitor {
     if (trackingMeasured) advice.push(...inputs.tracking!.advice);
     if (frame && frame.score < 0.5) {
       advice.push(
-        `Frame delivery is slow (${frame.hz.toFixed(1)} Hz) — the render loop is falling behind the pose stream.`
+        `Frame delivery is slow (${frame.hz.toFixed(1)} Hz) - the render loop is falling behind the pose stream.`
       );
     }
     if (
@@ -206,7 +206,7 @@ export class SystemMonitor {
       strike.resolved === 0
     ) {
       advice.push(
-        `${strike.nearMisses} punches have reached close to the threshold with none landing — the reach calibration may be off for this stance.`
+        `${strike.nearMisses} punches have reached close to the threshold with none landing - the reach calibration may be off for this stance.`
       );
     }
 

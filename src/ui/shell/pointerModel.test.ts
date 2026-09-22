@@ -113,8 +113,8 @@ describe("cursor mapping", () => {
     // feels possessed, and it is completely invisible in a screenshot.
     const centre = cursorFromPose(pose({ rightWrist: { x: 0.5, y: 0.3 } }))!;
     const handRight = cursorFromPose(pose({ rightWrist: { x: 0.2, y: 0.3 } }))!;
-    // A mirrored view means the player's right hand appears at a SMALLER image
-    // x, and must drive the cursor to a LARGER screen x.
+    // A mirrored view means the player's right hand appears at a smaller image
+    // x, and must drive the cursor to a larger screen x.
     expect(handRight.x).toBeGreaterThan(centre.x);
   });
 
@@ -207,7 +207,7 @@ describe("defences against an accidental press", () => {
 
   it("2. STEADINESS: a slow drift across a target restarts the dwell", () => {
     // The case pure dwell cannot catch. The hand is inside the tile for longer
-    // than the dwell, but it never stops moving — a reach for a drink, not a
+    // than the dwell, but it never stops moving - a reach for a drink, not a
     // press.
     const p = new CameraPointer();
     let fired: string | null = null;

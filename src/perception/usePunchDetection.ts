@@ -27,11 +27,11 @@ export interface PunchDetectionHandle {
   landmarkStatus: React.RefObject<Record<string, number> | null>;
   /**
    * Continuous head state for dodge/duck. A ref, not state, because it updates
-   * every pose frame — routing that through re-renders would couple the
+   * every pose frame - routing that through re-renders would couple the
    * perception loop's cost to React's.
    */
   headState: React.RefObject<HeadState>;
-  /** Detection diagnostics — which gate is rejecting punches, and peak values seen. */
+  /** Detection diagnostics - which gate is rejecting punches, and peak values seen. */
   diagnostics: React.RefObject<ClassifierDiagnostics | null>;
   resetDiagnostics: () => void;
   lastPunch: PunchEvent | null;

@@ -2,20 +2,20 @@ import type { DrillOutcome } from "./drill";
 import { HIT_ZONES } from "./hitZones";
 
 // The persistent training record: what the player has thrown, and how it went.
-// WHAT IS STORED, AND WHAT DELIBERATELY IS NOT
+// What is stored, and what deliberately is not
 //
 // Stored: aggregate statistics per target zone. Counts, means, and a running
-// mean of the SIGNED miss vector.
+// mean of the signed miss vector.
 //
 // Not stored: pose landmarks, frames, video, or anything from which a body
 // could be reconstructed. The project's standing rule is that raw landmarks
 // never cross the network; writing them to disk instead would honour the
 // letter of that and miss the point entirely. Everything here is a scalar
 // summary of a punch, and there is no path back to the person who threw it.
-// WHY RUNNING MEANS RATHER THAN A LOG
+// Why running means rather than a log
 //
 // A log of every punch grows without bound, and localStorage has a hard quota
-// that fails by THROWING on write. A profile that breaks the game after three
+// that fails by throwing on write. A profile that breaks the game after three
 // weeks of training would be a spectacular way to punish the most engaged
 // player. Running means are O(1) in storage and answer every question the
 // adaptation loop actually asks.
@@ -42,9 +42,9 @@ export interface ZoneRecord {
   power: number;
   timing: number;
   /**
-   * Running mean of the SIGNED miss, torso units. This is the whole reason the
+   * Running mean of the signed miss, torso units. This is the whole reason the
    * record exists: an unsigned distance says "you are 6cm out" and a signed
-   * vector says "you are 6cm LOW", which is the difference between a statistic
+   * vector says "you are 6cm low", which is the difference between a statistic
    * and a coaching note.
    */
   bias: { lateral: number; height: number };
@@ -69,8 +69,8 @@ function freshZone(): ZoneRecord {
   return {
     presented: 0,
     landed: 0,
-    // Seeded at 0, not at 0.5. An unproven zone must not look competent — the
-    // adaptation loop weights drilling toward WEAK zones, and a neutral seed
+    // Seeded at 0, not at 0.5. An unproven zone must not look competent - the
+    // adaptation loop weights drilling toward weak zones, and a neutral seed
     // would make untrained zones look average and stop them being drilled.
     accuracy: 0,
     power: 0,
@@ -106,7 +106,7 @@ function ema(mean: number, sample: number, n: number): number {
  * Folds one drill outcome into the profile, in place.
  *
  * Returns the profile for chaining. Mutates rather than copying because this
- * runs once per punch and the profile is not React state — it is persisted
+ * runs once per punch and the profile is not React state - it is persisted
  * state that a hook snapshots when it wants to render.
  */
 export function recordOutcome(
@@ -119,8 +119,8 @@ export function recordOutcome(
   profile.updatedAt = now;
 
   if (outcome.kind !== "hit") {
-    // A miss updates the accuracy mean toward zero — it is real evidence about
-    // this zone — but contributes NOTHING to the bias, because a punch that
+    // A miss updates the accuracy mean toward zero - it is real evidence about
+    // this zone - but contributes nothing to the bias, because a punch that
     // was never thrown has no landing point and an expired target would
     // otherwise drag the bias toward the origin.
     rec.accuracy = ema(rec.accuracy, 0, rec.presented);

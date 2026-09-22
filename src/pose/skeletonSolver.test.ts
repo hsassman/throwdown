@@ -4,12 +4,12 @@ import { PosePredictor } from "./predictor";
 import { RoiTracker } from "./roiCrop";
 import type { PoseFrame } from "./poseTypes";
 
-// These are written to measure the ACTUAL IMPROVEMENT, not to check the code
+// These are written to measure the actual improvement, not to check the code
 // agrees with itself. Each one builds a synthetic body with a known truth,
 // corrupts it the way MediaPipe corrupts a real one, and asserts the error
 // after correction is meaningfully smaller than before.
 
-/** Deterministic noise — a seeded LCG, so a run that fails fails reproducibly. */
+/** Deterministic noise - a seeded LCG, so a run that fails fails reproducibly. */
 function noise(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -26,7 +26,7 @@ const kp = (x: number, y: number, confidence = 0.95) => ({
 });
 
 /**
- * A body with EXACT, known limb lengths. Arms are posed by angle so the truth
+ * A body with exact, known limb lengths. Arms are posed by angle so the truth
  * is analytic rather than eyeballed.
  */
 function truth(t: number, leftArm = 0.4, rightArm = -0.3): PoseFrame {
@@ -92,9 +92,9 @@ const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
 
 describe("limb rigidity", () => {
   it("measurably reduces how much limb lengths breathe", () => {
-    // THE headline claim. MediaPipe estimates each landmark independently, so
+    // The headline claim. MediaPipe estimates each landmark independently, so
     // the elbow-to-wrist distance changes every frame even on a rigid forearm.
-    // A temporal filter cannot fix that — it is an error across space.
+    // A temporal filter cannot fix that - it is an error across space.
     const solver = new SkeletonSolver();
     const rand = noise(12345);
     const JITTER = 0.012;
@@ -123,7 +123,7 @@ describe("limb rigidity", () => {
 
     const before = spread(rawLengths);
     const after = spread(fixedLengths);
-    // A real, quantified improvement — not "it changed something".
+    // A real, quantified improvement - not "it changed something".
     //
     // Measured 0.280 (a 72% reduction in length variance) with the magnitude
     // discriminator in skeletonSolver. The threshold is set just above that so
@@ -168,10 +168,10 @@ describe("limb rigidity", () => {
     const solved = solver.update(jumped);
     // Clamped to one frame's worth of physically possible travel.
     //
-    // The bound is NOT arbitrary: 18 torso-spans/sec at a torso of ~0.28
+    // The bound is not arbitrary: 18 torso-spans/sec at a torso of ~0.28
     // normalized units over a 67 ms sample is ~0.34, and the teleport was
     // ~0.9. So the assertion is that the jump was cut to the configured
-    // physical limit — my first draft asserted 0.25, which was tighter than
+    // physical limit - my first draft asserted 0.25, which was tighter than
     // the physics the constant encodes, and the solver was right.
     //
     // This bound halves as the pose rate rises, which the pipelining fix does.
@@ -184,7 +184,7 @@ describe("limb rigidity", () => {
 
   it("stops an elbow folding through itself", () => {
     // When tracking loses an arm it habitually collapses the wrist onto the
-    // elbow. Downstream that reads as a maximally foreshortened forearm — i.e.
+    // elbow. Downstream that reads as a maximally foreshortened forearm - i.e.
     // a fully committed punch at the camera. It is the worst false positive
     // this pipeline can produce.
     const solver = new SkeletonSolver();
@@ -269,10 +269,10 @@ describe("limb rigidity", () => {
 
 describe("latency compensation", () => {
   it("lands closer to the true position than the raw sample does", () => {
-    // The whole justification. A hand moving steadily is drawn where it IS,
+    // The whole justification. A hand moving steadily is drawn where it is,
     // not where it was ~110 ms ago.
     const predictor = new PosePredictor();
-    const SPEED = 0.6; // normalized units per second — a brisk jab
+    const SPEED = 0.6; // normalized units per second - a brisk jab
     const step = 1 / 15;
 
     let rawError = 0;
@@ -286,7 +286,7 @@ describe("latency compensation", () => {
       pose.timestamp = t * 1000;
       predictor.ingest(pose);
 
-      // Render 110 ms after the sample was taken — the measured latency.
+      // Render 110 ms after the sample was taken - the measured latency.
       const renderT = t + 0.11;
       const predicted = predictor.predictAt(renderT * 1000);
       if (i > 20 && predicted) {
@@ -399,7 +399,7 @@ describe("roi crop", () => {
   });
 
   it("goes wide again after losing the player", () => {
-    // Staying zoomed on an empty box is self-sealing — the player cannot be
+    // Staying zoomed on an empty box is self-sealing - the player cannot be
     // re-acquired from outside the only region being examined.
     const roi = new RoiTracker();
     for (let i = 0; i < 40; i++) roi.update(truth(i / 15), VW, VH);

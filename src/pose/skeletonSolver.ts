@@ -1,41 +1,32 @@
-// Makes the tracked skeleton behave like a BODY instead of 33 independent dots.
-// THE PROBLEM THIS EXISTS TO FIX
+// Makes the tracked skeleton behave like a body instead of 33 independent dots.
 //
-// MediaPipe estimates every landmark independently. Nothing in the model knows
-// that your forearm is a rigid object. So frame to frame the distance from
-// elbow to wrist BREATHES — it lengthens and shortens by several percent
-// continuously, because each endpoint has its own independent error.
+// MediaPipe estimates every landmark independently, so nothing in the model
+// knows a forearm is rigid. Frame to frame the elbow-to-wrist distance
+// breathes by several percent because each endpoint has its own error.
 //
-// A one-euro filter (pose/smoothing.ts) cannot fix this and is not meant to.
-// It smooths each coordinate along TIME. Limb breathing is an error across
-// SPACE, and it survives temporal smoothing intact: smoothing a wrong-length
-// arm just gives you a smoothly wrong-length arm.
+// A one-euro filter cannot fix that and is not meant to: it smooths each
+// coordinate along time, and limb breathing is an error across space. Smooth a
+// wrong-length arm and you get a smoothly wrong-length arm.
 //
-// Downstream, that error is not cosmetic. The retargeting layer aims bones
-// along landmark directions and the strike resolver measures foreshortening by
-// comparing an observed segment against its own full length. Both of those
-// read limb length as SIGNAL. A forearm that is 6% short because of noise is
-// indistinguishable, to that code, from a forearm that is 6% short because it
-// is pointing at the camera.
+// It is not cosmetic either. Retargeting aims bones along landmark directions,
+// and the strike resolver measures foreshortening by comparing an observed
+// segment against its full length. Both read limb length as signal, and a
+// forearm 6% short from noise is indistinguishable from one 6% short because
+// it is pointing at the camera.
 //
-// WHAT THIS DOES, IN ORDER
+//   1. Reject teleports    - a landmark cannot move faster than a human can.
+//   2. Learn the body      - robust per-bone lengths, left/right shared.
+//   3. Enforce rigidity    - project landmarks onto those lengths (PBD).
+//   4. Enforce anatomy     - joints that cannot fold past a limit, don't.
 //
-//   1. Reject teleports    — a landmark cannot move faster than a human can.
-//   2. Learn the body      — robust per-bone lengths, with left/right shared.
-//   3. Enforce rigidity    — project landmarks onto those lengths (PBD).
-//   4. Enforce anatomy     — joints that cannot fold past a limit, don't.
+// Steps 3 and 4 use position-based projection rather than spring forces, which
+// at this stiffness are not unconditionally stable.
 //
-// Steps 3 and 4 are the same position-based projection used by the cloth
-// solver, for the same reason: constraints satisfied by moving positions are
-// unconditionally stable, whereas spring forces at this stiffness are not.
-//
-// STANDING RULES, UNCHANGED
-//   * MediaPipe's `z` is never read. Every length here is measured in the
-//     image plane from x/y only. Foreshortening therefore still shortens a
-//     projected limb — which is exactly what the depth recovery downstream
-//     depends on — and this solver must NOT "correct" that away. See
-//     `scaleFrom` below for how the two are kept apart.
-//   * Nothing here reads the character mesh.
+// Standing rules: MediaPipe's `z` is never read, so every length here is
+// measured in the image plane. Foreshortening therefore still shortens a
+// projected limb, which is what depth recovery downstream depends on, and this
+// solver must not correct it away - see `scaleFrom`. Nothing here reads the
+// character mesh.
 
 import {
   ALL_POSE_KEYS,
@@ -48,11 +39,11 @@ import { SKELETON_CONFIG } from "../config/tuning";
 interface BoneDef {
   a: AnyPoseKey;
   b: AnyPoseKey;
-  /** Bones sharing a group share one learned length — left and right limbs
+  /** Bones sharing a group share one learned length - left and right limbs
    *  are the same length on a real person, so pooling them doubles the
    *  evidence and removes an entire asymmetry failure mode. */
   group: string;
-  /** Bones that foreshorten (limbs pointing at the camera) must NOT be forced
+  /** Bones that foreshorten (limbs pointing at the camera) must not be forced
    *  back to full length, or punches toward the lens would be erased. See
    *  `foreshortens` handling in solve(). */
   foreshortens: boolean;
@@ -61,12 +52,12 @@ interface BoneDef {
 /**
  * The skeleton, as bones.
  *
- * Only bones whose endpoints are both REQUIRED landmarks are listed as
+ * Only bones whose endpoints are both required landmarks are listed as
  * load-bearing; leg bones are included but are skipped whenever their optional
  * landmarks are absent, which at a desk webcam is most of the time.
  */
 const BONES: BoneDef[] = [
-  // Torso — the reference frame. These barely foreshorten in a boxing stance
+  // Torso - the reference frame. These barely foreshorten in a boxing stance
   // and are the most reliable lengths in the whole body, which is why the
   // scale estimate is built from them.
   { a: "leftShoulder", b: "rightShoulder", group: "shoulders", foreshortens: false },
@@ -79,19 +70,19 @@ const BONES: BoneDef[] = [
   { a: "leftShoulder", b: "rightHip", group: "brace", foreshortens: false },
   { a: "rightShoulder", b: "leftHip", group: "brace", foreshortens: false },
 
-  // Arms. These foreshorten constantly — it is a boxing game.
+  // Arms. These foreshorten constantly - it is a boxing game.
   { a: "leftShoulder", b: "leftElbow", group: "upperarm", foreshortens: true },
   { a: "rightShoulder", b: "rightElbow", group: "upperarm", foreshortens: true },
   { a: "leftElbow", b: "leftWrist", group: "forearm", foreshortens: true },
   { a: "rightElbow", b: "rightWrist", group: "forearm", foreshortens: true },
 
-  // Head. Small, rigid, and high-confidence — these are the easiest wins.
+  // Head. Small, rigid, and high-confidence - these are the easiest wins.
   { a: "leftEar", b: "rightEar", group: "ears", foreshortens: false },
   { a: "leftEye", b: "rightEye", group: "eyes", foreshortens: false },
   { a: "nose", b: "leftEar", group: "noseEar", foreshortens: false },
   { a: "nose", b: "rightEar", group: "noseEar", foreshortens: false },
 
-  // Legs. Optional — skipped when out of frame.
+  // Legs. Optional - skipped when out of frame.
   { a: "leftHip", b: "leftKnee", group: "thigh", foreshortens: true },
   { a: "rightHip", b: "rightKnee", group: "thigh", foreshortens: true },
   { a: "leftKnee", b: "leftAnkle", group: "shin", foreshortens: true },
@@ -101,7 +92,7 @@ const BONES: BoneDef[] = [
 /** Joints that cannot fold past a limit. Angle at `joint`, in degrees. */
 const JOINT_LIMITS: { root: AnyPoseKey; joint: AnyPoseKey; tip: AnyPoseKey; min: number }[] =
   [
-    // A fully folded elbow still leaves ~25 degrees — the biceps is in the
+    // A fully folded elbow still leaves ~25 degrees - the biceps is in the
     // way. When tracking loses an arm it habitually collapses the wrist onto
     // the elbow, which reads downstream as a maximally foreshortened forearm,
     // i.e. a fully committed punch at the camera. That is the single worst
@@ -160,7 +151,7 @@ export interface SkeletonDebug {
   scale: number;
   /** Landmarks whose motion was clamped as physically impossible, this frame. */
   rejected: number;
-  /** Mean absolute length error BEFORE correction, in image units. The number
+  /** Mean absolute length error before correction, in image units. The number
    *  that says how much the raw skeleton was breathing. */
   meanError: number;
   /** Same, after correction. */
@@ -170,20 +161,20 @@ export interface SkeletonDebug {
 export class SkeletonSolver {
   private lengths = new Map<string, LengthEstimate>();
   /**
-   * Slow-moving estimate of each bone's CURRENT projected length, per bone.
+   * Slow-moving estimate of each bone's current projected length, per bone.
    *
    * This is what separates the two things that both make a limb read short:
    *
-   *   foreshortening — sustained and structured. The arm is genuinely
+   *   foreshortening - sustained and structured. The arm is genuinely
    *                    pointing at the camera and stays that way for the
    *                    duration of a punch. Must be preserved; the strike
    *                    resolver reads it as the depth signal.
-   *   noise          — fast and zero-mean. The limb "shortens" for one frame
+   *   noise          - fast and zero-mean. The limb "shortens" for one frame
    *                    and lengthens the next. Must be removed.
    *
    * The first version handled this with a one-sided constraint: pull a limb in
    * when too long, never push it out when too short. That preserves
-   * foreshortening perfectly and removes only half the noise — measured, it
+   * foreshortening perfectly and removes only half the noise - measured, it
    * cut length variance by 23% where the two-sided rule on rigid bones managed
    * far more. Constraining toward this slow estimate instead removes the fast
    * component in both directions while leaving the sustained one alone.
@@ -226,7 +217,7 @@ export class SkeletonSolver {
   /**
    * Current body size in the image, from the torso only.
    *
-   * Torso-based on purpose. The obvious alternative — average every bone —
+   * Torso-based on purpose. The obvious alternative - average every bone -
    * would fold limb foreshortening into the scale, so throwing a punch at the
    * camera would shrink the estimated scale and the solver would then shorten
    * the rest of the body to match. A boxing stance keeps the torso roughly
@@ -272,8 +263,8 @@ export class SkeletonSolver {
         const d = Math.hypot(dx, dy);
         if (d > maxStep && d > 1e-9) {
           // Clamped toward the observation rather than discarded. Discarding
-          // would freeze a landmark that has genuinely moved a long way — such
-          // as a hand re-entering frame — and it would never catch up.
+          // would freeze a landmark that has genuinely moved a long way - such
+          // as a hand re-entering frame - and it would never catch up.
           const k = maxStep / d;
           now.x = was.x + dx * k;
           now.y = was.y + dy * k;
@@ -306,8 +297,8 @@ export class SkeletonSolver {
         continue;
       }
       const observed = Math.hypot(a.x - b.x, a.y - b.y) / scale;
-      // A foreshortened limb reads SHORT, never long. So for limbs the true
-      // length is the upper end of the distribution, not the middle — and
+      // A foreshortened limb reads short, never long. So for limbs the true
+      // length is the upper end of the distribution, not the middle - and
       // feeding every observation to a median would learn a length somewhere
       // in the middle of "arm out" and "arm at the camera", which is a length
       // the arm never actually has.
@@ -336,7 +327,7 @@ export class SkeletonSolver {
         : 1 / 15;
     this.lastTimestamp = pose.timestamp;
     // Framed as a time constant so the behaviour does not change when the pose
-    // rate does — and the pose rate on this project is about to nearly double.
+    // rate does - and the pose rate on this project is about to nearly double.
     const emaAlpha = 1 - Math.exp(-dt / conf.currentLengthTau);
 
     const active: { bone: BoneDef; target: number }[] = [];
@@ -353,27 +344,27 @@ export class SkeletonSolver {
 
       let target: number;
       if (bone.foreshortens && full > 1e-7) {
-        // Track the observed length, using the PRE-correction value so the
+        // Track the observed length, using the pre-correction value so the
         // estimate cannot chase its own output.
         const key = `${bone.a}|${bone.b}`;
         const prev = this.currentLen.get(key);
         const ema = prev === undefined ? observed : prev + (observed - prev) * emaAlpha;
         this.currentLen.set(key, ema);
 
-        // THE DISCRIMINATOR: magnitude.
+        // The discriminator: magnitude.
         //
         // Foreshortening and noise both shorten a limb, but not by remotely
         // similar amounts. A punch down the lens shortens a forearm by 30-75%.
         // Landmark noise shortens it by a few percent. So the size of the
         // shortfall is itself strong evidence about which one is happening,
-        // and it is far more discriminating than speed — which was the first
+        // and it is far more discriminating than speed - which was the first
         // thing I tried, and it only cut the jitter by 23% because a slow EMA
         // tracks small noise almost perfectly.
         //
         // Below `noiseBand` the shortfall is treated as pure error and pulled
         // all the way back to full length. Above `noiseBand + relaxBand` it is
         // treated as real and left alone. Between them it blends, so there is
-        // no discontinuity for a limb hovering at the boundary — a hard switch
+        // no discontinuity for a limb hovering at the boundary - a hard switch
         // there would produce a visible pop mid-punch.
         const shortfall = Math.max(0, 1 - observed / full);
         const w = Math.min(
@@ -441,7 +432,7 @@ export class SkeletonSolver {
 
         // Rotate the tip away from the root about the joint, to the limit.
         const need = ((limit.min - angle) * Math.PI) / 180;
-        // Sign from the 2D cross product, so the tip is pushed OPEN rather
+        // Sign from the 2D cross product, so the tip is pushed open rather
         // than folded further through the joint.
         const cross = ux * vy - uy * vx;
         const s = Math.sin(cross >= 0 ? need : -need);

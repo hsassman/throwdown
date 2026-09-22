@@ -5,7 +5,7 @@ import { HIT_ZONES, ZONE_BY_ID } from "../training/hitZones";
 import { DUMMY, halfWidthAt, surfaceDepth } from "../training/dummySpec";
 
 // Geometry tests against the built object. three.js runs perfectly well
-// headless, so these assert the real mesh rather than a mock — the same
+// headless, so these assert the real mesh rather than a mock - the same
 // approach the retargeting tests take against the real asset.
 
 function build() {
@@ -15,20 +15,33 @@ function build() {
 describe("dummy geometry", () => {
   it("builds without a single NaN vertex", () => {
     // One NaN collapses the bounding sphere and the mesh vanishes under
-    // frustum culling — it renders as nothing rather than as something wrong,
+    // frustum culling - it renders as nothing rather than as something wrong,
     // which is the hardest kind of fault to spot in a screenshot. The
     // superellipse raises values to fractional powers, so this is a live risk.
+    //
+    // Scanned in a plain loop with one assertion at the end rather than an
+    // expect() per float. The dummy carries a few hundred thousand of them, and
+    // an assertion each turned a millisecond of arithmetic into seconds of
+    // matcher overhead - enough that this test intermittently blew its timeout
+    // when the suite ran under load. Naming the offending mesh and index is
+    // also a far better failure than "expected false to be true".
     const d = build();
     let checked = 0;
+    let bad: string | null = null;
     d.group.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const pos = mesh.geometry.getAttribute("position");
-      for (let i = 0; i < pos.count * pos.itemSize; i++) {
-        expect(Number.isFinite(pos.array[i])).toBe(true);
+      const values = pos.array;
+      for (let i = 0; i < values.length; i++) {
+        if (!Number.isFinite(values[i])) {
+          bad ??= `${mesh.name || "unnamed mesh"} position[${i}] = ${values[i]}`;
+          break;
+        }
       }
       checked += 1;
     });
+    expect(bad).toBeNull();
     expect(checked).toBeGreaterThan(0);
     d.dispose();
   });
@@ -56,7 +69,7 @@ describe("dummy geometry", () => {
   });
 
   it("reaches the floor at ANY belt height, by growing its stand", () => {
-    // The stand has no length of its own — it is however long it needs to be.
+    // The stand has no length of its own - it is however long it needs to be.
     // Storing a fixed length would be a second answer to a question the
     // placement already answers, and the two would disagree the moment the
     // figure's proportions changed.
@@ -70,7 +83,7 @@ describe("dummy geometry", () => {
 
   it("anchors target heights on the BELT LINE, not on the floor", () => {
     // The bug this replaced: the dummy was placed floor-up, so every target
-    // sat at the wrong world height by however tall the stand was — the chin
+    // sat at the wrong world height by however tall the stand was - the chin
     // ended up around chest height and nothing lined up with the player.
     //
     // strikeGeometry measures height 0 at the belt and 1.0 at the shoulder, so
@@ -103,8 +116,8 @@ describe("target markers", () => {
       const depth = surfaceDepth(z.centre.lateral, z.centre.height);
       const halfW = halfWidthAt(z.centre.height);
       expect(depth).toBeGreaterThan(0);
-      // The surface must bulge forward, and never further than the CHEST is
-      // deep — the sternum is the most forward part of a torso, and a head
+      // The surface must bulge forward, and never further than the chest is
+      // deep - the sternum is the most forward part of a torso, and a head
       // that protruded past it would put every body target behind the face.
       expect(depth).toBeLessThanOrEqual(DUMMY.torsoDepth / 2 + 1e-9);
       expect(Math.abs(z.centre.lateral)).toBeLessThanOrEqual(halfW);
@@ -169,7 +182,7 @@ describe("hosting a character figure", () => {
 
   it("projects markers onto the supplied surface, not the moulded spec", () => {
     // Where a character is thicker than the moulded spec, a marker left at the
-    // spec depth is buried INSIDE the chest — invisible, and silent about it.
+    // spec depth is buried inside the chest - invisible, and silent about it.
     const d = new PunchingDummy({ scale: 1, distance: 0, body: "figure" });
 
     const before = d.markerWorldPosition("chest", new THREE.Vector3())!.clone();
@@ -177,8 +190,8 @@ describe("hosting a character figure", () => {
     // A slab standing proud of the moulded surface, spanning the body.
     //
     // The dummy group is turned to face the player, so the dummy's own forward
-    // is -Z in WORLD terms. The slab has to sit between the ray's start and
-    // the body — putting it further out than the ray origin (which a first
+    // is -Z in world terms. The slab has to sit between the ray's start and
+    // the body - putting it further out than the ray origin (which a first
     // version of this test did) means the ray starts behind it and misses.
     const PROUD = 0.1;
     const slab = new THREE.Mesh(

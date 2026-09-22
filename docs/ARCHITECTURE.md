@@ -1,7 +1,7 @@
 # Architecture
 
-Shadow Box is a browser game with no server. Everything — camera, pose
-inference, perception, simulation, rendering — runs in the tab.
+Shadow Box is a browser game with no server. Everything - camera, pose
+inference, perception, simulation, rendering - runs in the tab.
 
 ## Layers
 
@@ -15,6 +15,7 @@ Data flows one way. A layer may read the one above it and never the one below.
 | Simulation | `src/sim` | Health, stamina, scoring, the CPU opponent. |
 | Training | `src/training` | Dummy drills, scoring, the persistent profile. |
 | Menu | `src/menu` | Modes and stages as data. |
+| Net | `src/net` | Peer link, wire format, session. Transport only. |
 | Render | `src/render` | three.js. Draws what the layers above decided. |
 | UI | `src/ui` | React. HUDs, panels, the camera-driven shell. |
 
@@ -35,9 +36,9 @@ tested without a GPU.
 Two coordinate systems meet in this project and the conversion happens in one
 place each time.
 
-- **Torso units** — perception, the strike resolver and the AI all reason in
+- **Torso units** - perception, the strike resolver and the CPU all reason in
   multiples of the player's own shoulder-to-hip distance.
-- **World units** — the scene.
+- **World units** - the scene.
 
 `RENDER_CONFIG.rigTorsoWorldLength` is the factor. Mixing them silently is a
 real failure mode: the CPU opponent once believed the gap between fighters was
@@ -53,10 +54,21 @@ is tuned from a magic number at a call site.
 
 These are settled. Re-opening one needs a strong reason.
 
-- **Client-side only.** No authoritative game server. A signalling server will
-  be needed for WebRTC setup and will relay no gameplay data.
-- **Only classified, discrete events cross the network** — never raw landmarks
-  and never video.
+- **Client-side only.** No game server, and not even a signalling one: the two
+  players exchange the WebRTC offer and answer by pasting a code to each other.
+- **Video never crosses the network.** Pose landmarks do.
+
+  This replaced an earlier rule of "discrete events only, never raw landmarks".
+  It was changed deliberately, not drifted past. Driving the remote fighter
+  from their real pose means they duck, step and throw exactly as the person
+  did, because it runs the same retargeting on the same input; a digest would
+  have meant a second, lossier animation path and two things to keep in step.
+  It costs about 5 KB/s.
+
+  What that buys is worth stating plainly: in a networked fight a player's body
+  landmarks reach their opponent's machine. Peer-to-peer, to someone they chose
+  to fight, only while the fight is open, and never to us. The picture never
+  leaves either machine.
 - **Licence-clean stack.** MediaPipe is Apache-2.0. No copyleft models, no
   ripped game assets.
 - **No Python and no GPU inference in the runtime path.** The character asset

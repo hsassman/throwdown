@@ -4,16 +4,16 @@ import { syntheticPunch, type PunchShape } from "./synthetic";
 import { TEST_CALIBRATION as CAL } from "./testCalibration";
 import type { PunchEvent } from "./punchTypes";
 
-// Frame-rate sensitivity of punch DETECTION.
+// Frame-rate sensitivity of punch detection.
 //
-// Added after the first real measured run returned a 19% detection rate — a
+// Added after the first real measured run returned a 19% detection rate - a
 // detection failure, not the classification failure the project documentation
 // anticipates. The dev laptop runs pose tracking at ~15 FPS (66ms per frame),
 // and the run reported a mean of 5.0 pose samples per detected punch, so the
 // hypothesis is that the FSM is being starved of frames rather than defeated
 // by the geometry.
 //
-// These tests hold the punch's real-world DURATION fixed and vary only the
+// These tests hold the punch's real-world duration fixed and vary only the
 // sampling rate, which isolates frame rate from every other variable.
 
 
@@ -21,7 +21,7 @@ import type { PunchEvent } from "./punchTypes";
  * Throws one synthetic punch sampled at `fps`, holding the punch's physical
  * duration at roughly `durationMs`.
  *
- * `durationMs` is the OUTWARD phase only — the generator appends a retract of
+ * `durationMs` is the outward phase only - the generator appends a retract of
  * the same length, so the whole punch takes twice this. 150ms out (300ms
  * round trip) is representative of a real jab; the earlier default of 300ms
  * out described a punch twice as slow as anything a boxer throws, and made
@@ -51,7 +51,7 @@ describe("frame-rate sensitivity of punch detection", () => {
   // Every shape must detect at every plausible frame rate. The foreshortened
   // straight is the one that matters most: it is what a punch thrown at the
   // lens actually looks like, and it is what the first measured run consisted
-  // of. It was undetectable at ANY frame rate under the previous design.
+  // of. It was undetectable at any frame rate under the previous design.
   for (const fps of [30, 20, 15, 12, 10]) {
     for (const shape of [
       "straight",
@@ -70,7 +70,7 @@ describe("frame-rate sensitivity of punch detection", () => {
   });
 
   it("reports how many samples each rate yields", () => {
-    // Not an assertion so much as a recorded observation — the sample count is
+    // Not an assertion so much as a recorded observation - the sample count is
     // what the results screen warns on, so it is worth having the synthetic
     // equivalent visible next to the real number.
     const rows: string[] = [];

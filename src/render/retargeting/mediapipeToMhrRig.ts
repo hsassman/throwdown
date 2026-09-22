@@ -18,29 +18,29 @@ import {
   type PointSpec,
 } from "./rigJointMap";
 
-// Purely cosmetic retargeting — see docs/ARCHITECTURE.md's "Why retargeting/
+// Purely cosmetic retargeting - see docs/ARCHITECTURE.md's "Why retargeting/
 // lives under render/ and not perception/": this consumes the same landmark
 // stream perception reads, but its output never feeds back into hit
 // resolution, punch classification, or the simulation.
-// HOW THIS WORKS, and why the obvious approach doesn't
+// How this works, and why the obvious approach doesn't
 //
 // Only the in-plane (screen x/y) direction of each limb is measurable. z is
-// never used — the project-wide rule from the gesture-classification notes, since
+// never used - the project-wide rule from the gesture-classification notes, since
 // MediaPipe's depth is least reliable exactly along the axis punches travel.
 //
-// The naive fix — aim each bone at a direction with z forced to 0 — flattens
+// The naive fix - aim each bone at a direction with z forced to 0 - flattens
 // the character, because real bind directions carry a substantial out-of-plane
 // component (l_lowarm's is 0.557; the forearm genuinely angles forward). So
-// instead each bone KEEPS its bind-pose out-of-plane component and only its
+// instead each bone keeps its bind-pose out-of-plane component and only its
 // in-plane azimuth is driven. That has a property worth stating: when the
 // measured in-plane direction equals the bind in-plane direction, the computed
 // target is exactly the bind direction, so the bone does not move at all. Rest
 // pose is preserved perfectly rather than approximately.
 //
-// The solve is done entirely in the bone's PARENT space, against the parent's
-// CURRENT world orientation, read fresh each frame. An earlier version cached
+// The solve is done entirely in the bone's parent space, against the parent's
+// current world orientation, read fresh each frame. An earlier version cached
 // the parent orientation as a constant "because the parent is never itself
-// retargeted" — false for the forearms, whose parents are the driven upper
+// retargeted" - false for the forearms, whose parents are the driven upper
 // arms. That produced a forearm hinging off a stale shoulder, one of the
 // causes of the visibly broken first attempt. Bones are therefore solved in
 // DRIVEN_BONES order, parents first.
@@ -48,13 +48,13 @@ import {
 /**
  * Where a bone should point. `x`/`y` are a unit 2D direction in world x/y.
  *
- * `z` is the out-of-plane component, and is OPTIONAL: when omitted the bone
+ * `z` is the out-of-plane component, and is optional: when omitted the bone
  * keeps its bind-pose depth (the safe default for joints we can't reason about
  *), and when present it overrides that. `x`/`y` are rescaled so the resulting
  * 3D direction stays unit length.
  *
- * Note this `z` is NOT MediaPipe's z landmark, which this project never reads.
- * It is recovered from foreshortening of x/y alone — see recoverDepth().
+ * Note this `z` is not MediaPipe's z landmark, which this project never reads.
+ * It is recovered from foreshortening of x/y alone - see recoverDepth().
  */
 export interface BoneTarget {
   x: number;
@@ -78,7 +78,7 @@ export type LimbLengths = Record<ArmBoneName, number>;
  * component of sqrt(1 - (P/L)^2).
  *
  * This is the one signal that makes a punch thrown AT the camera actually
- * extend toward the viewer instead of barely moving — the exact motion a
+ * extend toward the viewer instead of barely moving - the exact motion a
  * frontal webcam otherwise cannot see, and the one that matters most in a
  * boxing game.
  *
@@ -100,7 +100,7 @@ export function recoverDepth(projected: number, full: number): number {
  * How far outside the frame a cosmetic landmark may sit before it is rejected.
  *
  * BlazePose does not report "absent" for a body part below the bottom of the
- * frame — it extrapolates one, often with a healthy visibility score. At a
+ * frame - it extrapolates one, often with a healthy visibility score. At a
  * seated desk webcam that is the normal state of the legs, so a confidence
  * gate alone is not enough: the character would stand on invented knees that
  * twitch with every torso wobble. Positions are normalized to [0,1] over the
@@ -154,10 +154,10 @@ function resolvePoint(
 }
 
 /**
- * In-plane direction between two points, in WORLD orientation: image y is
+ * In-plane direction between two points, in world orientation: image y is
  * flipped (it grows downward, world y grows up) and x is negated when the view
  * is mirrored, matching the mirrored webcam preview. Returns null when the two
- * coincide — a zero-length direction would normalize to NaN and silently wreck
+ * coincide - a zero-length direction would normalize to NaN and silently wreck
  * every bone downstream.
  */
 function planarDirection(
@@ -181,7 +181,7 @@ function armPair(bone: ArmBoneName, mirrored: boolean) {
 const ARM_BONE_SET = new Set<string>(ARM_BONES);
 
 /**
- * Projected length of each arm bone this frame, in torso units — the input to
+ * Projected length of each arm bone this frame, in torso units - the input to
  * depth recovery. Torso-normalized so it means the same thing at any distance
  * from the camera, matching how every perception threshold is expressed.
  * Bones whose landmarks aren't tracked are omitted.
@@ -209,8 +209,8 @@ export function measureLimbs(
  * Head yaw and pitch, as raw normalized signals rather than angles.
  *
  * Yaw cannot come from a swing solve. Aiming a bone at a target fixes two
- * degrees of freedom and leaves rotation ABOUT that bone's own axis entirely
- * undetermined — and turning your head is exactly that rotation. So it is
+ * degrees of freedom and leaves rotation about that bone's own axis entirely
+ * undetermined - and turning your head is exactly that rotation. So it is
  * measured separately here, from how the nose sits between the two ears:
  * face the camera and the nose is centred; turn away and it slides toward the
  * ear on the side you turned toward while that ear closes in behind the head.
@@ -220,7 +220,7 @@ export function measureLimbs(
  * Pitch is the nose's height relative to the ear line, in torso units. It
  * carries a per-person offset (where your nose sits relative to your ear
  * canals is anatomy, not posture), so the caller must subtract a learned
- * neutral — RigDriver does. Returns null if the head isn't tracked.
+ * neutral - RigDriver does. Returns null if the head isn't tracked.
  */
 export interface HeadSignals {
   /** -1 (turned fully one way) to +1. Positive = toward the character's left. */
@@ -254,7 +254,7 @@ export function measureHeadSignals(
   if (sum < 1e-6) return null;
 
   // Positive when the player turns toward their own left. Under the mirrored
-  // mapping the character's sides are swapped, so the sense flips with it —
+  // mapping the character's sides are swapped, so the sense flips with it -
   // the same rule every other signal here follows.
   const yaw = ((dRight - dLeft) / sum) * (mirrored ? -1 : 1);
 
@@ -290,7 +290,7 @@ export function computeBoneTargets(
     const b = resolvePoint(pose, src.to, minConf);
     // Absent or low-confidence landmarks mean this bone simply isn't driven
     // this frame. That is the normal case for legs and hands at a desk webcam,
-    // not an error — the caller leaves those bones at rest.
+    // not an error - the caller leaves those bones at rest.
     if (!a || !b) continue;
 
     const dir = planarDirection(a, b, mirrored);
@@ -301,7 +301,7 @@ export function computeBoneTargets(
       if (projected !== undefined) {
         // Positive z = toward the camera. The character faces +Z (verified from
         // foot geometry), and a foreshortened arm in boxing is nearly always
-        // reaching forward rather than behind — see recoverDepth()'s note on
+        // reaching forward rather than behind - see recoverDepth()'s note on
         // the sign ambiguity this resolves by assumption.
         dir.z = recoverDepth(projected, limbFull[bone as ArmBoneName]);
       }
@@ -320,14 +320,14 @@ export interface BoneBindData {
   /** False for bones with no aim child (c_head), whose direction fields are
    * meaningless and which are driven by an explicit rotation instead. */
   aimed: boolean;
-  /** Bone->child direction expressed in the PARENT's space, bind pose, unit. */
+  /** Bone->child direction expressed in the parent's space, bind pose, unit. */
   bindDirParent: THREE.Vector3;
-  /** Bone->child direction in WORLD space, bind pose, unit. Only its z is
-   * used — as the out-of-plane component to preserve. */
+  /** Bone->child direction in world space, bind pose, unit. Only its z is
+   * used - as the out-of-plane component to preserve. */
   bindDirWorld: THREE.Vector3;
   /** The bone's own bind-pose local quaternion. */
   bindLocalQuat: THREE.Quaternion;
-  /** Bind-pose distance to the aim child — the segment's length. Used to
+  /** Bind-pose distance to the aim child - the segment's length. Used to
    * work out how much of a spine bend actually reaches the top of the chain. */
   bindChildDistance: number;
 }
@@ -358,7 +358,7 @@ export function captureBindPose(root: THREE.Object3D): Map<DrivenBoneName, BoneB
 
     // Normalized deliberately: the exported asset's rotations are a hair off
     // unit length (c_spine0's is 0.999999991). That is harmless for rendering,
-    // but it makes quaternion comparisons misbehave — Quaternion.angleTo() on
+    // but it makes quaternion comparisons misbehave - Quaternion.angleTo() on
     // a slightly-short quaternion reports ~4e-4 radians against its own exact
     // copy, because acos amplifies a 1e-8 dot deficit. Normalizing here keeps
     // everything downstream exactly comparable.
@@ -368,7 +368,7 @@ export function captureBindPose(root: THREE.Object3D): Map<DrivenBoneName, BoneB
     if (childName === null) {
       // Twist-driven bone (c_head): it has no meaningful continuation to aim
       // at, and its direction fields are never read. Recorded explicitly so a
-      // future caller that DOES try to aim it fails loudly in applyBoneTarget
+      // future caller that does try to aim it fails loudly in applyBoneTarget
       // rather than quietly rotating toward a zero vector.
       binds.set(name, {
         bone,
@@ -431,11 +431,11 @@ const _swing = new THREE.Quaternion();
 
 /**
  * Aims one bone along a measured in-plane direction, preserving its bind-pose
- * out-of-plane tilt. Reads the parent's CURRENT world orientation, so callers
+ * out-of-plane tilt. Reads the parent's current world orientation, so callers
  * must solve parents before children (DRIVEN_BONES is ordered for this).
  */
 /**
- * The rotation, in the bone's PARENT space, that takes its bind direction to
+ * The rotation, in the bone's parent space, that takes its bind direction to
  * the requested target. Written into `_swing` and returned; not reentrant.
  * Returns null when the target degenerates.
  */
@@ -498,13 +498,13 @@ const _worldRight = new THREE.Vector3(1, 0, 0);
  *
  * This exists because a swing solve structurally cannot produce it: aiming a
  * bone at a point pins two degrees of freedom and leaves rotation about the
- * bone's own axis free, and head yaw IS that rotation. So the head is the one
+ * bone's own axis free, and head yaw is that rotation. So the head is the one
  * driven bone with no aim child (BONE_AIM_CHILD maps it to null) and is
  * rotated explicitly instead.
  *
  * Positive `yaw` turns the head toward the character's own left (+X); positive
- * `pitch` drops the chin. Both are built in WORLD space — the character stands
- * upright, so world Y and X really are its turn and nod axes — then conjugated
+ * `pitch` drops the chin. Both are built in world space - the character stands
+ * upright, so world Y and X really are its turn and nod axes - then conjugated
  * into the head's parent frame, the same way applySpineBend() does, because
  * `c_neck` carries a bind rotation that would otherwise send the axes askew.
  */
@@ -559,8 +559,8 @@ function scaleRotation(q: THREE.Quaternion, gain: number): void {
  * How much of a distributed bend survives to the visible torso chord, inverted
  * so it can be used as a gain.
  *
- * Each segment ends up rotated by the CUMULATIVE weight up to and including
- * it, and the chord is those segment directions averaged by length — so a
+ * Each segment ends up rotated by the cumulative weight up to and including
+ * it, and the chord is those segment directions averaged by length - so a
  * top-heavy weighting (which looks natural) systematically under-leans.
  */
 function chordCompensation(binds: Map<DrivenBoneName, BoneBindData>): number {
@@ -593,7 +593,7 @@ export function applySpineBend(
   const base = binds.get("c_spine0");
   if (!base) return;
 
-  // The lean is defined in WORLD space — one rotation taking the torso's bind
+  // The lean is defined in world space - one rotation taking the torso's bind
   // direction to where it should now point.
   const targetWorld = buildTargetWorld(base, target);
   if (targetWorld.lengthSq() < 1e-12) return;
@@ -602,7 +602,7 @@ export function applySpineBend(
     targetWorld.clone().normalize()
   );
 
-  // Distributing a bend across a chain makes the TORSO lean less than the
+  // Distributing a bend across a chain makes the torso lean less than the
   // requested angle: what is visible is the chord from the base of the spine
   // to the neck, and the lower segments have only rotated by part of the
   // total. Measured on this rig it came out at a consistent 60% across 10-45
@@ -622,7 +622,7 @@ export function applySpineBend(
     // matters: an earlier version reused c_spine0's parent-space swing for
     // every segment, but c_spine0 carries a ~90 degree bind rotation, so the
     // axis was wrong for the rest of the chain and the torso reached barely a
-    // sixth of the requested lean. Read the parent's CURRENT orientation, so
+    // sixth of the requested lean. Read the parent's current orientation, so
     // each segment's share composes on top of the ones already applied.
     bind.parent.updateWorldMatrix(true, false);
     bind.parent.getWorldQuaternion(_parentQuat);
@@ -655,8 +655,8 @@ export function applyPoseToRig(
    * its rest orientation, which is what "untracked" should look like. */
   head?: { yaw: number; pitch: number } | null
 ): void {
-  // The spine is solved as one unit — the measured direction arrives under
-  // c_spine0 and is shared across the chain — so it runs before anything
+  // The spine is solved as one unit - the measured direction arrives under
+  // c_spine0 and is shared across the chain - so it runs before anything
   // hanging off it (neck, arms) reads its orientation.
   const spineTarget = targets.c_spine0;
   if (spineTarget) {
@@ -672,7 +672,7 @@ export function applyPoseToRig(
     if (SPINE_BONES.has(name)) continue;
     const bind = binds.get(name);
     if (!bind) continue;
-    // c_head is never aimed — applyHeadOrientation() drives it, and it is
+    // c_head is never aimed - applyHeadOrientation() drives it, and it is
     // called unconditionally below so the head still returns to rest when the
     // player isn't tracked.
     if (!bind.aimed) continue;

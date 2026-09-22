@@ -1,11 +1,11 @@
 // Synthetic punch trajectories, for testing the perception layer without a
 // webcam or a human.
 //
-// WHAT THIS CAN AND CANNOT TELL US — read before trusting a passing test:
+// What this can and cannot tell us - read before trusting a passing test:
 //
 // These are idealised, noise-free, unambiguous motions. A synthetic "hook"
 // travels laterally by an amount no foreshortened real hook necessarily would.
-// So passing tests prove the PLUMBING is right: the FSM fires, feature signs
+// So passing tests prove the plumbing is right: the FSM fires, feature signs
 // point the way they should, and a clean example of each class lands in the
 // right bucket.
 //
@@ -14,8 +14,8 @@
 // signals these synthetic paths express cleanly. Only the measured confusion
 // matrix from real thrown punches can answer that question.
 //
-// The value here is narrow but real: it separates "Approach A is defeated by
-// the geometry" (an expected, documented outcome) from "Approach A has a sign
+// The value here is narrow but real: it separates "Approach a is defeated by
+// the geometry" (an expected, documented outcome) from "Approach a has a sign
 // error" (a bug), which a real run alone cannot distinguish.
 
 import type { Keypoint, PoseFrame } from "../pose/poseTypes";
@@ -58,10 +58,10 @@ interface WristPath {
   bow?: number;
   /**
    * Optional midpoint the fist passes through. Needed for the uppercut, which
-   * drops toward the ribs before driving upward — a shape a start/end pair
+   * drops toward the ribs before driving upward - a shape a start/end pair
    * plus a perpendicular bow cannot express.
    *
-   * Without this the synthetic uppercut BEGAN at the ribs, so the fist was
+   * Without this the synthetic uppercut began at the ribs, so the fist was
    * already far from guard on the first frame and the detector never armed.
    * Real uppercuts start at guard like every other punch.
    */
@@ -138,12 +138,12 @@ function buildFrame(
 }
 
 /**
- * Positions the wrist relative to its own shoulder, in TORSO UNITS.
+ * Positions the wrist relative to its own shoulder, in torso units.
  *
  * `lateral` is positive away from the body midline (outward) and negative
  * across the body (inward); `vertical` is positive upward. Expressing paths
  * this way rather than in raw image coordinates is what makes them checkable
- * by hand — the first version of this file used raw offsets and silently
+ * by hand - the first version of this file used raw offsets and silently
  * produced "punches" that displaced the wrist by 0.018 units, i.e. no punch
  * at all, and every detection test failed for that reason rather than any
  * fault in the classifier.
@@ -151,7 +151,7 @@ function buildFrame(
 function pos(hand: "left" | "right", lateral: number, vertical: number) {
   const s = SYNTHETIC_TORSO_SCALE;
   const shoulderX = hand === "left" ? BODY.leftShoulderX : BODY.rightShoulderX;
-  // The subject's left shoulder sits to the image RIGHT of the midline, so
+  // The subject's left shoulder sits to the image right of the midline, so
   // "outward" is +x for the left hand and -x for the right.
   const outwardSign = hand === "left" ? 1 : -1;
   return {
@@ -180,7 +180,7 @@ function pathFor(kind: PunchShape, hand: "left" | "right"): WristPath {
   }
   if (kind === "uppercut") {
     // Starts at guard, chambers down toward the ribs, then drives up the
-    // CENTRE LINE — laterally inward, not straight up beside the shoulder.
+    // Centre line - laterally inward, not straight up beside the shoulder.
     //
     // Two constraints this shape has to satisfy, both learned the hard way:
     // the drive must end further from guard than the chamber does, or the
@@ -188,8 +188,8 @@ function pathFor(kind: PunchShape, hand: "left" | "right"): WristPath {
     // stay laterally clear of the guard position throughout, or the fist
     // passes back within the re-arm radius mid-punch and the uppercut
     // fragments into two separate candidate punches.
-    // NOTE `via` is a Bezier CONTROL point, which the curve is pulled toward
-    // but never reaches — at t=0.5 the curve sits at (start + 2*via + end)/4.
+    // Note `via` is a Bezier control point, which the curve is pulled toward
+    // but never reaches - at t=0.5 the curve sits at (start + 2*via + end)/4.
     // So the control point must be placed roughly twice as deep as the dip
     // actually wanted. A control point at the intended chamber depth produced
     // a curve that never dropped below the shoulder line at all.
@@ -205,11 +205,11 @@ function pathFor(kind: PunchShape, hand: "left" | "right"): WristPath {
     // This is the case the first real measured run actually consisted of, and
     // the one the earlier synthetic paths completely failed to represent. The
     // fist travels from beside the cheek to in front of the face: in the 2D
-    // projection it moves only a short distance and TOWARD the body midline,
+    // projection it moves only a short distance and toward the body midline,
     // while the arm's apparent length barely grows because it is pointing at
     // the camera.
     //
-    // Critically, wrist-to-shoulder 2D distance grows only slightly here — and
+    // Critically, wrist-to-shoulder 2D distance grows only slightly here - and
     // can even shrink. Any detector gated on that distance is unreachable for
     // this punch no matter how hard it is thrown, which is why the geometry is
     // modelled explicitly rather than assumed away.
@@ -217,7 +217,7 @@ function pathFor(kind: PunchShape, hand: "left" | "right"): WristPath {
   }
 
   // Straight thrown across an off-axis camera: extends outward and slightly
-  // down, with minimal travel across the body. Retained as the "easy" case —
+  // down, with minimal travel across the body. Retained as the "easy" case -
   // a player standing at an angle to the webcam produces something like this.
   return { start, end: pos(hand, 0.55, -0.25), bow: 0 };
 }
@@ -280,7 +280,7 @@ export function syntheticPunch(
   // Retract straight back to guard, rather than re-tracing the outward path.
   //
   // This matters for the uppercut: its outward path passes via the ribs, and
-  // re-tracing that in reverse produced a SECOND excursion peak, which the
+  // re-tracing that in reverse produced a second excursion peak, which the
   // detector correctly counted as another punch. Real punches are recovered
   // directly to guard, so the retract is a straight return.
   const peak = at(1);
@@ -306,7 +306,7 @@ export function syntheticPunch(
   return out;
 }
 
-/** A player standing still in guard — used to check for false positives. */
+/** A player standing still in guard - used to check for false positives. */
 export function syntheticIdle(frames: number, jitter = 0.002): PoseFrame[] {
   const out: PoseFrame[] = [];
   let t = 1000;

@@ -4,11 +4,11 @@ import { TRAINING_CONFIG } from "../config/tuning";
 import "./trainingHud.css";
 
 // The training read-out.
-// WHAT IT SHOWS, AND WHY IT IS THIS AND NOT MORE
+// What it shows, and why it is this and not more
 //
 // A player mid-round can read roughly one number and one word. Everything that
-// matters WHILE punching is on the dummy itself — the lit ring, its colour on
-// impact, the dummy rocking back. This panel carries what you look at BETWEEN
+// matters while punching is on the dummy itself - the lit ring, its colour on
+// impact, the dummy rocking back. This panel carries what you look at between
 // rounds: the three component scores, the streak, and what the system has
 // worked out about your form.
 //
@@ -43,7 +43,7 @@ export function TrainingHud({ training, scored, onRestart }: Props) {
       if (!bar || !label) return;
       if (!lit) {
         bar.style.transform = "scaleX(0)";
-        label.textContent = "—";
+        label.textContent = "-";
         return;
       }
       const left = (lit.expiresAt - performance.now()) / TRAINING_CONFIG.windowMs;
@@ -58,7 +58,7 @@ export function TrainingHud({ training, scored, onRestart }: Props) {
 
   // A finished round has to offer the way on. Without this the drill runs its
   // twelve targets, stops, and leaves the player standing in front of a dummy
-  // that has silently stopped asking for anything — indistinguishable from the
+  // that has silently stopped asking for anything - indistinguishable from the
   // tracking having died.
   if (scored && finished) {
     return (
@@ -100,7 +100,7 @@ export function TrainingHud({ training, scored, onRestart }: Props) {
       {scored && (
         <div className="thud-target">
           <div className="thud-target-label" ref={labelRef}>
-            —
+            -
           </div>
           <div className="thud-target-track">
             <div className="thud-target-bar" ref={barRef} />
@@ -137,7 +137,7 @@ export function TrainingHud({ training, scored, onRestart }: Props) {
           <strong>{lastOutcome.zone.label}</strong>
           <span>
             {Math.round(lastOutcome.accuracy * 100)}% ·{" "}
-            {lastOutcome.strike?.region.label ?? "—"} ·{" "}
+            {lastOutcome.strike?.region.label ?? "-"} ·{" "}
             {Math.round(lastOutcome.reactionMs)}ms
           </span>
         </div>

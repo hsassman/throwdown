@@ -1,7 +1,7 @@
 // Reports where each body part lives in the mesh's UV layout.
 //
 // Needed because the exported material carries no textures at all, so nothing
-// so far has had to know the UV layout — but painting a bruise on the jaw
+// so far has had to know the UV layout - but painting a bruise on the jaw
 // means knowing which rectangle of texture space the head occupies.
 // TEXCOORD_0 survives in the shipped mesh only because strip-morphs.mjs passes
 // `keepAttributes: true`; the default prune dropped it precisely because no
@@ -28,7 +28,7 @@ const skin = root.listSkins()[0];
 const jointNodes = skin ? skin.listJoints() : [];
 
 if (!uv) {
-  console.error("mesh has no TEXCOORD_0 — nothing can be textured");
+  console.error("mesh has no TEXCOORD_0 - nothing can be textured");
   process.exit(1);
 }
 

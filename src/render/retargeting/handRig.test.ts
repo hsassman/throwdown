@@ -6,8 +6,8 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { applyClench, captureHandBind } from "./handRig";
 import { FINGER_CHAINS, HAND_SHAPE } from "./rigJointMap";
 
-// Against the REAL exported asset, for the same reason the rest of the
-// retargeting tests are: the curl axes are DERIVED from the bind pose, so a
+// Against the real exported asset, for the same reason the rest of the
+// retargeting tests are: the curl axes are derived from the bind pose, so a
 // mocked hand would only confirm the derivation against itself.
 
 const MODEL_PATH = "public/models/boxer_lod3.glb";
@@ -156,7 +156,7 @@ describe("fist closure", () => {
 
   it("closes the gaps between fingers rather than fanning them", () => {
     // The fault that made the first two attempts look broken. At bind the
-    // fingertips sit further apart than the knuckles — the fingers fan out —
+    // fingertips sit further apart than the knuckles - the fingers fan out -
     // and curling alone preserves that fan exactly.
     const hand = captureHandBind(model, "l")!;
     applyClench(hand, 1);
@@ -185,7 +185,7 @@ describe("fist closure", () => {
     // demanded ~29 degrees of knuckle adduction. Real values land near 8.
     const hand = captureHandBind(model, "l")!;
     // Only the four fingers' knuckles are solved. The thumb reuses the same
-    // field for its AIM swing across the fist, which is deliberately large and
+    // field for its aim swing across the fist, which is deliberately large and
     // is not a knuckle adduction at all.
     const knuckles = hand.bones.filter((b) =>
       FOUR.some((f) => b.bone.name === `l_${f}1`)

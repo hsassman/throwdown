@@ -1,5 +1,5 @@
 /* In-fight overlay. Sits above the 3D stage and must never eat pointer events
-   — the player is moving in front of a camera, not clicking. */
+   - the player is moving in front of a camera, not clicking. */
 
 .fight-hud {
   position: absolute;
@@ -92,7 +92,7 @@
   color: #d7a53c;
 }
 
-/* The telegraph. Deliberately loud — the AI's readability is the entire basis
+/* The telegraph. Deliberately loud - the CPU's readability is the entire basis
    of the defensive game, and 260ms is not long enough to notice something
    subtle while you are also moving. */
 .fh-windup {
@@ -151,5 +151,70 @@
   .fh-health > span,
   .fh-stamina > span {
     transition: none;
+  }
+}
+
+/* The referee's count.
+ *
+ * Centred and very large, because it is the one moment in a fight when the
+ * player should stop looking at their opponent. Placed below the clock rather
+ * than over the middle of the stage, so it never covers the fighter it is
+ * counting - which, during a knockdown, is the thing worth seeing. */
+.fh-count {
+  position: absolute;
+  /* Just under the clock, not over the middle of the stage. During a
+     knockdown the fighter on the canvas is the thing worth seeing, and the
+     first version of this put a 132px numeral across their back. */
+  top: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 26px 12px;
+  border-radius: 14px;
+  /* Its own ground, so the number stays legible against a pale canvas or a
+     fighter's skin rather than depending on what happens to be behind it. */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(10, 6, 6, 0.82) 0%,
+    rgba(10, 6, 6, 0.55) 55%,
+    rgba(10, 6, 6, 0) 100%
+  );
+  pointer-events: none;
+  animation: fh-count-in 160ms ease-out;
+}
+.fh-count strong {
+  font-size: clamp(44px, 7vw, 86px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: #fff;
+  text-shadow:
+    0 0 28px rgba(255, 90, 60, 0.75),
+    0 4px 22px rgba(0, 0, 0, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.fh-count span {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffd9cf;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+@keyframes fh-count-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.25);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fh-count {
+    animation: none;
   }
 }

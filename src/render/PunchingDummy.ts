@@ -11,30 +11,30 @@ import { HIT_ZONES, type HitZone } from "../training/hitZones";
 import { RENDER_CONFIG, TARGET_CONFIG } from "../config/tuning";
 
 // The punching dummy: an upper body on a sprung column, with lit target zones.
-// TWO BODIES, ONE STAND
+// Two bodies, one stand
 //
 // The body is either:
 //
-//   "moulded" — generated geometry, a Century-BOB style urethane torso. No
+//   "moulded" - generated geometry, a Century-BOB style urethane torso. No
 //   rig, no skinning, nothing that deforms. Safe to generate precisely because
-//   a BOB is a single moulded piece with no seams, cloth or fingers — the
+//   a BOB is a single moulded piece with no seams, cloth or fingers - the
 //   opposite of the procedural gloves/shorts/eyes this project built and threw
 //   away three times.
 //
-//   "figure" — the real character mesh, supplied by the caller, clipped off
+//   "figure" - the real character mesh, supplied by the caller, clipped off
 //   below the belt and plugged into the stand's collar. It is fully skinned,
 //   so it reacts to being hit and takes bruises like any other fighter.
 //
 // The stand, the spring, the target markers and the scoring are identical
 // either way. Only what is bolted on top changes.
-// SCALE IS BAKED INTO THE GEOMETRY, NOT APPLIED TO THE GROUP
+// Scale is baked into the geometry, not applied to the group
 //
 // Everything below is generated in torso units and multiplied by `scale` as it
 // is built, so the dummy's group sits at world scale.
 //
-// That is deliberate and load-bearing. A scaled GROUP would also scale
+// That is deliberate and load-bearing. A scaled group would also scale
 // anything parented into it, so the character figure would need a
-// compensating 1/scale — and a compensating scale buried in a parent chain is
+// compensating 1/scale - and a compensating scale buried in a parent chain is
 // exactly the thing that silently corrupts a skinned mesh's world matrices.
 // Raycasting to place the markers would need the same correction. Baking it
 // once, here, removes both problems.
@@ -53,13 +53,13 @@ export interface DummyOptions {
   /** How far in front of the player the dummy stands. */
   distance?: number;
   /**
-   * World height of the BELT LINE — the origin of the torso-normalised space
+   * World height of the belt line - the origin of the torso-normalised space
    * the hit zones are defined in.
    *
    * This, not the floor, is what the dummy is anchored by. `strikeGeometry.ts`
    * measures height 0 at the belt and 1.0 at the shoulder, so a dummy placed
-   * with its FLOOR at y=0 puts every target at the wrong world height by
-   * however tall its stand happens to be — the chin ends up at chest height
+   * with its floor at y=0 puts every target at the wrong world height by
+   * however tall its stand happens to be - the chin ends up at chest height
    * and nothing lines up with the player it is facing.
    */
   beltHeight?: number;
@@ -105,7 +105,7 @@ function ringAt(h: number, spec: DummySpec, s: number): THREE.Vector3[] {
     const a = (i / SEGMENTS) * Math.PI * 2;
     const c = Math.cos(a);
     const sn = Math.sin(a);
-    // Signed-power form. Math.abs BEFORE the power, sign restored after —
+    // Signed-power form. Math.abs before the power, sign restored after -
     // raising a negative to a fractional power is NaN, and one NaN vertex
     // collapses the mesh's bounding sphere so it vanishes under frustum
     // culling rather than rendering wrong.
@@ -153,8 +153,8 @@ function buildMouldedBody(spec: DummySpec, s: number): THREE.BufferGeometry {
   }
 
   // Cap the bottom, where the torso meets the column. Left open it shows the
-  // inside of the chest from below — invisible in a screenshot and glaring in
-  // motion. The TOP needs no cap: the head profile closes to a point.
+  // inside of the chest from below - invisible in a screenshot and glaring in
+  // motion. The top needs no cap: the head profile closes to a point.
   const bottom = rings[0];
   const centre = new THREE.Vector3(0, bottom[0].y, 0);
   for (let i = 0; i < SEGMENTS; i++) {
@@ -204,7 +204,7 @@ export class PunchingDummy {
     // so the base sits on the ground whatever the figure's proportions are.
     const floorLocal = -beltHeight / s;
     this.cutHeight = beltHeight + spec.base * s;
-    // Normal points UP, so everything BELOW the cut is clipped away.
+    // Normal points UP, so everything below the cut is clipped away.
     this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.cutHeight);
 
     if (body === "moulded") {
@@ -224,18 +224,18 @@ export class PunchingDummy {
       this.pivot.add(marker.fill, marker.ring);
     }
 
-    // The pivot's origin is at the TOP of the column, so the body rocks about
+    // The pivot's origin is at the top of the column, so the body rocks about
     // the point the spring actually bends at. Rotating about the body's own
     // centre makes it wobble in place like a bobblehead.
     this.pivot.position.y = spec.base * s;
     for (const child of this.pivot.children) child.position.y -= spec.base * s;
 
-    // The stand is NOT inside the pivot: a real dummy's base stays planted and
+    // The stand is not inside the pivot: a real dummy's base stays planted and
     // only the column above it flexes.
     this.group.add(this.buildStand(floorLocal, body, s), this.pivot);
 
-    // Anchored on the BELT LINE, which is the origin of the space the hit
-    // zones live in — so the dummy's chin is at the height the resolver calls
+    // Anchored on the belt line, which is the origin of the space the hit
+    // zones live in - so the dummy's chin is at the height the resolver calls
     // chin height. Its front is +Z in spec space and the player's boxer also
     // faces +Z, so the dummy is turned to meet it.
     this.group.position.set(0, beltHeight, distance);
@@ -245,7 +245,7 @@ export class PunchingDummy {
   /**
    * A target marker sitting on the skin at a zone's position.
    *
-   * The ring's radius is the zone's ACTUAL radius, so what the player aims at
+   * The ring's radius is the zone's actual radius, so what the player aims at
    * and what the drill scores are the same circle. A decorative marker at a
    * different size would be a lie told in the most visible possible place.
    */
@@ -320,10 +320,10 @@ export class PunchingDummy {
     });
     this.disposables.push(columnMat);
 
-    // The COLLAR: a socket the body plugs into.
+    // The collar: a socket the body plugs into.
     //
     // It exists for the "figure" body specifically. Clipping a skinned mesh
-    // leaves an open cross-section — a torso is a shell, so cutting it shows
+    // leaves an open cross-section - a torso is a shell, so cutting it shows
     // the inside of the chest. The collar is a solid cap wide enough to cover
     // that hole, and it reads as the mounting socket a real dummy's torso sits
     // in rather than as a patch over a mistake.
@@ -382,14 +382,14 @@ export class PunchingDummy {
   }
 
   /**
-   * Re-seats every marker onto the SURFACE of a supplied figure.
+   * Re-seats every marker onto the surface of a supplied figure.
    *
    * The moulded body's surface is known analytically; a character's is not, so
    * the markers are raycast onto the real mesh. Without this they sit at the
    * moulded spec's depth, and wherever the character is thicker than that spec
-   * the marker is buried INSIDE the chest — invisible, and silent about it.
+   * the marker is buried inside the chest - invisible, and silent about it.
    *
-   * This reads the character mesh, and is allowed to: it decides where to DRAW
+   * This reads the character mesh, and is allowed to: it decides where to draw
    * a decal. The zone's position in torso units is unchanged and hit
    * resolution never comes near this, so what you hit still does not depend on
    * how it is drawn.
@@ -434,10 +434,10 @@ export class PunchingDummy {
   }
 
   /**
-   * The PHYSICAL reaction to being hit.
+   * The physical reaction to being hit.
    *
    * Separate from `score` because the two are caused by different things. A
-   * dummy rocks when it is punched — always, including in free work where
+   * dummy rocks when it is punched - always, including in free work where
    * nothing is scored and no target is lit. Folding the rock into the scoring
    * call would leave the dummy standing perfectly still while being hit
    * whenever a drill was not running, which reads as broken hit detection.
@@ -448,7 +448,7 @@ export class PunchingDummy {
     this.rockVel += 2.6 * Math.max(0.15, power);
   }
 
-  /** The SCORING reaction: flashes a marker by how well the punch landed. */
+  /** The scoring reaction: flashes a marker by how well the punch landed. */
   score(zoneId: string | null, accuracy: number): void {
     if (!zoneId) return;
     const m = this.markers.get(zoneId);
@@ -489,7 +489,7 @@ export class PunchingDummy {
       }
       m.fillMat.emissive.copy(m.ringMat.emissive);
       m.fillMat.emissiveIntensity = intensity * 0.4;
-      // A lit target breathes, so it is findable in peripheral vision — which
+      // A lit target breathes, so it is findable in peripheral vision - which
       // is where it will be, because the player is watching their own hands.
       const pulse = m.lit > 0 ? 1 + Math.sin(performance.now() / 260) * 0.07 : 1;
       m.ring.scale.setScalar(pulse);
@@ -507,7 +507,7 @@ export class PunchingDummy {
    * Disposes everything this built.
    *
    * Only what is in `disposables`, which is the list of things this class
-   * CREATED. A supplied figure belongs to the caller — and materials are
+   * Created. A supplied figure belongs to the caller - and materials are
    * shared across the stand's ribs by design, so traversing and disposing per
    * mesh would double-dispose. This project has already been bitten by exactly
    * that with SkeletonUtils.clone sharing materials by reference.

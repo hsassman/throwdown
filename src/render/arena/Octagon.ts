@@ -13,11 +13,11 @@ import {
 // Everything here is procedural. There is no cage asset to license, the shape
 // is eight repetitions of one wall, and a modelled cage would be a ~3MB
 // download for something describable in two numbers. It also means the whole
-// structure rescales from `acrossFlats` alone if the spec ever changes — a
-// training cage, a smaller practice ring — instead of being baked into
+// structure rescales from `acrossFlats` alone if the spec ever changes - a
+// training cage, a smaller practice ring - instead of being baked into
 // vertices someone would have to re-export.
 //
-// The whole thing sits with the CANVAS at y = 0, not the ground. Fighters are
+// The whole thing sits with the canvas at y = 0, not the ground. Fighters are
 // placed on the canvas, so making it the origin means a character's feet go at
 // y = 0 like they do everywhere else in this project; the platform and its
 // legs hang down into negative y where nothing else has to reason about them.
@@ -30,7 +30,7 @@ const GATE_WALL = 4;
 export interface OctagonOptions {
   /** Override the wall-to-wall span, metres. Defaults to regulation. */
   acrossFlats?: number;
-  /** Draw the chain-link. Off gives a clean structural view — useful for
+  /** Draw the chain-link. Off gives a clean structural view - useful for
    *  camera work and for screenshots where the mesh only obscures things. */
   fencing?: boolean;
   /** Include the platform legs and under-structure. Off when the arena is
@@ -130,7 +130,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
 
   // --- Canvas -------------------------------------------------------------
   // The fighting surface. A separate, slightly inset slab from the platform so
-  // the apron beyond the fence can be a different material — on a real
+  // the apron beyond the fence can be a different material - on a real
   // octagon the apron is the same mat, but it takes far less light and reading
   // them as one uniform sheet flattens the whole platform.
   const matTex = canvasTexture();
@@ -255,7 +255,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
         transparent: true,
         // A hard cutout, not a blend. Blended alpha on eight overlapping
         // panels means the far side of the cage sorts against the near side
-        // per-object, and whichever draws second wins — the mesh visibly
+        // per-object, and whichever draws second wins - the mesh visibly
         // flickers between layers as the camera orbits. alphaTest resolves it
         // in the depth buffer instead, per fragment, where it cannot flicker.
         alphaTest: 0.4,
@@ -278,7 +278,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
       panel.name = `fence-${i}`;
       group.add(panel);
 
-      // Repeat count comes from the REAL aperture, so the diamonds are
+      // Repeat count comes from the real aperture, so the diamonds are
       // physically 2 inches regardless of how long the wall is or what the
       // texture resolution happens to be. Rounded to whole diamonds in each
       // direction, otherwise the pattern is cut mid-link at the seam.
@@ -318,7 +318,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
     }
   }
 
-  // The gate. A doorway frame standing slightly proud of its wall — a real
+  // The gate. A doorway frame standing slightly proud of its wall - a real
   // octagon door is a hinged section of the same fence, and modelling it as a
   // separate swinging panel buys nothing until something needs to open it.
   const gate = wallList[GATE_WALL];
@@ -355,7 +355,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
 /**
  * The dim lighting rig the arena is meant to be seen under.
  *
- * Kept separate from the cage so the two can be reused apart — the menu's
+ * Kept separate from the cage so the two can be reused apart - the menu's
  * background wants this lighting with a different subject, and a bright
  * inspection view wants the cage without it.
  *

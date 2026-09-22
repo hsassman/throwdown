@@ -1,4 +1,4 @@
-// Punch detection and type classification — Approach A from
+// Punch detection and type classification - Approach a from
 // the gesture-classification notes: a guard-state FSM plus geometric/velocity
 // heuristics on the shoulder-elbow-wrist chain.
 //
@@ -30,7 +30,7 @@ interface Sample {
    * torso units. Detection keys on this, not on `extension`.
    *
    * A punch thrown at the lens moves the fist toward the camera, so its 2D
-   * distance from the shoulder barely grows — the extension-based design it
+   * distance from the shoulder barely grows - the extension-based design it
    * replaced detected only 19% of real punches (risk log OQ1). Excursion from
    * guard has no such blind axis and is direction-agnostic, so one gate serves
    * straights, hooks and uppercuts alike.
@@ -72,7 +72,7 @@ export interface RejectionRecord {
 
 /**
  * Instrumentation for diagnosing detection failures. Features are only produced
- * for punches that PASS the gates, so `peakSeen` records the highest value each
+ * for punches that pass the gates, so `peakSeen` records the highest value each
  * signal reached regardless of detection: if a peak sits below its gate, the
  * gate is unreachable for that player rather than merely strict.
  */
@@ -89,7 +89,7 @@ export interface ClassifierDiagnostics {
       extension: number;
       speed: number;
       elbowOpen: number;
-      /** Highest MEAN outward speed seen across completed episodes. Distinct
+      /** Highest mean outward speed seen across completed episodes. Distinct
        * from `speed`, which is the instantaneous per-sample peak: `meanSpeed`
        * is the quantity `minMeanSpeed` actually gates on. Comparing the
        * instantaneous peak against that gate reads "fine" almost always, which
@@ -97,7 +97,7 @@ export interface ClassifierDiagnostics {
       meanSpeed: number;
     }
   >;
-  /** The excursion gate actually applied, per hand — `max(minPunchExcursion,
+  /** The excursion gate actually applied, per hand - `max(minPunchExcursion,
    * guardJitter x guardNoiseMultiple)`. Surfaced because a jittery player's
    * real gate sits well above the configured constant, and a diagnostics panel
    * showing the constant would report "ok" while every punch is rejected. */
@@ -187,7 +187,7 @@ class HandTracker {
     const scale = cal.torsoScale;
     // Inward is toward the body midline, so its sign depends on which side of
     // the body the hand is on. MediaPipe's "left" is the subject's anatomical
-    // left, which appears on the right of an unmirrored image — hence the
+    // left, which appears on the right of an unmirrored image - hence the
     // left hand's inward direction is negative-x.
     const rawOffset = wrist.x - cal.midlineX;
     const inward = (this.side === "left" ? -rawOffset : rawOffset) / scale;
@@ -233,7 +233,7 @@ class HandTracker {
 
     this.speed = s.speed;
 
-    // Running maxima, independent of detection — these reveal an unreachable gate.
+    // Running maxima, independent of detection - these reveal an unreachable gate.
     const peak = this.diag.peakSeen[this.side];
     peak.excursion = Math.max(peak.excursion, s.excursion);
     peak.extension = Math.max(peak.extension, s.extension);
@@ -291,15 +291,15 @@ class HandTracker {
       return null;
     }
 
-    // A punch is the WHOLE excursion episode — fist leaving guard to returning
-    // — not the first local peak. Finalising on the first peak swallowed an
+    // A punch is the whole excursion episode - fist leaving guard to returning
+    // - not the first local peak. Finalising on the first peak swallowed an
     // uppercut's real drive behind its chamber (any wind-up has that shape).
     if (s.excursion > peak.excursion) {
       this.peakIndex = this.history.length - 1;
     }
 
     if (now - launch.t > C.maxPunchDurationMs) {
-      // Hand left guard and never came back in a plausible time — a reach or
+      // Hand left guard and never came back in a plausible time - a reach or
       // a block, not a punch.
       this.abort();
       return null;
@@ -336,14 +336,14 @@ class HandTracker {
       peakSpeed = Math.max(peakSpeed, b.speed);
     }
     const peakExcursion = peak.excursion;
-    // Mean outward velocity, torso-widths per second. Gated instead of PEAK
+    // Mean outward velocity, torso-widths per second. Gated instead of peak
     // speed, which is frame-rate dependent: a slower camera under-reports the
     // true peak, so the same punch would pass at 30 FPS and fail at 15. Mean
     // distance-over-duration has no such dependence.
     const meanSpeed = durationMs > 0 ? peakExcursion / (durationMs / 1000) : 0;
 
-    // Recorded BEFORE the gates below, so rejected episodes are represented
-    // too — those are the ones a failed run needs to explain.
+    // Recorded before the gates below, so rejected episodes are represented
+    // too - those are the ones a failed run needs to explain.
     this.diag.peakSeen[this.side].meanSpeed = Math.max(
       this.diag.peakSeen[this.side].meanSpeed,
       meanSpeed
@@ -352,7 +352,7 @@ class HandTracker {
 
     // Reject non-punches: slow reaches, small adjustments, guard fidgeting.
     // The first failing gate is recorded so a failed run can name the culprit.
-    // Extension and elbow opening are deliberately NOT gated — both collapse
+    // Extension and elbow opening are deliberately not gated - both collapse
     // under foreshortening (the 19% run) and survive only as classification
     // features, where being weak costs accuracy rather than the whole punch.
     const reason =
@@ -399,7 +399,7 @@ class HandTracker {
       (peak.wrist.y - launch.wrist.y) / cal.torsoScale
     );
 
-    // Vertical travel is measured from the LOWEST point reached, not from
+    // Vertical travel is measured from the lowest point reached, not from
     // launch: an uppercut chambers down before driving up, so launch-to-peak
     // understates its rise.
     let lowestHeight = launch.height;
@@ -428,7 +428,7 @@ class HandTracker {
  * Scores the three motion families against the measured features, then maps the
  * winner onto a punch type using the calibrated stance. Scores are deliberately
  * simple and additive so a misclassification can be read off the per-type
- * scores in the debug UI — Approach A exists to be diagnosed, then kept or dropped.
+ * scores in the debug UI - Approach a exists to be diagnosed, then kept or dropped.
  */
 function buildEvent(
   f: PunchFeatures,
@@ -445,8 +445,8 @@ function buildEvent(
     ratio(-f.lowestHeight, C.uppercutChamberDepth) * 0.6 +
     ratio(f.curvature - 1, C.curvedPathRatio - 1) * 0.3;
 
-  // A straight punch is characterised by what it LACKS: no swing across the
-  // body, no upward drive, no arc. Two subtleties: only travel TOWARD the
+  // A straight punch is characterised by what it lacks: no swing across the
+  // body, no upward drive, no arc. Two subtleties: only travel toward the
   // midline counts against it (outward extension is what a straight does), and
   // extension gain is not scored (hooks/uppercuts gain it too).
   const straightScore =
@@ -474,7 +474,7 @@ function buildEvent(
 
   const type = punchTypeFor(winner.key, role);
 
-  // Report scores per punch TYPE, mapping the straight family onto whichever
+  // Report scores per punch type, mapping the straight family onto whichever
   // of jab/cross the stance implies, so the debug readout lines up with the
   // labels used in the confusion matrix.
   const scores: Record<PunchType, number> = {

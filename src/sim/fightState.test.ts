@@ -1,13 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { FightSim, type FightEvent } from "./fightState";
-import { AiOpponent, type AiPerception } from "./aiOpponent";
+import {
+  FightSim,
+  evasionFromBody,
+  guardFromBody,
+  type FightEvent,
+} from "./fightState";
+import { CpuOpponent, type CpuPerception } from "./cpuOpponent";
 import { attributesFor, drainOf, fatigueMultiplier, morphWeightsFor } from "./attributes";
 import { approachOf, damageOf, regionAt, coarseZone } from "../perception/strikeGeometry";
 import type { StrikeEvent } from "../perception/strikeResolver";
 import type { WeightClass } from "../menu/menuModel";
-import { FIGHT_GEOMETRY, STRIKE_CONFIG } from "../config/tuning";
+import { FIGHT_CONFIG, FIGHT_GEOMETRY, STRIKE_CONFIG } from "../config/tuning";
+import type { BodyMotion } from "../perception/bodyMotion";
 
-// Strike fixtures come from the REAL geometry path, so these tests exercise
+// Strike fixtures come from the real geometry path, so these tests exercise
 // the same derivation a live punch would rather than a hand-written shape.
 function hit(
   lateral: number,
@@ -79,7 +85,7 @@ describe("weight class attributes", () => {
   });
 
   it("keeps the reach advantage small enough that it is not the whole fight", () => {
-    // Limb length scales with the CUBE ROOT of mass, not with mass. The first
+    // Limb length scales with the cube root of mass, not with mass. The first
     // version of this used the linear ratio and gave a heavyweight a reach
     // edge so large nothing else mattered.
     const fly = attributesFor("flyweight").reachScale;
@@ -286,8 +292,8 @@ describe("rounds and scoring", () => {
   });
 });
 
-describe("AI opponent", () => {
-  const see = (over: Partial<AiPerception> = {}): AiPerception => ({
+describe("CPU opponent", () => {
+  const see = (over: Partial<CpuPerception> = {}): CpuPerception => ({
     stamina: 1,
     opponentHealth: 1,
     opponentStunned: false,
@@ -295,14 +301,14 @@ describe("AI opponent", () => {
     opponentGuard: "high",
     // In range by default, so the existing attack tests still describe a
     // fighter that can actually reach.
-    // In range, derived rather than typed — see aiMovement.test.ts.
+    // In range, derived rather than typed - see cpuMovement.test.ts.
     range: FIGHT_GEOMETRY.strikingRange * 0.9,
     incomingSide: null,
     ...over,
   });
 
-  /** Runs the AI for `seconds` and collects everything it tried to do. */
-  function run(ai: AiOpponent, seconds: number, p = see()) {
+  /** Runs the CPU for `seconds` and collects everything it tried to do. */
+  function run(ai: CpuOpponent, seconds: number, p = see()) {
     const strikes = [];
     const windups = [];
     for (let t = 0; t < seconds; t += 1 / 60) {
@@ -315,16 +321,16 @@ describe("AI opponent", () => {
 
   it("is deterministic for a given seed", () => {
     // A hard prerequisite for rollback netcode, not a testing convenience.
-    // An AI calling Math.random would desync two peers the first time it
+    // A CPU calling Math.random would desync two peers the first time it
     // threw a punch.
-    const a = run(new AiOpponent("champion", 1234), 30);
-    const b = run(new AiOpponent("champion", 1234), 30);
+    const a = run(new CpuOpponent("champion", 1234), 30);
+    const b = run(new CpuOpponent("champion", 1234), 30);
     expect(b.strikes).toEqual(a.strikes);
   });
 
   it("produces different fights from different seeds", () => {
-    const a = run(new AiOpponent("champion", 1), 30);
-    const b = run(new AiOpponent("champion", 2), 30);
+    const a = run(new CpuOpponent("champion", 1), 30);
+    const b = run(new CpuOpponent("champion", 2), 30);
     expect(b.strikes).not.toEqual(a.strikes);
   });
 
@@ -332,7 +338,7 @@ describe("AI opponent", () => {
     // The player's input arrives at ~15 FPS, so anything under ~250ms is not
     // defendable even in principle. Every difficulty must clear that.
     for (const d of ["rookie", "contender", "champion"] as const) {
-      const ai = new AiOpponent(d, 7);
+      const ai = new CpuOpponent(d, 7);
       let frames = 0;
       let sawTelegraph = false;
       for (let i = 0; i < 60 * 20; i++) {
@@ -353,8 +359,8 @@ describe("AI opponent", () => {
 
   it("attacks the opening the guard leaves", () => {
     // The one behaviour that makes it feel like it is reading you.
-    const high = run(new AiOpponent("champion", 3), 40, see({ opponentGuard: "high" }));
-    const low = run(new AiOpponent("champion", 3), 40, see({ opponentGuard: "low" }));
+    const high = run(new CpuOpponent("champion", 3), 40, see({ opponentGuard: "high" }));
+    const low = run(new CpuOpponent("champion", 3), 40, see({ opponentGuard: "low" }));
     expect(high.strikes.length).toBeGreaterThan(3);
     const bodyShare =
       high.strikes.filter((s) => s.impact.height < 1).length / high.strikes.length;
@@ -366,21 +372,21 @@ describe("AI opponent", () => {
 
   it("stops throwing when it is exhausted", () => {
     // What makes draining the opponent a real strategy.
-    const gassed = run(new AiOpponent("champion", 9), 30, see({ stamina: 0.05 }));
-    const fresh = run(new AiOpponent("champion", 9), 30, see({ stamina: 1 }));
+    const gassed = run(new CpuOpponent("champion", 9), 30, see({ stamina: 0.05 }));
+    const fresh = run(new CpuOpponent("champion", 9), 30, see({ stamina: 1 }));
     expect(gassed.strikes.length).toBe(0);
     expect(fresh.strikes.length).toBeGreaterThan(5);
   });
 
   it("presses harder against a stunned opponent", () => {
-    const pressing = run(new AiOpponent("contender", 11), 20, see({ opponentStunned: true }));
-    const normal = run(new AiOpponent("contender", 11), 20);
+    const pressing = run(new CpuOpponent("contender", 11), 20, see({ opponentStunned: true }));
+    const normal = run(new CpuOpponent("contender", 11), 20);
     expect(pressing.strikes.length).toBeGreaterThan(normal.strikes.length);
   });
 
   it("drops a punch it was winding up when it gets hit first", () => {
     // Beating the opponent to the punch has to actually work.
-    const ai = new AiOpponent("champion", 21);
+    const ai = new CpuOpponent("champion", 21);
     for (let i = 0; i < 60 * 5; i++) {
       ai.update(1 / 60, see());
       if (ai.state === "telegraph") break;
@@ -392,10 +398,10 @@ describe("AI opponent", () => {
   });
 
   it("softens the later punches of a combination", () => {
-    const ai = new AiOpponent("champion", 33);
+    const ai = new CpuOpponent("champion", 33);
     const { strikes } = run(ai, 60, see({ opponentStunned: true }));
     expect(strikes.length).toBeGreaterThan(8);
-    // Not every adjacent pair — combos reset — but the strongest punches must
+    // Not every adjacent pair - combos reset - but the strongest punches must
     // not all be at the end.
     const first = strikes.slice(0, Math.floor(strikes.length / 2));
     const last = strikes.slice(Math.floor(strikes.length / 2));
@@ -403,5 +409,167 @@ describe("AI opponent", () => {
       xs.reduce((s, x) => s + x.power, 0) / xs.length;
     expect(Number.isFinite(mean(first))).toBe(true);
     expect(Number.isFinite(mean(last))).toBe(true);
+  });
+});
+
+describe("the player's own defence", () => {
+  // Before this existed the evasion rules ran for the CPU only: nothing ever
+  // called setEvasion for the player, so a duck was pure decoration. These
+  // cover the classifier, and then the rule it feeds, end to end.
+  const motion = (over: Partial<BodyMotion> = {}): BodyMotion => ({
+    tracked: true,
+    lateral: 0,
+    vertical: 0,
+    depth: 0,
+    turn: 0,
+    crouch: 0,
+    guardHeight: 0,
+    confidence: 1,
+    ...over,
+  });
+
+  it("reads a deep crouch as a duck", () => {
+    expect(evasionFromBody(motion({ crouch: 0.9 }), "none")).toBe("duck");
+  });
+
+  it("does not read standing upright as anything", () => {
+    expect(evasionFromBody(motion(), "none")).toBe("none");
+    expect(evasionFromBody(motion({ crouch: 0.1, lateral: 0.05 }), "none")).toBe("none");
+  });
+
+  it("reads lateral travel as a slip to the side the player actually moved", () => {
+    // `lateral` is positive toward the player's own right, and slipRight means
+    // the fighter moved to their own right. A mirror here would carry every
+    // slip into the punch, which still looks like evasion and is almost
+    // impossible to spot by eye - hence asserting it directly.
+    expect(evasionFromBody(motion({ lateral: 0.5 }), "none")).toBe("slipRight");
+    expect(evasionFromBody(motion({ lateral: -0.5 }), "none")).toBe("slipLeft");
+  });
+
+  it("prefers the duck when the player is doing both", () => {
+    expect(evasionFromBody(motion({ crouch: 0.9, lateral: 0.5 }), "none")).toBe("duck");
+  });
+
+  it("ignores an untracked body rather than trusting a stale reading", () => {
+    expect(evasionFromBody(motion({ tracked: false, crouch: 1 }), "none")).toBe("none");
+  });
+
+  it("holds an evasion through noise instead of flickering in and out", () => {
+    // Entering an evasion costs stamina, so a reading sitting on a single
+    // threshold would be charged over and over as noise crossed it.
+    const between = (FIGHT_CONFIG.duckEnter + FIGHT_CONFIG.duckExit) / 2;
+    // Not enough to start a duck...
+    expect(evasionFromBody(motion({ crouch: between }), "none")).toBe("none");
+    // ...but enough to keep one.
+    expect(evasionFromBody(motion({ crouch: between }), "duck")).toBe("duck");
+  });
+
+  it("lets go once the player really stands back up", () => {
+    expect(evasionFromBody(motion({ crouch: 0.05 }), "duck")).toBe("none");
+  });
+
+  it("makes a ducking player actually miss a head shot", () => {
+    // The end-to-end point of the whole exercise.
+    const s = sim();
+    s.setEvasion("p", evasionFromBody(motion({ crouch: 0.9 }), "none"));
+    const events: FightEvent[] = [];
+    s.on((e) => events.push(e));
+    s.applyStrike("o", hit(0, 1.25, 1));
+    expect(events.some((e) => e.type === "miss")).toBe(true);
+    expect(s.fighters.p.health).toBe(100);
+  });
+
+  it("does not let a duck save the player from a body shot", () => {
+    const s = sim();
+    s.setEvasion("p", evasionFromBody(motion({ crouch: 0.9 }), "none"));
+    s.applyStrike("o", hit(0, 0.6, 1));
+    expect(s.fighters.p.health).toBeLessThan(100);
+  });
+
+  it("still takes the punch when the player stood there", () => {
+    const s = sim();
+    s.setEvasion("p", evasionFromBody(motion(), "none"));
+    s.applyStrike("o", hit(0, 1.25, 1));
+    expect(s.fighters.p.health).toBeLessThan(100);
+  });
+});
+
+describe("the player's guard", () => {
+  const motion = (over: Partial<BodyMotion> = {}): BodyMotion => ({
+    tracked: true,
+    lateral: 0,
+    vertical: 0,
+    depth: 0,
+    turn: 0,
+    crouch: 0,
+    guardHeight: 0,
+    confidence: 1,
+    ...over,
+  });
+
+  it("reads hands at the chin as a high guard", () => {
+    expect(guardFromBody(motion({ guardHeight: 1.15 }), "none")).toBe("high");
+  });
+
+  it("reads forearms across the middle as a low guard", () => {
+    expect(guardFromBody(motion({ guardHeight: 0.65 }), "none")).toBe("low");
+  });
+
+  it("reads hands down as no guard at all", () => {
+    expect(guardFromBody(motion({ guardHeight: 0.1 }), "none")).toBe("none");
+    expect(guardFromBody(motion({ guardHeight: -0.3 }), "none")).toBe("none");
+  });
+
+  it("holds a high guard through noise on the threshold", () => {
+    const between =
+      (FIGHT_CONFIG.guardHighEnter + FIGHT_CONFIG.guardHighExit) / 2;
+    expect(guardFromBody(motion({ guardHeight: between }), "none")).not.toBe("high");
+    expect(guardFromBody(motion({ guardHeight: between }), "high")).toBe("high");
+  });
+
+  it("drops a high guard through low rather than straight to nothing", () => {
+    // Hands on the way down pass through the low guard. Falling directly from
+    // high to none would leave the body unprotected for the frames a real
+    // fighter is covering it.
+    const midway = (FIGHT_CONFIG.guardLowEnter + FIGHT_CONFIG.guardLowExit) / 2;
+    expect(guardFromBody(motion({ guardHeight: midway }), "high")).toBe("low");
+    // From nothing, the same height is not yet enough to earn a guard.
+    expect(guardFromBody(motion({ guardHeight: midway }), "none")).toBe("none");
+  });
+
+  it("gives an untracked player no guard rather than a free one", () => {
+    // The camera is the only sensor. Hands it cannot see must not earn a block.
+    expect(guardFromBody(motion({ tracked: false, guardHeight: 1.2 }), "high")).toBe(
+      "none"
+    );
+  });
+
+  it("actually blocks a head shot when the guard is high", () => {
+    const s = sim();
+    s.setGuard("p", guardFromBody(motion({ guardHeight: 1.15 }), "none"));
+    const guarded = new FightSim(
+      rules,
+      { id: "p", weightClass: "middleweight" },
+      { id: "o", weightClass: "middleweight" }
+    );
+    guarded.start();
+    guarded.setGuard("p", "none");
+
+    s.applyStrike("o", hit(0, 1.25, 1));
+    guarded.applyStrike("o", hit(0, 1.25, 1));
+    // The blocked fighter lost less than the unguarded one.
+    expect(100 - s.fighters.p.health).toBeLessThan(100 - guarded.fighters.p.health);
+  });
+
+  it("does not let a HIGH guard block a body shot", () => {
+    const high = sim();
+    high.setGuard("p", guardFromBody(motion({ guardHeight: 1.15 }), "none"));
+    const low = sim();
+    low.setGuard("p", guardFromBody(motion({ guardHeight: 0.65 }), "none"));
+
+    high.applyStrike("o", hit(0, 0.6, 1));
+    low.applyStrike("o", hit(0, 0.6, 1));
+    // Hands at the chin do nothing about a dig to the body; forearms do.
+    expect(100 - low.fighters.p.health).toBeLessThan(100 - high.fighters.p.health);
   });
 });

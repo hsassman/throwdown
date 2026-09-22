@@ -1,8 +1,8 @@
 // Sweeps the capture/inference settings that plausibly affect pose frame rate
-// and reports a ranked table, so the best configuration for THIS machine is
+// and reports a ranked table, so the best configuration for this machine is
 // measured rather than guessed.
 //
-// STAND IN FRAME OF THE WEBCAM FOR THE WHOLE RUN. With no body present
+// Stand in frame of the webcam for the whole run. With no body present
 // BlazePose runs its whole-image detector every frame instead of the cheaper
 // tracking path, which times a different code path entirely. Each condition
 // reports its body-found ratio; treat any row below ~0.8 as not comparable.
@@ -25,8 +25,8 @@ const REPEATS = Number(process.env.REPEATS ?? 2);
 /**
  * The levers worth testing, and why each is here:
  *  - camFps: capture frame granularity. The dominant term in the measured
- *    15 FPS — see CAMERA_CONFIG.frameRate for the quantization arithmetic.
- *  - camW/camH: does NOT change inference cost (the model rescales to
+ *    15 FPS - see CAMERA_CONFIG.frameRate for the quantization arithmetic.
+ *  - camW/camH: does not change inference cost (the model rescales to
  *    256x256), but lower resolutions are often what unlock a camera's 60 FPS
  *    modes at all.
  *  - delegate: GPU vs CPU was never measured head to head on this hardware.
@@ -40,12 +40,12 @@ const CONDITIONS = [
 
   // --- Phase 3: the pipeline changes, each isolated ---------------------
   //
-  // Ordered so each row differs from the baseline in exactly ONE way. The
+  // Ordered so each row differs from the baseline in exactly one way. The
   // whole point of this file is that the project does not get to claim a gain
   // it has not measured, and a sweep where two things change at once cannot
   // attribute the difference to either.
   //
-  // `pipeline=0` restores the old "re-arm the video callback AFTER inference"
+  // `pipeline=0` restores the old "re-arm the video callback after inference"
   // ordering. That ordering is what pinned the pose rate to the camera's frame
   // grid, and the prediction is that turning it off drops the rate back to
   // roughly one whole camera frame per inference. If it does not, the
@@ -134,7 +134,7 @@ for (let r = 0; r < REPEATS; r++) {
       results.get(cond.name).push(perf);
       const fps = perf.frameInterval ? 1000 / perf.frameInterval.median : 0;
       // Report the pipeline quality numbers alongside the rate, so a run
-      // records whether ROI and the constraint solver were actually ENGAGED
+      // records whether ROI and the constraint solver were actually engaged
       // rather than merely requested by a flag. A sweep row claiming a gain
       // from a feature that silently failed to activate is worse than no data.
       const zoom = perf.pipeline?.roi?.active

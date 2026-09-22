@@ -18,22 +18,22 @@ import type { LitTarget } from "./drill";
 
 // Wires the dummy drill to the live strike stream, and to the persistent
 // profile that makes it improve with use.
-// ONE STRIKE PATH, NOT TWO
+// One strike path, not two
 //
-// This subscribes to the SAME resolver the renderer and the fight simulation
+// This subscribes to the same resolver the renderer and the fight simulation
 // read (`useStrikeTraining().subscribe`). It does not run a second resolver of
 // its own. Two resolvers reading the same pose would drift apart the moment
 // either was reset, and the player would see a punch land on the dummy that
 // the scoreboard never counted.
-// WHERE THE CALIBRATION IS APPLIED, AND WHY IT IS RE-RESOLVED
+// Where the calibration is applied, and why it is re-resolved
 //
 // The adaptation loop's correction shifts the landing point. That means the
-// ANATOMICAL REGION has to be recomputed from the shifted point — a correction
+// Anatomical region has to be recomputed from the shifted point - a correction
 // that moved an impact from the jaw to the temple while still reporting "jaw"
 // would make the damage number disagree with the position it was derived from.
 // `applyCalibration` below does both together for exactly that reason.
 //
-// The correction is applied HERE, at scoring time, and not inside
+// The correction is applied here, at scoring time, and not inside
 // `strikeResolver.ts`. That keeps the resolver a pure measurement, and it
 // means the fight simulation is unaffected by anything learned in training.
 // Extending it to the fight is a deliberate decision that has not been taken.
@@ -122,10 +122,10 @@ export function useDummyTraining(
   const calRef = useRef<Calibration>(calibrationFrom(loaded.profile));
   const sinceSaveRef = useRef(0);
   /**
-   * Whether the CURRENT drill has already been banked.
+   * Whether the current drill has already been banked.
    *
-   * `stop` is called from several places — the screen changing, the round
-   * running out, the mode being disabled — and more than one of them fires on
+   * `stop` is called from several places - the screen changing, the round
+   * running out, the mode being disabled - and more than one of them fires on
    * a single navigation. Without this guard each call recorded another round,
    * so one visit to the dummy logged three. A round is a thing that happened
    * once; banking it is idempotent per drill.
@@ -148,7 +148,7 @@ export function useDummyTraining(
   });
   const [lastOutcome, setLastOutcome] = useState<DrillOutcome | null>(null);
 
-  // The profile is MUTATED in place — it is persisted state, not React state,
+  // The profile is mutated in place - it is persisted state, not React state,
   // and copying it on every punch would be pointless churn. That means its
   // identity never changes, so nothing derived from it can be memoised against
   // it. Instead the derived read-outs are recomputed explicitly at the few
@@ -166,7 +166,7 @@ export function useDummyTraining(
   }, []);
 
   // Rebuilt whenever the drill's shape changes. The pick function closes over
-  // the profile REF, not a snapshot, so a drill started at the beginning of a
+  // the profile ref, not a snapshot, so a drill started at the beginning of a
   // session keeps adapting as that session's results come in.
   const makeDrill = useCallback(() => {
     return new Drill({

@@ -8,8 +8,8 @@ import type { CalibrationData } from "./calibration";
  * guardWrist mirrors synthetic.ts's guard position: the fist rests slightly
  * inside and above the shoulder, expressed as a shoulder-relative offset in
  * torso units. For the left hand that is (-0.167 outward, +0.167 up), which in
- * image coordinates — where +x is outward for the left hand and y grows
- * downward — becomes (-0.167, -0.167).
+ * image coordinates - where +x is outward for the left hand and y grows
+ * downward - becomes (-0.167, -0.167).
  */
 export const TEST_CALIBRATION: CalibrationData = {
   stance: "orthodox",

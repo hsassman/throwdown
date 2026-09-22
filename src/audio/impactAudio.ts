@@ -1,33 +1,22 @@
 // Impact sound, synthesised. No audio files.
-// WHY PROCEDURAL RATHER THAN SAMPLES
 //
-// Three reasons, in order of how much they mattered:
+// Procedural rather than samples for three reasons. Licensing: the stack has
+// to be licence-clean and this project has already been bitten once, when the
+// glove mesh from 3D_models/ turned out to be ripped game content. Free sound
+// packs are the same trap with worse provenance. Continuity: the hit model is
+// continuous in position, power and approach angle, so a glancing graze and a
+// flush right hand are two points on one curve rather than two files. Size: a
+// few kB against several MB.
 //
-// 1. LICENSING. This project's hard rule is a licence-clean stack, and it has
-//    already been bitten once — the glove mesh from 3D_models/ turned out to
-//    be ripped Apex Legends content that could never have shipped. Free sound
-//    packs are the same trap with worse provenance. Synthesis has no licence.
+// A punch is three layers, and the synthesis reproduces them:
+//   Slap  a wideband noise transient, glove leather on skin. Short, bright,
+//         and most of the perceived crack.
+//   Thud  a low body resonance, tissue and bone. Longer and pitched; what
+//         makes a shot feel heavy rather than sharp.
+//   Tail  room. Short in a gym, longer in an arena.
 //
-// 2. IT IS CONTINUOUS, and so is the new strike model. A sample library gives
-//    you four or five canned impacts; phase 2 made the hit model continuous in
-//    position, power, and approach angle. Synthesis maps that continuum onto a
-//    continuum of sound, so a glancing graze off the shoulder and a flush
-//    right hand to the chin are not two files, they are two points on the same
-//    curve.
-//
-// 3. SIZE. The whole module is a few kB against several MB of audio, on a
-//    project that already worries about mobile bandwidth.
-//
-// WHAT A PUNCH ACTUALLY SOUNDS LIKE
-//
-// Three layers, which is what the synthesis reproduces:
-//   - the SLAP: a wideband noise transient, glove leather on skin. Very short,
-//     bright, and the part that carries most of the perceived "crack".
-//   - the THUD: a low body resonance, tissue and bone. Longer, pitched, and
-//     the part that makes a shot feel heavy rather than sharp.
-//   - the TAIL: room. Short in a gym, longer in an arena.
-// Head shots are brighter and shorter (bone close to the surface); body shots
-// are darker and longer (mass and air). That single axis does most of the work.
+// Head shots are brighter and shorter (bone near the surface), body shots
+// darker and longer (mass and air). That axis does most of the work.
 
 import type { StrikeEvent } from "../perception/strikeResolver";
 
@@ -72,7 +61,7 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
   const master = ctx.createGain();
   master.gain.value = options.master ?? 0.8;
 
-  // A limiter on the bus. Not polish — a five-punch combination stacks five
+  // A limiter on the bus. Not polish - a five-punch combination stacks five
   // overlapping transients, and without compression the sum clips audibly on
   // exactly the moments that should sound best.
   const limiter = ctx.createDynamicsCompressor();
@@ -82,7 +71,7 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
   limiter.attack.value = 0.002;
   limiter.release.value = 0.14;
 
-  // Room. A short convolution reverb built from decaying noise — an impulse
+  // Room. A short convolution reverb built from decaying noise - an impulse
   // response costs nothing to generate and is what stops every hit sounding
   // like it happened in a padded box.
   const room = ctx.createConvolver();
@@ -165,7 +154,7 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
     osc.stop(t0 + thudLen + 0.02);
   }
 
-  /** A crowd swell — filtered noise with a slow envelope. */
+  /** A crowd swell - filtered noise with a slow envelope. */
   function swell(t0: number, level: number) {
     const src = ctx.createBufferSource();
     src.buffer = noise;
@@ -191,7 +180,7 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
       const t0 = ctx.currentTime;
 
       // The one axis that does most of the work: head shots are bright and
-      // short, body shots dark and long. Taken from the CONTINUOUS impact
+      // short, body shots dark and long. Taken from the continuous impact
       // height rather than the coarse zone, so the transition between them is
       // a gradient rather than a switch.
       const bright = Math.max(0, Math.min(1, (strike.impact.height - 0.55) / 0.75));
@@ -240,7 +229,7 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
       if (disposed || ctx.state === "suspended") return;
       for (let i = 0; i < count; i++) {
         const t0 = ctx.currentTime + i * 0.42;
-        // Two detuned partials. A bell is inharmonic — a single sine sounds
+        // Two detuned partials. A bell is inharmonic - a single sine sounds
         // like a doorbell, and the beating between the two is the metallic
         // part of the timbre.
         for (const [hz, gain] of [

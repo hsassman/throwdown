@@ -4,7 +4,9 @@
 real punches, slip and duck real punches. The browser tracks your pose in real
 time and turns it into the fight. No controller, no wearables, no install.
 
-Everything runs **client-side**. The camera feed never leaves the machine.
+Everything runs **client-side**. Video never leaves the machine. In a
+same-network fight your pose landmarks - not the picture - go directly to your
+opponent, and to nobody else.
 
 ![The ring](docs/images/ring.png)
 
@@ -21,7 +23,7 @@ npm run dev          # http://localhost:5174
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | 487 unit tests. |
+| `npm test` | 633 unit tests. |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine. |
@@ -49,19 +51,19 @@ miss distance, smooth rather than pass/fail), power (resolved damage) and timing
 It **learns**. A persistent profile keeps per-zone exponential moving averages
 and separates two things that look identical in raw numbers:
 
-- **Setup error** — a consistent bias, the same direction on every zone. That is
+- **Setup error** - a consistent bias, the same direction on every zone. That is
   the camera's framing or your stance, and it is corrected for you.
-- **Your technique** — what is left once the common-mode bias is removed.
+- **Your technique** - what is left once the common-mode bias is removed.
 
 Bias is estimated with median/MAD statistics across zones, so one bad zone
 cannot drag the correction. Misses update your accuracy but contribute nothing
-to the bias estimate, and means are taken over landed targets only — so standing
+to the bias estimate, and means are taken over landed targets only - so standing
 still can never report 100%.
 
 ### Fighting: a CPU opponent that moves
 
-The opponent runs **three state machines on independent clocks** — attack,
-footwork and head movement — because a fighter whose feet stop between punches
+The opponent runs **three state machines on independent clocks** - attack,
+footwork and head movement - because a fighter whose feet stop between punches
 is obviously a state machine.
 
 - **It manages range.** It circles, steps in to throw and backs out again, and
@@ -75,16 +77,33 @@ is obviously a state machine.
   moved to. A duck gets under any arc and does nothing at all about a body shot.
   Evading costs stamina, so slipping everything gasses a fighter out.
 - **It is deterministic.** Every random choice comes from a seeded generator, so
-  a fight is reproducible — a hard prerequisite for the rollback netcode.
+  a fight is reproducible - a hard prerequisite for the rollback netcode.
 
 It cannot read your mind: it defends the side you have *been* going to, which is
 the same information a person in front of you would have.
+
+### Same network: fighting a person
+
+Peer-to-peer over WebRTC, with **no server**. One player hosts and sends a code;
+the other joins and sends a reply back. After that the two browsers talk
+directly.
+
+The remote fighter is drawn from **their own live pose**, through the same
+retargeting that draws your character, so they duck, step and throw exactly as
+they did. The host owns the round clock and the scoring, because evasion is
+measured from each player's own camera and neither end can see the other's
+body - two independent simulations would disagree about which punches missed
+within seconds.
+
+It is **not rollback netcode** and does not pretend to be: no prediction, no
+reconciliation, so the guest sees the fight about one round trip late. Fine on
+a LAN, unmeasured over anything slower.
 
 ### Stages
 
 A regulation **octagon** (30 feet across the flats, derived from the 750 sq ft
 floor figure rather than guessed) and a championship **boxing ring** (20 feet
-inside the ropes, four ropes, corner posts). Both are procedural — no asset to
+inside the ropes, four ropes, corner posts). Both are procedural - no asset to
 licence, and both rescale from a single number.
 
 ---
@@ -106,7 +125,7 @@ travels. A test poisons every `z` value and asserts the output is identical.
 
 Two honest limits are written into the code rather than papered over. The
 camera distance `D` cannot be measured by an uncalibrated webcam, so it is
-stated as an assumption and acts purely as that channel's gain — wrong by a
+stated as an assumption and acts purely as that channel's gain - wrong by a
 factor of two and the character steps half or twice as far, but never the wrong
 way. And the **sign** of a torso turn is not observable from the front at all:
 turning left and right narrow the shoulder line identically. It is taken from
@@ -131,7 +150,7 @@ model and driven live by the same landmarks the game already tracks.
 
 Ducking is a real duck: the knees bend, the waist folds, and the root drops by
 **exactly** the height the knees gave up, computed from the bones' own measured
-lengths — so the feet stay on the canvas instead of the figure sinking through
+lengths - so the feet stay on the canvas instead of the figure sinking through
 it with its legs straight.
 
 Bruises paint where the strike resolved, fresh red darkening to purple over 2.5s
@@ -153,7 +172,7 @@ by hand on every re-export.
 | UI | React 19 + TypeScript 5 |
 | 3D | three.js r185 |
 | Build | Vite 7 (rolldown) |
-| Test | Vitest — unit tests plus Playwright end-to-end |
+| Test | Vitest - unit tests plus Playwright end-to-end |
 | Lint | oxlint |
 | Character | Meta MHR (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
 
@@ -168,8 +187,11 @@ offline and one-time; it ships a static `.glb`.
   you are drawn.
 - MediaPipe `z` is never read for classification.
 - No threshold that decides whether a punch landed may be auto-tuned.
-- Only classified, discrete events will cross the network — never raw landmarks,
-  never video.
+- Video never crosses the network. Pose landmarks do, but only peer-to-peer to
+  an opponent you chose, and only while a fight is open. This replaced an
+  earlier rule of "discrete events only": driving the remote fighter from their
+  real pose is what makes them move like the person rather than like a
+  summary, and it costs about 5 KB/s.
 - Licence-clean only. No copyleft models, no ripped game assets.
 
 These are enforced by tests, not convention.
@@ -181,8 +203,10 @@ These are enforced by tests, not convention.
 Honest about what is proven and what is not.
 
 **Working:** the dummy training system and its learning loop, the camera-driven
-menu, the CPU opponent, both stages, five-channel body tracking, the
-self-tuning pipeline, damage and bruising.
+menu, the CPU opponent, both stages built into the fight itself, five-channel
+body tracking, the self-tuning pipeline, damage and bruising, knockdowns with a
+referee's count, a camera director that cuts on knockdowns and the bell but
+never during a live exchange, and same-network multiplayer.
 
 **Measured:** ~19 FPS median pose rate on the development machine, against a
 hard inference ceiling of ~27.8 FPS. Torso tracking follows 99% of requested
@@ -190,11 +214,14 @@ lean between 5° and 45°.
 
 **Not solved:** four-way punch *type* classification (jab / cross / hook /
 uppercut) from a single frontal camera sits at ~19% detection and is the
-project's core open risk. Hit resolution deliberately does not depend on it —
+project's core open risk. Hit resolution deliberately does not depend on it -
 reach and zone are a far easier measurement than punch type, and tying the two
 together would have made every hit inherit that number.
 
-**Not started:** multiplayer. LAN first, then internet with a TURN relay.
+**Rough:** same-network multiplayer works and is verified end to end by two
+real browsers in the smoke test, but it is host-authoritative with no lag
+compensation, and the connection codes are pasted by hand. Internet play with a
+relay is not started.
 
 **Not verified:** phone-camera framing has its own calibration to do, and no
 WCAG audit has been performed. This is a physical-movement game and has an
@@ -210,6 +237,7 @@ src/
   pose/         inference, smoothing, prediction, tracking quality
   perception/   landmarks to meaning: strikes, body motion, dodges
   sim/          health, stamina, scoring, the CPU opponent
+  net/          peer-to-peer link, wire format, session
   training/     dummy drills, scoring, the persistent profile
   menu/         modes and stages as data
   render/       three.js

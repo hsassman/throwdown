@@ -3,11 +3,11 @@
 // Drives the real installed Chrome against the dev server using the real
 // webcam, auto-accepting the camera permission so a run can be scripted.
 //
-// HOW TO READ THE OUTPUT — two things decide whether a run is valid:
+// How to read the output - two things decide whether a run is valid:
 //
 //  1. "body found in X% of frames". BlazePose runs an expensive whole-image
 //     detector while no body is acquired, and a cheaper tracking path once one
-//     is. A run at a low ratio is timing the wrong code path — for a
+//     is. A run at a low ratio is timing the wrong code path - for a
 //     representative gameplay number you want this near 100%, i.e. someone
 //     actually standing in frame.
 //
@@ -39,7 +39,7 @@ const browser = await chromium.launch({
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
     // On Windows specifically, Chrome computes native window occlusion and
-    // throttles windows it believes are covered — which is what kept pinning
+    // throttles windows it believes are covered - which is what kept pinning
     // unattended runs to exactly 1 Hz even with the flags above set.
     "--disable-features=CalculateNativeWinOcclusion",
   ],
@@ -84,7 +84,7 @@ await page.evaluate(() => {
 // requestVideoFrameCallback only fires when frames are actually being sent to
 // the compositor; on an idle, unattended page Chrome can stop compositing and
 // rVFC collapses to ~1 Hz, which is a measurement artifact rather than a real
-// pipeline limit. A live rAF loop keeps the page compositing — and matches
+// pipeline limit. A live rAF loop keeps the page compositing - and matches
 // real gameplay, where the render loop is always running anyway.
 await page.evaluate(() => {
   const tick = () => {
@@ -97,7 +97,7 @@ await page.evaluate(() => {
 
 // Chrome throttles a window it considers occluded, and no combination of
 // launch flags reliably prevented that on this machine. Repeatedly raising the
-// window is the only thing that did. This briefly steals focus — that's the
+// window is the only thing that did. This briefly steals focus - that's the
 // cost of getting a real number rather than a throttled fiction.
 console.log(`Measuring for ${DURATION_S}s (window will hold focus) ...`);
 const raiseUntil = Date.now() + DURATION_S * 1000;

@@ -11,7 +11,7 @@ const CHIN = ZONE_BY_ID.get("chin")!;
 describe("applying the learned calibration", () => {
   it("returns the strike untouched when there is nothing to correct", () => {
     const s = makeStrike({ impact: CHIN.centre });
-    // Identity, not a copy — a new object every punch would defeat any
+    // Identity, not a copy - a new object every punch would defeat any
     // downstream memoisation for no benefit.
     expect(applyCalibration(s, { lateral: 0, height: 0 })).toBe(s);
   });

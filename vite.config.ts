@@ -6,7 +6,7 @@ import react from "@vitejs/plugin-react";
  *
  * FilesetResolver dynamically imports the emscripten glue (vision_wasm_*.js)
  * at runtime. When that import originates inside a module worker, Vite's dev
- * server appends `?import` to the request — and for a static file under
+ * server appends `?import` to the request - and for a static file under
  * public/ that query makes Vite try to resolve it as a module graph entry,
  * which fails with a 500 ("Failed to load url ..."). The main-thread path
  * doesn't hit this, so it only shows up once inference moves off-thread.
@@ -41,7 +41,7 @@ export default defineConfig({
      * MediaPipe's FilesetResolver loads its WASM glue with importScripts(),
      * which does not exist in module workers. Loading that glue as an ES
      * module instead fails with "ModuleFactory not set", because the glue
-     * declares its factory as a top-level var — global in a classic script,
+     * declares its factory as a top-level var - global in a classic script,
      * but module-scoped (and therefore invisible) in an ES module.
      */
     format: "iife",

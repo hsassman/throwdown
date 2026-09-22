@@ -8,23 +8,23 @@ import type { StrikeEvent } from "../perception/strikeResolver";
 
 // The second humanoid: a training target that reacts to being hit.
 //
-// It is the SAME mesh asset as the player's boxer, cloned. That is a deliberate
-// choice rather than a shortcut — a second 0.40MB download and a second set of
+// It is the same mesh asset as the player's boxer, cloned. That is a deliberate
+// choice rather than a shortcut - a second 0.40MB download and a second set of
 // bind data would buy nothing while the only thing being tested is whether hits
 // register and read correctly. Tinting it apart is enough to tell them apart.
 //
-// LAYERING THIS RESPECTS
+// Layering this respects
 //
-// Risk log 13: damage STATE belongs to the simulation, the APPEARANCE of damage
-// belongs to the render layer. Nothing here decides whether a hit landed — it
+// Risk log 13: damage state belongs to the simulation, the appearance of damage
+// belongs to the render layer. Nothing here decides whether a hit landed - it
 // is told, via hit(), and only turns that into motion. It never reads the
 // player's mesh, and the player's hit resolution never reads this one.
 //
-// WHY THE REACTION IS BONE-DRIVEN
+// Why the reaction is bone-driven
 //
 // The shipped mesh carries 14 facial bones including `c_jaw` as a real skin
 // joint (established when the 117 morph targets were identified). So head snap
-// and jaw drop cost nothing in asset size — the 72 expression blendshapes,
+// and jaw drop cost nothing in asset size - the 72 expression blendshapes,
 // at ~64KB each, are only needed for what bones genuinely cannot do, like a
 // wince or a squint. Bones first was the right order.
 
@@ -35,7 +35,7 @@ const REACT_SPINE: DrivenBoneName = "c_spine2";
 
 /**
  * A static guard, applied once while the target still stands at identity so
- * the world-space aim solve is easy to reason about — the root is rotated to
+ * the world-space aim solve is easy to reason about - the root is rotated to
  * face the player afterwards, and the baked local rotations come with it.
  *
  * Directions are world-space in-plane unit vectors, the same convention the
@@ -51,9 +51,9 @@ const GUARD_POSE: Partial<Record<DrivenBoneName, { x: number; y: number }>> = {
 /**
  * Arms hanging at the sides, for the punching dummy.
  *
- * The mesh's BIND pose is a T-pose, arms straight out sideways. Simply not
+ * The mesh's bind pose is a T-pose, arms straight out sideways. Simply not
  * posing the dummy therefore leaves it standing like a scarecrow with its arms
- * through the space the player is punching into — which is worse than a guard,
+ * through the space the player is punching into - which is worse than a guard,
  * not better. A real free-standing dummy has no arms at all; arms down at the
  * sides is the closest this mesh can get without cutting geometry out of a
  * skinned buffer.
@@ -100,7 +100,7 @@ export interface TargetDebugState {
   hits: number;
   /** Per-zone tally, so it is visible that zones actually discriminate. */
   byZone: Record<string, number>;
-  /** Current reaction magnitude, 0-1 — the visible recoil. */
+  /** Current reaction magnitude, 0-1 - the visible recoil. */
   shake: number;
 }
 
@@ -124,17 +124,17 @@ export class TrainingTarget {
   /**
    * Multiplier on the whole-body knockback. 0 for the punching dummy.
    *
-   * Two reasons. A dummy is bolted to a weighted base — it rocks on its spring
-   * and does not slide backwards, so the stand's own spring IS its whole-body
+   * Two reasons. A dummy is bolted to a weighted base - it rocks on its spring
+   * and does not slide backwards, so the stand's own spring is its whole-body
    * reaction and a second one would double it. And the dummy's figure is
    * parented inside a group turned to face the player, so local +Z is world
-   * -Z there: an unscaled knockback would shove it TOWARD the punch.
+   * -Z there: an unscaled knockback would shove it toward the punch.
    */
   private knockbackScale: number;
 
   /**
    * @param options.guard Pose a fighting guard and close the fists. True for
-   *   an opponent; FALSE for the punching dummy, which has no fight in it — a
+   *   an opponent; false for the punching dummy, which has no fight in it - a
    *   dummy standing in a boxer's guard reads as an opponent about to throw,
    *   and a player would wait for a punch that never comes. Only the guard is
    *   skipped: the reaction machinery below is exactly what a dummy needs.
@@ -161,7 +161,7 @@ export class TrainingTarget {
       const hand = captureHandBind(root, side);
       if (hand) {
         // A target holding a guard has its fists closed permanently. A dummy's
-        // hands are merely relaxed — but NOT left at bind, which reads as a
+        // hands are merely relaxed - but not left at bind, which reads as a
         // splayed claw (the defect the fist work was built to fix).
         applyClench(hand, guard ? 0.95 : 0.45);
         this.hands.push(hand);
@@ -203,7 +203,7 @@ export class TrainingTarget {
 
   /**
    * Takes a hit. Direction is derived from the zone rather than from any
-   * geometry, because the zone is all the resolver can honestly report — see
+   * geometry, because the zone is all the resolver can honestly report - see
    * strikeResolver.ts on why there is no shared physical space to measure.
    */
   hit(event: StrikeEvent): void {
@@ -255,7 +255,7 @@ export class TrainingTarget {
     _axis.copy(_up).cross(_impulse);
     if (_axis.lengthSq() > 1e-9) {
       _axis.normalize();
-      // The neck carries most of a head snap, the head the rest — a snap that
+      // The neck carries most of a head snap, the head the rest - a snap that
       // rotates only the skull reads as detached.
       this.applyWorldRotation(REACT_NECK, _axis, headAngle * 0.6);
       this.applyWorldRotation(REACT_HEAD, _axis, headAngle * 0.4);
@@ -279,7 +279,7 @@ export class TrainingTarget {
   /**
    * Applies a world-space rotation to one bone, on top of its bind rotation.
    *
-   * Conjugated into the bone's own parent frame — the same requirement the
+   * Conjugated into the bone's own parent frame - the same requirement the
    * spine bend has, and for the same reason: the figure is turned to face the
    * player, so its bones' parent frames are nowhere near world axes and using
    * the rotation directly would snap the head in a random direction.

@@ -2,11 +2,9 @@ import * as THREE from "three";
 
 // Maps the character's body onto its texture, so bruises can be painted where
 // punches actually landed.
-// WHY THIS IS DERIVED RATHER THAN AUTHORED
-//
-// The exported material carries NO textures at all, so until now nothing had
+// The exported material carries no textures at all, so until now nothing had
 // to know the UV layout. TEXCOORD_0 survives in the shipped mesh only because
-// strip-morphs.mjs passes `keepAttributes: true` — the default prune removed
+// strip-morphs.mjs passes `keepAttributes: true` - the default prune removed
 // it, correctly by its own logic, since no material referenced it. Keeping
 // ~43KB of UVs on the chance they would be needed later is what makes this
 // module possible at all without re-exporting.
@@ -37,14 +35,14 @@ export interface BodyUvMap {
  * How far to either side an impact site sits, as a weight on the forward
  * direction rather than a distance.
  *
- * The first attempt placed a probe POINT out in front of the body and took the
+ * The first attempt placed a probe point out in front of the body and took the
  * nearest vertex. That collapsed the three lanes onto each other: pushing the
  * probe far enough forward to avoid picking the back of the skull (0.18) made
  * it much further away than the 0.055 lateral offset, so the closest vertex
- * was the nose tip whichever lane was asked for — the head lanes came out
+ * was the nose tip whichever lane was asked for - the head lanes came out
  * 0.008 apart in UV, effectively identical.
  *
- * Choosing by DIRECTION from the part's centre instead has no such scale to
+ * Choosing by direction from the part's centre instead has no such scale to
  * get wrong: it simply asks which surface vertex lies furthest round toward
  * the cheek, and works the same on any size of head.
  */
@@ -98,7 +96,7 @@ export function buildBodyUvMap(
  * Finds the texture coordinate for each strike zone.
  *
  * Each site is the surface vertex of the relevant body part that faces
- * furthest in a given direction — forward for a centre shot, forward and
+ * furthest in a given direction - forward for a centre shot, forward and
  * round for a cheek or a rib. See the note on HEAD_LANE_WEIGHT for why this
  * replaced a nearest-point-to-a-probe search.
  */
@@ -131,7 +129,7 @@ function locateImpactSites(
   if (!head || !torso) return sites;
 
   /**
-   * The surface vertex lying furthest round in `direction` from `anchor` —
+   * The surface vertex lying furthest round in `direction` from `anchor` -
    * i.e. the point of that body part that faces the given way.
    */
   const facingUv = (
@@ -168,9 +166,9 @@ function locateImpactSites(
     ["centre", 0],
     ["right", -1],
   ];
-  // "left" and "right" are reported from the PUNCHER's point of view, and the
+  // "left" and "right" are reported from the puncher's point of view, and the
   // target faces them, so the puncher's left lands on the target's own right
-  // side — world -X on a +Z-facing rig. Hence the sign flip.
+  // side - world -X on a +Z-facing rig. Hence the sign flip.
   for (const [lane, dir] of lanes) {
     const hit = facingUv(
       head,

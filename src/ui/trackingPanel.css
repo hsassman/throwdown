@@ -242,7 +242,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Not measured yet — deliberately neutral, not red. A player who has not
+/* Not measured yet - deliberately neutral, not red. A player who has not
  * stepped into frame has not done anything wrong. */
 .tpanel-score[data-grade="waiting"] .tpanel-score-value {
   color: #6c7c96;

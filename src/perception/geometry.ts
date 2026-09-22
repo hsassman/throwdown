@@ -2,7 +2,7 @@
 //
 // Works in MediaPipe's normalized image space: x,y in [0,1] with y increasing
 // downward (upward motion is negative dy, flipped at point of use). Nothing
-// here uses z — punches travel toward the camera, exactly where MediaPipe's
+// here uses z - punches travel toward the camera, exactly where MediaPipe's
 // depth estimate is least reliable.
 
 import type { Keypoint } from "../pose/poseTypes";
@@ -20,7 +20,7 @@ export function dist(a: Vec2, b: Vec2): number {
  * Interior angle at vertex `b` formed by a-b-c, in degrees. Used for elbow
  * extension (shoulder-elbow-wrist); ~180 is a straight arm. Measured on the 2D
  * projection, so a punch thrown at the camera shows less angle change than one
- * across the frame — inherent foreshortening, not a bug.
+ * across the frame - inherent foreshortening, not a bug.
  */
 export function angleDeg(a: Vec2, b: Vec2, c: Vec2): number {
   const v1x = a.x - b.x;

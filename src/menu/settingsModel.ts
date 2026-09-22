@@ -1,4 +1,4 @@
-// Settings, as DATA. The screen is generated from this rather than hand-built,
+// Settings, as data. The screen is generated from this rather than hand-built,
 // so adding an option is one entry here and nothing in the UI.
 //
 // The grouping follows the genre: tracking/input first (it is what breaks),
@@ -72,9 +72,9 @@ export function defaultSettings(): SettingsTab[] {
           label: "Pose model",
           value: "lite",
           options: [
-            { value: "lite", label: "Lite — fastest" },
-            { value: "full", label: "Full — better landmarks" },
-            { value: "heavy", label: "Heavy — slowest" },
+            { value: "lite", label: "Lite - fastest" },
+            { value: "full", label: "Full - better landmarks" },
+            { value: "heavy", label: "Heavy - slowest" },
           ],
           note: "Lite caps at about 28 FPS here. Step up only if landmark quality is the limit, not frame rate.",
         },
@@ -125,8 +125,8 @@ export function defaultSettings(): SettingsTab[] {
           label: "Camera view",
           value: "behind",
           options: [
-            { value: "behind", label: "Behind — standard fighting view" },
-            { value: "facing", label: "Facing — mirror view" },
+            { value: "behind", label: "Behind - standard fighting view" },
+            { value: "facing", label: "Facing - mirror view" },
           ],
           note: "This also sets which of your arms drives which of the character's. The two cannot be changed apart.",
         },
@@ -317,7 +317,7 @@ export function stepSetting(setting: Setting, delta: -1 | 1): Setting {
     case "toggle":
       return { ...setting, value: !setting.value };
     case "slider": {
-      // Rounded against the step to kill floating-point drift — without it,
+      // Rounded against the step to kill floating-point drift - without it,
       // 0.95 - 0.05 + 0.05 stops equalling 0.95 and the label grows a tail of
       // nines after a few presses.
       const raw = setting.value + delta * setting.step;

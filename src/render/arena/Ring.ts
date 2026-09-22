@@ -12,7 +12,7 @@ import {
 // Procedural for the same reasons the octagon is: no asset to license, the
 // shape is four repetitions of one side, and it rescales from one number.
 //
-// Like the octagon, the CANVAS sits at y = 0. Fighters stand on the canvas, so
+// Like the octagon, the canvas sits at y = 0. Fighters stand on the canvas, so
 // making it the origin keeps a character's feet at y = 0 the way they are
 // everywhere else; the platform and its skirt hang into negative y where
 // nothing else has to reason about them.
@@ -57,7 +57,7 @@ export function buildRing(options: RingOptions = {}): Ring {
   canvas.name = "canvas";
   group.add(canvas);
 
-  // The apron reads as a different surface in every photograph of a ring —
+  // The apron reads as a different surface in every photograph of a ring -
   // usually a lighter band outside the ropes. One inset quad rather than a
   // second slab, so there is no z-fighting between two coplanar faces.
   const apronMat = track(
@@ -118,7 +118,7 @@ export function buildRing(options: RingOptions = {}): Ring {
     const rope = new THREE.Mesh(geo, ropeMat);
     // A CylinderGeometry runs along its own +Y, so it is laid down onto the
     // horizontal first and then turned to face along the side. Rotating about
-    // Y by atan2(dx, dz) sends the (now horizontal) axis onto (dx, dz) — the
+    // Y by atan2(dx, dz) sends the (now horizontal) axis onto (dx, dz) - the
     // cylinder's axis after the -pi/2 pitch is +Z, not +X, which is why this
     // is atan2(dx, dz) and the octagon's flat panels are not.
     rope.rotation.set(-Math.PI / 2, 0, 0);

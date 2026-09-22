@@ -7,35 +7,24 @@ import {
 import { MONITOR_CONFIG } from "../config/tuning";
 
 // A standing watchdog on pose-tracking quality, and a bounded auto-tuner.
-// WHAT THIS IS FOR
 //
-// Tracking quality is not a constant. It changes with the room's light, how
-// far back the player stands, what they are wearing, whether the laptop is
-// thermally throttling, and what else is on the GPU. Every tuning number in
-// this project was calibrated in ONE set of those conditions, and nothing has
-// ever noticed when the conditions moved.
+// Tracking quality is not a constant: it moves with light, distance, clothing,
+// thermal throttling and whatever else is on the GPU. Every tuning number here
+// was calibrated in one set of those conditions and nothing ever noticed when
+// they changed. This measures what the tracker is actually delivering, so the
+// answer is "dropout is 31% on the right wrist" rather than "the skeleton
+// looks wrong today".
 //
-// So this runs continuously alongside the tracker, measures what the tracker
-// is actually delivering, and says so. It is the difference between "the
-// skeleton looks wrong today" and "dropout is 31% on the right wrist".
+// It tunes smoothing and prediction only - both latency/cosmetic controls. It
+// must never touch perception thresholds (reach, strike speed, dodge angles),
+// because a hit threshold that quietly relaxed as the lighting got worse would
+// mean the game rewards a bad webcam. Same principle that keeps the character
+// mesh out of hit resolution: what you land must not depend on how well you
+// happen to be seen. The tuner returns multipliers for those two knobs only,
+// both clamped.
 //
-// THE LINE IT WILL NOT CROSS
-//
-// It tunes SMOOTHING and PREDICTION only. Both are latency/cosmetic controls:
-// how hard the signal is filtered, and how far ahead the renderer draws.
-//
-// It must NEVER touch perception thresholds -- reach, strike speed, dodge
-// angles. Those decide what HITS, and a hit threshold that quietly relaxed
-// because the lighting got worse would mean the game rewards a bad webcam.
-// That is the same principle the architecture already enforces by keeping the
-// character mesh out of hit resolution: what you land must not depend on how
-// well you happen to be seen. The auto-tuner returns multipliers for the two
-// permitted knobs and nothing else, and both are clamped.
-//
-// EVERY METRIC IS SCALE-FREE
-//
-// All distances are divided by the torso scale, so a player who sits closer to
-// the camera does not read as jittery simply because their pixels are bigger.
+// Every metric is divided by torso scale, so a player sitting closer does not
+// read as jittery simply because their pixels are bigger.
 
 /** One metric's standing, so a report can name its own weakest link. */
 export interface MetricScore {
@@ -76,12 +65,12 @@ export interface TrackingReport {
  * Whether a report reflects an actual measurement, as opposed to the empty
  * placeholder produced before `minSamples` frames have arrived.
  *
- * The placeholder's `score` is 0 — not "unmeasured", genuinely the numeric
- * value zero — because `TrackingReport.score` has no separate slot for "no
+ * The placeholder's `score` is 0 - not "unmeasured", genuinely the numeric
+ * value zero - because `TrackingReport.score` has no separate slot for "no
  * data yet" and 0 is what an empty min() naturally produces. Any caller that
  * reads `.score` directly without this check will report "0% healthy" for a
  * player who has not stepped in front of the camera, which reads as the
- * camera being broken rather than as nobody being there. ONE place decides
+ * camera being broken rather than as nobody being there. One place decides
  * this so TrackingPanel and the system monitor cannot drift onto two
  * different definitions of "not measured yet".
  */
@@ -138,7 +127,7 @@ export class TrackingMonitor {
   /** Feed every pose frame. Cheap: O(landmarks) and no allocation per key. */
   ingest(frame: PoseFrame | null): void {
     if (!frame) return;
-    // `.value`, because torsoScaleOf reports its SOURCE alongside the number:
+    // `.value`, because torsoScaleOf reports its source alongside the number:
     // shoulder-to-hip when the hips are visible, shoulder width otherwise. The
     // two are not interchangeable, which is exactly why the type makes you
     // unwrap it rather than handing back a bare number.
@@ -249,8 +238,8 @@ export class TrackingMonitor {
     }
 
     // --- jitter ----------------------------------------------------------
-    // SECOND difference, not first. A punch is a large first difference and is
-    // signal, not noise; shake shows up as the frame-to-frame CHANGE in
+    // Second difference, not first. A punch is a large first difference and is
+    // signal, not noise; shake shows up as the frame-to-frame change in
     // velocity. Median over landmarks so one flickering ankle does not
     // dominate the reading.
     const accels: number[] = [];
@@ -273,7 +262,7 @@ export class TrackingMonitor {
     // --- limb-length stability -------------------------------------------
     // A rigid body has constant limb lengths. Any spread is tracking error --
     // the same reasoning skeletonSolver.ts uses, and the reason it estimates
-    // with a MEDIAN. Reported as spread over median so it is scale-free.
+    // with a median. Reported as spread over median so it is scale-free.
     const variances: number[] = [];
     for (const hist of this.limbHistory.values()) {
       const clean = hist.filter((v) => Number.isFinite(v) && v > 1e-6);
@@ -293,7 +282,7 @@ export class TrackingMonitor {
         value: hz,
         score: scoreOf(hz, cfg.goodHz, cfg.badHz),
         advice:
-          `pose rate ${hz.toFixed(1)} Hz is below ${cfg.badHz} Hz — inference is the bottleneck, not the camera`,
+          `pose rate ${hz.toFixed(1)} Hz is below ${cfg.badHz} Hz - inference is the bottleneck, not the camera`,
       },
       {
         name: "dropout",
@@ -301,7 +290,7 @@ export class TrackingMonitor {
         score: scoreOf(dropout, cfg.goodDropout, cfg.badDropout),
         advice:
           worstLandmark
-              ? `${(dropout * 100).toFixed(0)}% of landmarks unusable — worst is ${worstLandmark.key} at ${(worstLandmark.dropout * 100).toFixed(0)}%; check framing and lighting`
+              ? `${(dropout * 100).toFixed(0)}% of landmarks unusable - worst is ${worstLandmark.key} at ${(worstLandmark.dropout * 100).toFixed(0)}%; check framing and lighting`
               : `${(dropout * 100).toFixed(0)}% of landmarks unusable`,
       },
       {
@@ -309,22 +298,22 @@ export class TrackingMonitor {
         value: jitter,
         score: scoreOf(jitter, cfg.goodJitter, cfg.badJitter),
         advice:
-          `jitter ${jitter.toFixed(3)} torso/frame² — smoothing raised; if it persists the room is probably underlit`,
+          `jitter ${jitter.toFixed(3)} torso/frame² - smoothing raised; if it persists the room is probably underlit`,
       },
       {
         name: "limbs",
         value: limbVariance,
         score: scoreOf(limbVariance, cfg.goodLimbVariance, cfg.badLimbVariance),
         advice:
-          `limb lengths vary by ${(limbVariance * 100).toFixed(0)}% — the skeleton is breathing, so depth recovery will be unreliable`,
+          `limb lengths vary by ${(limbVariance * 100).toFixed(0)}% - the skeleton is breathing, so depth recovery will be unreliable`,
       },
     ];
 
-    // MINIMUM, not mean. Tracking is only as usable as its weakest signal, and
+    // Minimum, not mean. Tracking is only as usable as its weakest signal, and
     // averaging lets three healthy metrics hide a limb that is not tracked at
     // all.
     const score = Math.min(...metrics.map((m) => m.score));
-    // Keyed off the SCORE, not off each metric's "bad" line. A 15 Hz pose
+    // Keyed off the score, not off each metric's "bad" line. A 15 Hz pose
     // rate scores 0.36 while sitting above the bad threshold, and reporting
     // nothing about it was how the project's actual bottleneck stayed quiet.
     const advice = metrics
@@ -369,7 +358,7 @@ export class TrackingMonitor {
 
     // Prediction extrapolates forward. Extrapolating a noisy or gappy signal
     // amplifies the noise, so lead is pulled in when either is bad -- the
-    // WORSE of the two, since one is enough to make a prediction wrong.
+    // Worse of the two, since one is enough to make a prediction wrong.
     const quality = Math.min(
       scoreOf(report.jitter, cfg.goodJitter, cfg.badJitter),
       scoreOf(report.dropout, cfg.goodDropout, cfg.badDropout)

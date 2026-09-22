@@ -8,7 +8,7 @@ import { TEXTURE_CONFIG } from "../../config/tuning";
 // render as flat grey putty. This paints skin onto them, plus bruising that
 // appears where punches actually landed.
 //
-// LAYERING
+// Layering
 //
 // `base` holds the skin and never changes. `map` is what the GPU samples: base
 // blitted, then bruises drawn over it. Repainting is one canvas-to-canvas blit
@@ -30,7 +30,7 @@ export interface BodyTextureOptions {
 export interface BodyTexture {
   map: THREE.CanvasTexture;
   /** The canvas the GPU samples. Exposed so an overlay (facial damage) can
-   *  size itself to it. Draw into it ONLY from inside `setOverlay`. */
+   *  size itself to it. Draw into it only from inside `setOverlay`. */
   canvas: HTMLCanvasElement;
   /** Records a hit at a named zone ("head/left"). Unknown zones are ignored. */
   addBruise(zone: string, strength: number): void;
@@ -44,7 +44,7 @@ export interface BodyTexture {
    *
    * Facial damage composes here rather than painting the canvas itself. This
    * texture rebuilds from the clean base each repaint, so anything drawn
-   * outside that cycle is wiped on the next bruise tick — and anything drawn
+   * outside that cycle is wiped on the next bruise tick - and anything drawn
    * cumulatively would darken forever and never fade.
    */
   setOverlay(
@@ -118,7 +118,7 @@ export function buildBodyTexture(
   mapCtx.drawImage(base, 0, 0);
 
   const texture = new THREE.CanvasTexture(mapCanvas);
-  // glTF UVs have their origin at the TOP-left and GLTFLoader sets flipY=false
+  // glTF UVs have their origin at the top-left and GLTFLoader sets flipY=false
   // on the textures it creates. A CanvasTexture defaults to flipY=true, which
   // would render the whole body upside down in texture space, so it has to be
   // matched explicitly.
@@ -151,7 +151,7 @@ export function buildBodyTexture(
       mapCtx.arc(x, y, radius, 0, Math.PI * 2);
       mapCtx.fill();
     }
-    // Overlay LAST, so facial damage sits on top of body bruising instead of
+    // Overlay last, so facial damage sits on top of body bruising instead of
     // being buried under the next bruise drawn near the head.
     if (overlay) overlay(mapCtx, size);
     texture.needsUpdate = true;

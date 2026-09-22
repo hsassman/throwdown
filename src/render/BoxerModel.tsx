@@ -23,6 +23,7 @@ import {
   type BodyTextureOptions,
 } from "./texturing/bodyTexture";
 import {
+  DIRECTOR_CONFIG,
   KIT,
   KIT_MESH_COLOUR,
   KIT_ROUGHNESS,
@@ -30,14 +31,27 @@ import {
   TARGET_CONFIG,
 } from "../config/tuning";
 import { findBodyMesh } from "./findBodyMesh";
+import { buildArenaLighting, buildOctagon } from "./arena/Octagon";
+import { buildRing } from "./arena/Ring";
+import { RING, platformHalfSpan } from "./arena/ringSpec";
+import { OCTAGON } from "./arena/octagonSpec";
+import type { StageId } from "./ArenaView";
+import {
+  FightCamera,
+  type CameraPose,
+  type DirectorInput,
+  type ShotName,
+} from "./arena/fightCamera";
+import type { FightEvent, FightPhase } from "../sim/fightState";
+import type { FightCondition } from "../sim/useFight";
 import { FaceDamage } from "./damage/faceDamage";
 import { createFacePainter, locateFaceFeatures } from "./damage/facePainter";
 import type { StrikeEvent } from "../perception/strikeResolver";
 
 // Track B, Milestone B2/B3: loads the MHR-exported boxer mesh and drives the
 // joints covered by rigJointMap.ts from live MediaPipe landmarks. Purely
-// cosmetic — see docs/ARCHITECTURE.md. No placeholder shape exists yet to
-// "replace" (Track A hasn't built a render layer), so this is reached through
+// cosmetic - see docs/ARCHITECTURE.md. No placeholder shape exists yet to
+// "replace" (Track a hasn't built a render layer), so this is reached through
 // its own screen in App, reached from the menu shell.
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/boxer_lod3.glb`;
@@ -53,9 +67,9 @@ const FRAME_MARGIN = 1.15;
 
 /**
  * Over-the-shoulder framing, used whenever something is standing opposite the
- * player — the dummy or the CPU fighter.
+ * player - the dummy or the CPU fighter.
  *
- * A square-on rear camera puts the player EXACTLY between the lens and their
+ * A square-on rear camera puts the player exactly between the lens and their
  * opponent, so the opponent is completely hidden behind them. That is not a
  * subtle framing preference; the first render of the punching dummy showed a
  * player alone in an empty room, with the dummy perfectly occluded. Every
@@ -69,7 +83,7 @@ const OVER_SHOULDER = {
   rise: 1.05,
   /**
    * How far past the player's own shoulder the sight line must clear, world
-   * units. The only hand-chosen number left in this block — everything else is
+   * units. The only hand-chosen number left in this block - everything else is
    * derived from it and the measured figure.
    */
   clearance: 0.42,
@@ -86,7 +100,7 @@ const OVER_SHOULDER = {
 /**
  * How far to the side the camera must sit to see past the player.
  *
- * The previous version of this was a typed-in 0.46, and it was MARGINAL — a
+ * The previous version of this was a typed-in 0.46, and it was marginal - a
  * headless screenshot of a live fight showed the opponent almost entirely
  * behind the player, with one glove visible. The number was close enough to
  * look deliberate and wrong enough to hide a whole fighter.
@@ -95,8 +109,8 @@ const OVER_SHOULDER = {
  * at `distance`, and the camera a long way back along the chosen direction.
  * The sight line from the camera to the opponent's chest then crosses the
  * plane `z` at a lateral offset approaching `lateral * (distance - z)`. The
- * binding plane is the player's own FRONT — it is nearest the opponent, so the
- * ray has converged furthest in by the time it gets there — which gives
+ * binding plane is the player's own front - it is nearest the opponent, so the
+ * ray has converged furthest in by the time it gets there - which gives
  *
  *     lateral > (shoulderHalfWidth + clearance) / (distance - frontZ)
  *
@@ -111,6 +125,15 @@ const OVER_SHOULDER = {
  */
 const FINITE_BACK = 0.85;
 
+/** Marks every mesh under a figure as a shadow caster. Skinned meshes need
+ *  the flag on the mesh, not on the root the loader returns. */
+function castShadows(figure: THREE.Object3D): void {
+  figure.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh) mesh.castShadow = true;
+  });
+}
+
 function overShoulderLateral(shoulderHalfWidth: number, frontZ: number): number {
   const reachable = Math.max(0.1, TARGET_CONFIG.distance - frontZ);
   const needed =
@@ -120,6 +143,20 @@ function overShoulderLateral(shoulderHalfWidth: number, frontZ: number): number 
     Math.max(OVER_SHOULDER.minLateral, needed)
   );
 }
+
+/**
+ * Cage radius used when no venue is built, for the camera director's framing.
+ *
+ * The director sizes every shot off the cage, and in the plain dark room there
+ * is no cage to measure - this is roughly the space two fighters occupy, which
+ * keeps the knockdown and decision shots framed rather than in orbit.
+ */
+const FALLBACK_ARENA_RADIUS = 3;
+
+/** Scratch, reused every frame: the director reads two world positions per
+ *  frame and allocating for them would hand the collector 120 vectors a
+ *  second for numbers that are read once. */
+const _dirPos = new THREE.Vector3();
 
 /** Render resolution bounds. Kept under the device pixel ratio because this
  * competes with pose inference for the same GPU. */
@@ -135,12 +172,12 @@ export type LoadStatus = "loading" | "ready" | "error";
 interface Props {
   poseRef: React.RefObject<PoseFrame | null>;
   /**
-   * Optional: returns the pose to DRAW at the calling instant, extrapolated
+   * Optional: returns the pose to draw at the calling instant, extrapolated
    * forward by the measured pipeline latency. When supplied it replaces
    * `poseRef` for rendering only.
    *
    * Rendering and perception deliberately read different poses. The character
-   * should be where the player IS (~110 ms of pipeline latency removed); hit
+   * should be where the player is (~110 ms of pipeline latency removed); hit
    * resolution must stay on what actually happened, or a strike could register
    * from a velocity estimate rather than from a punch. `poseRef` is still used
    * for the neutral-drift timing below, because that keys off genuine sample
@@ -148,7 +185,7 @@ interface Props {
    */
   samplePose?: () => PoseFrame | null;
   /**
-   * How the character is framed, and — inseparably — how the player's limbs
+   * How the character is framed, and - inseparably - how the player's limbs
    * map onto its bones. See VIEW_MODES: the camera side and the mapping are
    * two halves of one decision, and changing either alone puts the arms on
    * the wrong side of the screen.
@@ -159,7 +196,7 @@ interface Props {
    * their own arm on. `facing` is the front-on reflection view.
    *
    * Note the mapping is implemented by remapping which limb drives which bone
-   * and negating the measured x direction — NEVER by scaling the model
+   * and negating the measured x direction - never by scaling the model
    * negatively. A negative scale makes an ancestor matrix have negative
    * determinant, which cannot decompose into a valid rotation, so every
    * getWorldQuaternion() in the retargeting path would return garbage. That
@@ -168,14 +205,14 @@ interface Props {
   view?: ViewMode;
   onStatusChange?: (status: LoadStatus, detail?: string) => void;
   /** Receives live retargeting state for the diagnostics panel. Called on a
-   * timer rather than per frame — a per-frame callback into React would
+   * timer rather than per frame - a per-frame callback into React would
    * re-render the tree 60x a second for a readout nobody can read that fast. */
   onDebug?: (state: RigDebugState) => void;
   /** Bumping this recentres the character on where the player stands now. */
   recentreSignal?: number;
-  /** Adds the second humanoid — a training target that reacts to hits. */
+  /** Adds the second humanoid - a training target that reacts to hits. */
   showTarget?: boolean;
-  /** Strikes to play on the target. The ref is read and DRAINED by the render
+  /** Strikes to play on the target. The ref is read and drained by the render
    * loop rather than passed as a prop, because hits arrive at pose rate and
    * routing each one through React would re-render the tree mid-combination. */
   strikeQueueRef?: React.RefObject<StrikeEvent[]>;
@@ -186,7 +223,7 @@ interface Props {
    *
    * They are mutually exclusive on purpose. Both occupy the same spot at
    * TARGET_CONFIG.distance, and showing both would put a dummy inside a
-   * fighter — so this is a choice of what stands there, not an extra prop.
+   * fighter - so this is a choice of what stands there, not an extra prop.
    */
   dummy?: boolean;
   /** The target zone to light on the dummy. Read every frame, never a prop
@@ -198,7 +235,7 @@ interface Props {
   /**
    * The CPU opponent's body state, read every frame.
    *
-   * A ref rather than a prop because it changes at 60 Hz — the AI steps on the
+   * A ref rather than a prop because it changes at 60 Hz - the CPU steps on the
    * fight loop's own clock, and routing its stance through React would
    * re-render the tree every frame to move a figure the render loop is already
    * inside. Null means there is no live opponent, and the figure simply stands
@@ -206,7 +243,7 @@ interface Props {
    */
   opponentRef?: React.RefObject<OpponentVisualState | null>;
   /**
-   * Punches thrown BY the opponent, drained by the render loop.
+   * Punches thrown by the opponent, drained by the render loop.
    *
    * Separate from `strikeQueueRef`, which carries the player's punches the
    * other way. Two directions, two queues: sharing one would mean the
@@ -217,7 +254,7 @@ interface Props {
   /**
    * Written every frame with the player's live whole-body channels.
    *
-   * An OUTPUT ref, which is unusual and deliberate. The one BodyMotionTracker
+   * An output ref, which is unusual and deliberate. The one BodyMotionTracker
    * lives inside the rig driver, and the fight loop needs the same numbers to
    * work out the gap between the fighters. Publishing the existing measurement
    * is right; constructing a second tracker outside would give the two a
@@ -225,6 +262,41 @@ interface Props {
    * player is standing.
    */
   bodyOutRef?: React.RefObject<BodyMotion | null>;
+  /**
+   * The venue to build around the fighters. Null keeps the plain dark room.
+   *
+   * The arena has existed, fully modelled and lit, since the stage work - but
+   * only ArenaView ever built one, and ArenaView is a picker screen with no
+   * fighters in it. So every actual fight happened in an empty void while a
+   * regulation octagon sat one screen away being admired. This is the same
+   * builders, in the scene the fight is in.
+   */
+  stage?: StageId | null;
+  /**
+   * Fight events to drain, for the camera director and the knockdown.
+   *
+   * Drained rather than passed as props for the same reason the strike queues
+   * are: these arrive on the fight's 60 Hz clock, and a prop would re-render
+   * the tree to move a camera this loop is already inside.
+   */
+  fightEventQueueRef?: React.RefObject<FightEvent[]>;
+  /** The live phase, read every frame. The director's "never cut during a
+   *  live exchange" rule is a question about this and nothing else. */
+  phaseRef?: React.RefObject<FightPhase>;
+  /** Down / hurt / count per fighter, read every frame. */
+  conditionRef?: React.RefObject<FightCondition>;
+  /**
+   * The remote player's live pose, when the opponent is a person.
+   *
+   * Its presence is what switches the second figure from a CPU fighter to a
+   * networked one. When it is set, that figure is driven by a second
+   * RigDriver - the same class that draws the local player - so the person on
+   * the other end ducks, slips, steps and throws exactly as they did, because
+   * it is literally the same code on the same kind of input. Building a
+   * separate animation path for remote fighters would mean two things to keep
+   * in step, and the one that drifted would be the one nobody could see.
+   */
+  remotePoseRef?: React.RefObject<PoseFrame | null>;
 }
 
 export function BoxerModel({
@@ -243,6 +315,11 @@ export function BoxerModel({
   opponentRef,
   opponentStrikeQueueRef,
   bodyOutRef,
+  stage = null,
+  fightEventQueueRef,
+  phaseRef,
+  conditionRef,
+  remotePoseRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
@@ -283,8 +360,20 @@ export function BoxerModel({
   opponentStrikeHolder.current = opponentStrikeQueueRef;
   const bodyOutHolder = useRef(bodyOutRef);
   bodyOutHolder.current = bodyOutRef;
+  const fightEventHolder = useRef(fightEventQueueRef);
+  fightEventHolder.current = fightEventQueueRef;
+  const phaseHolder = useRef(phaseRef);
+  phaseHolder.current = phaseRef;
+  const conditionHolder = useRef(conditionRef);
+  conditionHolder.current = conditionRef;
+  const remotePoseHolder = useRef(remotePoseRef);
+  remotePoseHolder.current = remotePoseRef;
+  // Read inside the setup effect, like `dummy`: it decides what drives the
+  // second figure, which is not something that can be swapped mid-scene.
+  const versusRef = useRef(!!remotePoseRef);
+  versusRef.current = !!remotePoseRef;
   // Read inside the setup effect. Changing it rebuilds the scene, which is
-  // correct — it is a different object standing there.
+  // correct - it is a different object standing there.
   const dummyRef = useRef(dummy);
   dummyRef.current = dummy;
   const driverRef = useRef<RigDriver | null>(null);
@@ -305,17 +394,32 @@ export function BoxerModel({
     let rafId = 0;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b0f14);
+    scene.background = new THREE.Color(stage ? 0x05070a : 0x0b0f14);
 
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     // Required for the punching dummy: the character figure used as its body
     // is clipped off below the belt by a per-material plane. Without this the
     // plane is simply ignored and the dummy grows a full pair of legs inside
     // its own stand.
     renderer.localClippingEnabled = true;
+    if (stage) {
+      // A fight arena is a high-dynamic-range subject: blown-out truss spots
+      // over near-black surroundings. Without tone mapping the canvas clips to
+      // flat white under the key light and the cage crushes to solid black
+      // everywhere else. Same settings ArenaView uses, so the venue looks the
+      // same in a fight as it does in the picker that sold it.
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      // One shadow-casting light, and the two fighters are the only casters -
+      // see buildArenaLighting. A fighter with no contact shadow reads as
+      // hovering above the canvas no matter how well their feet are planted,
+      // which would have quietly undone the whole footwork pass.
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
     // Capped below the device ratio on purpose. This scene shares an
-    // integrated GPU with pose inference — the app's actual bottleneck — so
+    // integrated GPU with pose inference - the app's actual bottleneck - so
     // pixels spent here are taken from the thing that matters. It drops
     // further under load; see the adaptive block in tick().
     let pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
@@ -326,17 +430,76 @@ export function BoxerModel({
     controls.enableDamping = true;
     controls.enablePan = false;
 
-    scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a1d24, 2.0));
-    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    // --- The venue --------------------------------------------------------
+    //
+    // Centred on the midpoint of the two fighters, not on the player. The
+    // player stands at the origin and the opponent at TARGET_CONFIG.distance,
+    // so a cage built at the origin would put the player dead centre and the
+    // opponent halfway to the fence.
+    const venue =
+      stage === "ring"
+        ? buildRing()
+        : stage === "octagon"
+          ? buildOctagon({ fencing: true })
+          : null;
+    let arenaRadius = FALLBACK_ARENA_RADIUS;
+    let arenaLighting: { group: THREE.Group; dispose(): void } | null = null;
+    let hallFloor: THREE.Mesh | null = null;
+    if (venue) {
+      arenaRadius = "radius" in venue ? venue.radius : platformHalfSpan();
+      venue.group.position.z = TARGET_CONFIG.distance / 2;
+      venue.group.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) mesh.receiveShadow = true;
+      });
+      scene.add(venue.group);
+
+      arenaLighting = buildArenaLighting(arenaRadius);
+      arenaLighting.group.position.z = TARGET_CONFIG.distance / 2;
+      scene.add(arenaLighting.group);
+
+      // The hall floor the platform stands on, so the platform legs end in
+      // something rather than in nothing.
+      const floorGeo = new THREE.PlaneGeometry(120, 120);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x0a0c10,
+        roughness: 0.82,
+        metalness: 0.15,
+      });
+      hallFloor = new THREE.Mesh(floorGeo, floorMat);
+      hallFloor.rotation.x = -Math.PI / 2;
+      hallFloor.position.set(0, -(stage === "ring" ? RING.platformHeight : OCTAGON.platformHeight), TARGET_CONFIG.distance / 2);
+      hallFloor.receiveShadow = true;
+      scene.add(hallFloor);
+
+      // Everything past the far fence falls away into black, so the cage reads
+      // as standing in a dark hall rather than floating.
+      const span = stage === "ring" ? platformHalfSpan() * 2 : OCTAGON.acrossFlats;
+      scene.fog = new THREE.Fog(0x05070a, span * 0.8, span * 3.2);
+    }
+
+    // The figure lighting. Dimmed hard under a venue, because the arena brings
+    // its own truss and doubling the two gives a flat, evenly lit fighter with
+    // none of the shape a fight camera sees. Kept rather than removed: `key`
+    // and `rim` follow the camera in placeCamera(), and without something
+    // doing that a fighter in the rear view is a silhouette.
+    const figureLight = venue ? 0.22 : 1;
+    scene.add(
+      new THREE.HemisphereLight(0xcfe3ff, 0x1a1d24, 2.0 * figureLight)
+    );
+    const key = new THREE.DirectionalLight(0xffffff, 2.2 * figureLight);
     key.position.set(1.5, 2.5, 2.0);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0x8ab4ff, 0.8);
+    const rim = new THREE.DirectionalLight(0x8ab4ff, 0.8 * figureLight);
     rim.position.set(-2, 1.5, -1.5);
     scene.add(rim);
 
     // Set once the model loads; until then there is nothing to frame.
     let opponentRoot: THREE.Object3D | null = null;
     let opponentAnim: OpponentAnimator | null = null;
+    /** Set instead of `opponentAnim` when the opponent is a networked person.
+     *  See the versus branch below. */
+    let remoteDriver: RigDriver | null = null;
     let punchingDummy: PunchingDummy | null = null;
     let playerRoot: THREE.Object3D | null = null;
     let playerSkin: BodyTexture | null = null;
@@ -345,12 +508,45 @@ export function BoxerModel({
     // swelling can never be applied to the player's face.
     const faces = new Map<THREE.Object3D, FaceDamage>();
     let frameTarget: THREE.Vector3 | null = null;
+    // --- The camera director -------------------------------------------------
+    //
+    // It does not run the gameplay camera. Shadow Box is played by standing in
+    // front of a webcam, and the shot that makes that work is the
+    // over-the-shoulder one derived from the measured figure just below - the
+    // one where the player's own right hand is on the right of the screen. A
+    // swing to a side-on broadcast angle mid-round would leave someone
+    // throwing real punches unable to find their opponent.
+    //
+    // So the split is: this file owns the camera while a round is live, and
+    // the director borrows it for the moments that are not a round - a
+    // knockdown, the bell, the decision - then eases it back to exactly where
+    // it found it. `houseShot` is that "where it found it", refreshed every
+    // frame the director is not holding the camera, which is what makes an
+    // orbit the player performed survive the next knockdown.
+    let director: FightCamera | null = null;
+    let directorOwns = false;
+    let lastPhase: FightPhase | undefined;
+    /** Which fighter the current cut is about, if either. See subjectOf. */
+    let dirSubject: "player" | "opponent" | null = null;
+    const houseShot: CameraPose = {
+      position: { x: 0, y: 0, z: 0 },
+      target: { x: 0, y: 0, z: 0 },
+      fov: 35,
+    };
+    // Annotated, not inferred: TARGET_CONFIG is `as const`, so an inferred
+    // shape would pin `opponent.z` to the literal 0.788 and refuse every
+    // subsequent write from the live scene.
+    const dirInput: DirectorInput = {
+      player: { x: 0, y: 0, z: 0 },
+      opponent: { x: 0, y: 0, z: TARGET_CONFIG.distance },
+      radius: arenaRadius,
+    };
     /** Derived once the player's figure is measured. See overShoulderLateral. */
     let overShoulder = OVER_SHOULDER.minLateral;
     let frameHeight = 1;
     let baseFrameHeight = 1;
     let frameWidth = 1;
-    // Once the viewer has orbited or zoomed, stop re-framing on resize —
+    // Once the viewer has orbited or zoomed, stop re-framing on resize -
     // silently yanking the camera back would fight them.
     let userAdjusted = false;
     controls.addEventListener("start", () => {
@@ -365,14 +561,14 @@ export function BoxerModel({
      * its viewing direction from `camera.position - controls.target`, and on
      * the first call after loading, controls.target was still at the origin
      * while the character's chest sits ~1.3 units up. The resulting direction
-     * was (0, 0.80, 0.60) — the camera ended up looking DOWN at the boxer from
+     * was (0, 0.80, 0.60) - the camera ended up looking down at the boxer from
      * about 53 degrees, despite a comment claiming it started square-on. The
      * fix is to set the target before any direction is read from it.
      */
     const placeCamera = () => {
       if (!frameTarget) return;
       const side = VIEW_MODES[viewRef.current].cameraSide;
-      // Something standing opposite changes the shot completely — see
+      // Something standing opposite changes the shot completely - see
       // OVER_SHOULDER. Without this the player occludes their own opponent.
       const duel = showTargetRef.current || dummyRef.current;
       controls.target.set(
@@ -394,7 +590,11 @@ export function BoxerModel({
     };
 
     const fitCamera = () => {
-      if (!frameTarget) return;
+      // Refused while the director holds the camera. A resize or a view change
+      // during a knockdown replay would otherwise yank the camera back to the
+      // gameplay framing halfway through the shot, which looks exactly like
+      // the renderer crashing and recovering.
+      if (!frameTarget || directorOwns) return;
       const vFov = (camera.fov * Math.PI) / 180;
       const distForHeight = frameHeight / 2 / Math.tan(vFov / 2);
       // Horizontal fit matters on narrow/portrait viewports: framing on height
@@ -436,15 +636,15 @@ export function BoxerModel({
      * Gives one figure its own kit materials, in its own corner's colour.
      *
      * The gloves, shorts and boots are baked into the GLB with a single
-     * colour, and the opponent is a `SkeletonUtils.clone` of that same asset —
-     * which shares materials BY REFERENCE. Without this the two fighters wear
+     * colour, and the opponent is a `SkeletonUtils.clone` of that same asset -
+     * which shares materials by reference. Without this the two fighters wear
      * identical kit, and worse, disposing one figure's material pulls it out
      * from under the other. That exact double-dispose has bitten this project
      * before, which is why the old material goes into `retired` to be disposed
      * once rather than per figure.
      *
-     * Meshes are matched by NAME (KIT_MESH_COLOUR), because that is what the
-     * Blender pipeline guarantees — blender/scripts/03..05 name every garment
+     * Meshes are matched by name (KIT_MESH_COLOUR), because that is what the
+     * Blender pipeline guarantees - blender/scripts/03..05 name every garment
      * it builds. Anything unrecognised is left alone, so the eyeballs keep
      * their sclera material.
      */
@@ -472,12 +672,12 @@ export function BoxerModel({
       figure: THREE.Object3D,
       kit: BodyTextureOptions,
       /** Materials replaced along the way. Collected rather than disposed on
-       * the spot: the clone shares the original material BY REFERENCE, so
+       * the spot: the clone shares the original material by reference, so
        * disposing it while texturing the first figure would pull it out from
        * under the second, which still points at it. */
       retired: Set<THREE.Material>
     ): BodyTexture | null => {
-      // The BODY, not whichever skinned mesh traversal happens to end on.
+      // The body, not whichever skinned mesh traversal happens to end on.
       // The figure now carries eyeballs too, and texturing one of those would
       // paint the body atlas onto an eye and leave the body grey.
       const mesh = findBodyMesh(figure);
@@ -501,9 +701,9 @@ export function BoxerModel({
       for (const m of old) if (m) retired.add(m);
       mesh.material = material;
 
-      // Facial damage, painted as an OVERLAY on the same texture.
+      // Facial damage, painted as an overlay on the same texture.
       // Registered here rather than composited separately because the body
-      // texture rebuilds from a clean base on every repaint — anything drawn
+      // texture rebuilds from a clean base on every repaint - anything drawn
       // outside that cycle is wiped on the next bruise tick.
       //
       // Feature positions come from the bones (`l_eye`, `r_eye`, `c_jaw`),
@@ -511,7 +711,7 @@ export function BoxerModel({
       // on a re-export, and re-exporting through Blender is now on the table.
       // Eye bind positions, in the same geometry space the UVs live in. Needed
       // because `l_eye`/`r_eye` carry no skin weight on this rig, so there are
-      // no "eye vertices" to average — the UV comes from the nearest head
+      // no "eye vertices" to average - the UV comes from the nearest head
       // vertex instead. See locateFaceFeatures.
       const bindPos = (name: string): THREE.Vector3 | null => {
         const i = boneNames.indexOf(name);
@@ -554,8 +754,12 @@ export function BoxerModel({
         const model = gltf.scene;
         playerRoot = model;
         scene.add(model);
+        // The fighters are the only shadow casters in the scene - see the
+        // shadowMap block above. A skinned mesh needs this on the mesh itself,
+        // not on the root, so it is set by traversal.
+        if (venue) castShadows(model);
 
-        // A SkinnedMesh is culled against its BIND-pose bounds. Once bones are
+        // A SkinnedMesh is culled against its bind-pose bounds. Once bones are
         // driven away from bind, the real silhouette leaves that volume and
         // the whole character can blink out of existence at certain angles.
         model.traverse((o) => {
@@ -565,12 +769,12 @@ export function BoxerModel({
         try {
           driverRef.current = new RigDriver(model);
 
-          // The second humanoid. Same asset, cloned — a second download and a
+          // The second humanoid. Same asset, cloned - a second download and a
           // second set of bind data would buy nothing while the only question
           // is whether hits register and read correctly.
           //
-          // SkeletonUtils.clone, NOT Object3D.clone: a plain clone copies the
-          // SkinnedMesh but leaves its skeleton pointing at the ORIGINAL
+          // SkeletonUtils.clone, not Object3D.clone: a plain clone copies the
+          // SkinnedMesh but leaves its skeleton pointing at the original
           // bones, so the copy would deform with the player's character
           // instead of its own. That is a silent, extremely confusing failure.
           const opponent = cloneSkinned(model);
@@ -578,7 +782,7 @@ export function BoxerModel({
             const mesh = o as THREE.SkinnedMesh;
             if (mesh.isSkinnedMesh) mesh.frustumCulled = false;
           });
-          // Clone FIRST, then texture each figure separately — cloning after
+          // Clone first, then texture each figure separately - cloning after
           // texturing would copy the player's material reference and the two
           // would share one map, so bruises on the target would appear on the
           // player as well.
@@ -589,8 +793,8 @@ export function BoxerModel({
           tintKit(opponent, KIT.target, retired);
           for (const m of retired) m.dispose();
 
-          // NOTE: gloves, trunks and generated eyeballs were built here and
-          // REMOVED on 2026-09-16 (see blender/README.md). Three
+          // Note: gloves, trunks and generated eyeballs were built here and
+          // Removed on 2026-09-16 (see blender/README.md). Three
           // attempts at procedural/imported gear all failed a visual check;
           // the kit is now authored in Blender and baked into the exported
           // mesh instead of being generated at load. Do not re-add a runtime
@@ -608,7 +812,7 @@ export function BoxerModel({
           opponent.rotation.y = Math.PI;
 
           if (dummyRef.current) {
-            // Anchored on the PLAYER's belt line, so the dummy's targets sit at
+            // Anchored on the player's belt line, so the dummy's targets sit at
             // the heights the strike resolver reports them at. Derived from the
             // model's own placement rather than assumed to be the origin.
             punchingDummy = new PunchingDummy({
@@ -617,8 +821,8 @@ export function BoxerModel({
             });
             scene.add(punchingDummy.group);
 
-            // The character IS the dummy's body. Three things have to happen
-            // to it, and all three are reversible cosmetics — nothing here
+            // The character is the dummy's body. Three things have to happen
+            // to it, and all three are reversible cosmetics - nothing here
             // touches the rig or the hit map.
             //
             // 1. The kit comes off. A dummy wears no gloves, trunks or boots.
@@ -648,13 +852,13 @@ export function BoxerModel({
               }
             });
 
-            // 3. It is parented INTO the spring, so it rocks with the stand
+            // 3. It is parented into the spring, so it rocks with the stand
             //    rather than standing beside it. The local offset puts the
             //    figure's own origin back where it would have been in world
             //    space, since the pivot sits at the cut line.
             punchingDummy.pivot.add(opponent);
             // setHome, not position.set: `update` rewrites root.position from
-            // homePosition every frame, so a figure merely POSITIONED here
+            // homePosition every frame, so a figure merely positioned here
             // would snap to the pivot origin on the very next frame.
             targetRef.current.setHome(
               new THREE.Vector3(0, model.position.y - punchingDummy.cutHeight, 0)
@@ -666,16 +870,36 @@ export function BoxerModel({
             opponent.visible = true;
             opponent.updateMatrixWorld(true);
 
-            // Markers go onto the CHARACTER's surface, not the moulded spec's.
+            // Markers go onto the character's surface, not the moulded spec's.
             // Where the character is thicker, a marker at the spec depth is
-            // buried inside the chest — invisible, and silent about it.
+            // buried inside the chest - invisible, and silent about it.
             punchingDummy.projectMarkersOnto(opponent);
+          } else if (versusRef.current) {
+            // A person is standing there.
+            //
+            // Driven by a second RigDriver - the same class that draws the
+            // local player - from the pose frames arriving over the link, so
+            // the fighter on screen moves exactly as the person at the other
+            // end did. No OpponentAnimator, because there are no CPU decisions
+            // to draw; no TrainingTarget either, because both of them and the
+            // driver want to own `root.position`, and three writers to one
+            // transform every frame is a figure that flickers between three
+            // places. The driver's own `flinch` carries the hit reaction,
+            // which is what TrainingTarget was there for.
+            targetRef.current = null;
+            opponent.position.set(0, model.position.y, TARGET_CONFIG.distance);
+            opponent.visible = true;
+            scene.add(opponent);
+            // Constructed after the placement above, because RigDriver
+            // captures the figure's position and yaw as its home - a driver
+            // built at the origin would spend the fight trying to return there.
+            remoteDriver = new RigDriver(opponent);
           } else {
             targetRef.current.setHome(
               new THREE.Vector3(0, model.position.y, TARGET_CONFIG.distance)
             );
             opponent.visible = showTargetRef.current;
-            // Under a PIVOT, not straight into the scene. The animator moves
+            // Under a pivot, not straight into the scene. The animator moves
             // the pivot for footwork while TrainingTarget keeps rewriting
             // `opponent.position` for knockback, so the two compose instead of
             // overwriting each other every frame. See opponentAnimator.ts.
@@ -684,6 +908,7 @@ export function BoxerModel({
             scene.add(opponentAnim.pivot);
           }
           opponentRoot = opponent;
+          if (venue) castShadows(opponent);
           opponent.updateMatrixWorld(true);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -693,7 +918,7 @@ export function BoxerModel({
           return;
         }
 
-        // Frame from the model's real bounds rather than guessed numbers — the
+        // Frame from the model's real bounds rather than guessed numbers - the
         // previous hardcoded camera cropped the head and feet.
         const box = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
@@ -702,7 +927,7 @@ export function BoxerModel({
         box.getCenter(center);
 
         frameHeight = size.y * FRAME_FROM_HEIGHT;
-        // Allow for arms thrown wide — the bind-pose bounding box is measured
+        // Allow for arms thrown wide - the bind-pose bounding box is measured
         // with the arms down, so its width understates the real silhouette.
         frameWidth = size.x * 1.25;
         frameTarget = new THREE.Vector3(
@@ -711,23 +936,23 @@ export function BoxerModel({
           center.z
         );
         baseFrameHeight = frameHeight;
-        // Widen HERE as well as on the transition below. The transition only
-        // fires when the duel flag CHANGES, and it is already true by the time
-        // the model finishes loading — the component mounts with the mode
+        // Widen here as well as on the transition below. The transition only
+        // fires when the duel flag changes, and it is already true by the time
+        // the model finishes loading - the component mounts with the mode
         // already chosen. So entering a fight directly, which is the only way
         // anyone enters one, framed the shot for a single figure and the two
         // fighters filled the screen on top of each other.
         if (showTargetRef.current || dummyRef.current) {
-          // BOTH axes. `fitCamera` takes whichever of the two needs the camera
-          // further back, and the width is derived from the T-pose armspan —
+          // Both axes. `fitCamera` takes whichever of the two needs the camera
+          // further back, and the width is derived from the T-pose armspan -
           // which is wide enough that it always wins. Widening only the height
           // therefore changed the number and not the shot.
           frameHeight = baseFrameHeight * OVER_SHOULDER.widen;
           frameWidth *= OVER_SHOULDER.widen;
         }
 
-        // Measured off the RIG, not off the bounding box. The box is taken in
-        // the bind pose, which is a T-pose, so `size.x` is the armspan — about
+        // Measured off the rig, not off the bounding box. The box is taken in
+        // the bind pose, which is a T-pose, so `size.x` is the armspan - about
         // three times the width that actually occludes anything. Using it
         // would have swung the camera out to the side of the ring.
         const lShoulder = model.getObjectByName("l_uparm");
@@ -755,6 +980,147 @@ export function BoxerModel({
         statusCbRef.current?.("error", msg);
       }
     );
+
+    /**
+     * Where the fighters actually are, read off the scene rather than assumed.
+     *
+     * The opponent moves - footwork, knockback, a slip - and a director framed
+     * on where it was placed at the start of the round would put a knockdown
+     * shot beside an empty patch of canvas.
+     */
+    const readDirectorInput = () => {
+      if (playerRoot) {
+        playerRoot.getWorldPosition(_dirPos);
+        dirInput.player.x = _dirPos.x;
+        dirInput.player.y = _dirPos.y;
+        dirInput.player.z = _dirPos.z;
+      }
+      if (opponentRoot) {
+        opponentRoot.getWorldPosition(_dirPos);
+        dirInput.opponent.x = _dirPos.x;
+        dirInput.opponent.y = _dirPos.y;
+        dirInput.opponent.z = _dirPos.z;
+      }
+      dirInput.radius = arenaRadius;
+      dirInput.subject =
+        dirSubject === "player"
+          ? dirInput.player
+          : dirSubject === "opponent"
+            ? dirInput.opponent
+            : undefined;
+      return dirInput;
+    };
+
+    /**
+     * Which shot a given moment of the fight deserves.
+     *
+     * The simulation reports what happened; choosing an angle for it is a
+     * render-layer decision and lives here. Every one of these forces the cut,
+     * because every one of them happens when the round is not live - which is
+     * the only time the director is allowed to move at all.
+     */
+    const shotFor = (e: FightEvent): ShotName | null => {
+      switch (e.type) {
+        // Low and close, looking up: the angle that makes a downed fighter
+        // read as downed rather than just short.
+        case "knockdown":
+          return "lowAngle";
+        case "roundEnd":
+          return "corner";
+        case "stoppage":
+          return "lowAngle";
+        case "decision":
+          return "decision";
+        default:
+          return null;
+      }
+    };
+
+    /**
+     * Who a cut is about, in the director's own terms.
+     *
+     * A knockdown is about the fighter on the canvas, and the shot has to be
+     * framed on them: the midpoint between a downed fighter and the man
+     * standing over him is the standing man's waist, which is exactly what the
+     * first real knockdown looked like.
+     */
+    const subjectOf = (e: FightEvent): "player" | "opponent" | null => {
+      if (e.type === "knockdown") return e.target === "player" ? "player" : "opponent";
+      // A stoppage is about whoever lost it.
+      if (e.type === "stoppage") return e.winner === "player" ? "opponent" : "player";
+      return null;
+    };
+
+    const stepDirector = (dt: number) => {
+      const events = fightEventHolder.current?.current;
+      const phase = phaseHolder.current?.current;
+      // No fight running means no director. The dummy and the tracking screens
+      // get the plain gameplay camera and nothing borrows it.
+      if (!playerRoot || (!events && phase === undefined)) return;
+
+      const input = readDirectorInput();
+      if (!director) director = new FightCamera(input);
+      director.setLive(phase === "fighting");
+
+      if (events && events.length > 0) {
+        for (const e of events.splice(0, events.length)) {
+          const shot = shotFor(e);
+          if (!shot) continue;
+          director.cut(shot, true);
+          // Held for the life of the shot, so one that outlives the event it
+          // was cut for stays pointed at what it was cut for.
+          dirSubject = subjectOf(e);
+        }
+      }
+      // Cleared once the director is back on the house shot, or the next cut
+      // would inherit a subject from the last one.
+      if (!director.cinematic) dirSubject = null;
+      if (phase !== lastPhase) {
+        // The bell for a new round ends whatever the break was showing, on the
+        // frame it rings rather than whenever the corner shot's hold expires.
+        if (phase === "fighting") director.cut("broadcast", true);
+        lastPhase = phase;
+      }
+
+      if (!directorOwns) {
+        // Track the live gameplay camera. Doing this every frame rather than
+        // snapshotting at the moment of a cut is what makes an orbit the
+        // player performed mid-round survive the knockdown that follows.
+        houseShot.position.x = camera.position.x;
+        houseShot.position.y = camera.position.y;
+        houseShot.position.z = camera.position.z;
+        houseShot.target.x = controls.target.x;
+        houseShot.target.y = controls.target.y;
+        houseShot.target.z = controls.target.z;
+        houseShot.fov = camera.fov;
+        // Parked on the house shot while it is not in charge, so a cut starts
+        // from where the camera actually is instead of from wherever it was
+        // left standing at the end of the last one.
+        director.snap(input);
+      }
+      director.setHouseShot(houseShot);
+      director.update(dt, input);
+
+      if (!directorOwns && director.cinematic) {
+        directorOwns = true;
+        // Orbiting during a cinematic shot would be two things driving one
+        // camera. Control comes back the moment the shot has eased home.
+        controls.enabled = false;
+      }
+      if (!directorOwns) return;
+
+      const p = director.pose;
+      camera.position.set(p.position.x, p.position.y, p.position.z);
+      controls.target.set(p.target.x, p.target.y, p.target.z);
+      if (Math.abs(camera.fov - p.fov) > 1e-3) {
+        camera.fov = p.fov;
+        camera.updateProjectionMatrix();
+      }
+      if (!director.cinematic && director.settleError(input) < DIRECTOR_CONFIG.handBack) {
+        directorOwns = false;
+        controls.enabled = true;
+      }
+    };
 
     let lastFrame = performance.now();
     let lastPoseTs = 0;
@@ -829,12 +1195,12 @@ export function BoxerModel({
         driver.update(pose, dt, mirrored);
 
         // Let the neutral reference drift only on genuinely new pose samples,
-        // using the interval between them — otherwise the render rate would
+        // using the interval between them - otherwise the render rate would
         // silently change how fast it follows.
         //
-        // Read from poseRef, NOT from the predicted pose: a predicted frame
+        // Read from poseRef, not from the predicted pose: a predicted frame
         // carries the timestamp of the sample it was extrapolated from, so
-        // this comparison still counts real samples either way — but keying it
+        // this comparison still counts real samples either way - but keying it
         // to the unpredicted stream keeps that true even if prediction later
         // starts restamping.
         const sampled = poseRef.current;
@@ -863,12 +1229,12 @@ export function BoxerModel({
         // drill's state in the render layer just to notice when it moved.
         punchingDummy.setLit(litHolder.current?.current?.zone.id ?? null);
 
-        // PHYSICAL reaction: every punch rocks the dummy, whether or not a
+        // Physical reaction: every punch rocks the dummy, whether or not a
         // drill is running. In free work nothing is lit and nothing is scored,
         // and a dummy that stood still while being hit would read as the hit
         // detection having failed.
         //
-        // This is also why the dummy — not the humanoid target below — drains
+        // This is also why the dummy - not the humanoid target below - drains
         // the strike queue while it is the thing standing there. Two drainers
         // on one queue would each get roughly half the punches.
         const strikes = strikeQueueHolder.current?.current;
@@ -876,7 +1242,7 @@ export function BoxerModel({
           for (const st of strikes.splice(0, strikes.length)) {
             punchingDummy.impact(st.power);
 
-            // The dummy's body is the character mesh, so it gets the SAME
+            // The dummy's body is the character mesh, so it gets the same
             // treatment an opponent does: a bone-driven reaction, a bruise on
             // the skin, and facial damage keyed off the anatomical region.
             // Routing it through the same calls means the dummy and the
@@ -896,11 +1262,11 @@ export function BoxerModel({
           }
         }
 
-        // SCORING reaction: colour the asked-for target by how well it was hit.
+        // Scoring reaction: colour the asked-for target by how well it was hit.
         const outcomes = outcomeHolder.current?.current;
         if (outcomes && outcomes.length > 0) {
           // Spliced to zero in one call, so an outcome arriving between a read
-          // and a clear cannot be dropped — same reason as the strike queue.
+          // and a clear cannot be dropped - same reason as the strike queue.
           for (const o of outcomes.splice(0, outcomes.length)) {
             if (o.kind !== "hit") continue;
             punchingDummy.score(o.zone.id, o.accuracy);
@@ -915,8 +1281,8 @@ export function BoxerModel({
         if (opponentRoot) faces.get(opponentRoot)?.update(dt);
       }
 
-      // The humanoid target only runs when the dummy is NOT the thing standing
-      // at the target position — they are mutually exclusive, and both draining
+      // The humanoid target only runs when the dummy is not the thing standing
+      // at the target position - they are mutually exclusive, and both draining
       // the strike queue would split the punches between them.
       const target = punchingDummy ? null : targetRef.current;
       if (target) {
@@ -928,15 +1294,15 @@ export function BoxerModel({
           for (const strike of queue.splice(0, queue.length)) {
             target.hit(strike);
             // The bruise goes on the zone the strike was resolved to, which is
-            // the only spatial information the resolver can honestly report —
+            // the only spatial information the resolver can honestly report -
             // see strikeResolver.ts on why there is no geometry to hit.
             targetSkin?.addBruise(
               `${strike.zone.height}/${strike.zone.lane}`,
               strike.power
             );
-            // Facial damage is keyed off the ANATOMICAL region, not the coarse
+            // Facial damage is keyed off the anatomical region, not the coarse
             // 2x3 zone. Driving it from `strike.region.id` means the damage
-            // model and the hit model cannot drift apart — a shot the resolver
+            // model and the hit model cannot drift apart - a shot the resolver
             // called a jaw is a shot the face swells at the jaw, with no
             // second mapping to keep in sync.
             if (opponentRoot) {
@@ -950,8 +1316,43 @@ export function BoxerModel({
           faces.get(opponentRoot)?.update(dt);
         }
       }
+      // --- A networked opponent -------------------------------------------
+      //
+      // The same RigDriver that draws the local player, fed the pose frames
+      // arriving over the link. `mirrored` is false here for the same reason
+      // it is false for the player in the behind view: the mapping is
+      // Anatomical, so the person's right arm drives their figure's right arm.
+      // The figure is turned to face the local player, which is what puts that
+      // arm on the correct side of the screen - a second mirror here would
+      // undo it and have them boxing left-handed.
+      if (remoteDriver) {
+        remoteDriver.update(remotePoseHolder.current?.current ?? null, dt, false);
+
+        // The local player's punches, played on them. This is the branch that
+        // drains the strike queue in a versus fight - the humanoid-target
+        // branch above is skipped, because there is no TrainingTarget when a
+        // person is standing there.
+        const queue = strikeQueueHolder.current?.current;
+        if (queue && queue.length > 0) {
+          for (const strike of queue.splice(0, queue.length)) {
+            remoteDriver.flinch(strike);
+            targetSkin?.addBruise(
+              `${strike.zone.height}/${strike.zone.lane}`,
+              strike.power
+            );
+            if (opponentRoot) {
+              faces.get(opponentRoot)?.hit(strike.region.id, strike.power);
+            }
+          }
+        }
+        const them = conditionHolder.current?.current?.opponent;
+        remoteDriver.setCondition(them?.down ?? 0, them?.hurt ?? 0);
+        targetSkin?.update(dt);
+        if (opponentRoot) faces.get(opponentRoot)?.update(dt);
+      }
+
       // Publish the player's body channels for the fight loop. Before the
-      // model has loaded there is no driver and therefore no measurement — the
+      // model has loaded there is no driver and therefore no measurement - the
       // ref stays null, which the fight loop reads as "the player is standing
       // at neutral" rather than as a zero step.
       const bodyOut = bodyOutHolder.current;
@@ -959,18 +1360,18 @@ export function BoxerModel({
 
       // --- The opponent's own body -----------------------------------------
       //
-      // Drained BEFORE the animator is stepped, so a punch thrown this frame
+      // Drained before the animator is stepped, so a punch thrown this frame
       // starts its extension on this frame rather than the next one. At the
-      // AI's fastest telegraph (260ms) a frame of slack is about 6% of the
+      // CPU's fastest telegraph (260ms) a frame of slack is about 6% of the
       // whole wind-up, which is small but is exactly the part the player is
       // reading.
       if (opponentAnim) {
         const thrown = opponentStrikeHolder.current?.current;
         if (thrown && thrown.length > 0) {
           for (const strike of thrown.splice(0, thrown.length)) {
-            opponentAnim.throw(strike.hand, strike.impact.height);
-            // The punch lands on the PLAYER, so the player's surfaces are what
-            // mark. Same two calls the opponent takes in the other direction —
+            opponentAnim.throw(strike.hand, strike.impact.height, strike.impact.lateral);
+            // The punch lands on the player, so the player's surfaces are what
+            // mark. Same two calls the opponent takes in the other direction -
             // deliberately symmetric, so a fighter cannot be damaged in a way
             // the other one never can be.
             playerSkin?.addBruise(
@@ -980,9 +1381,22 @@ export function BoxerModel({
             if (playerRoot) {
               faces.get(playerRoot)?.hit(strike.region.id, strike.power);
             }
+            // And the player's own figure takes the punch. Until this line the
+            // opponent had a full hit reaction and the player had none, so a
+            // clean right hand landed on a character that did not move.
+            driverRef.current?.flinch(strike);
           }
         }
         opponentAnim.update(dt, opponentHolder.current?.current ?? IDLE_OPPONENT);
+      }
+
+      // The player's own condition. Until this line a clean right hand put the
+      // player on the canvas, the simulation started a count and resumed the
+      // round, and the character on screen boxed on throughout - mirroring a
+      // player who was, quite correctly, still standing in their room.
+      if (driver) {
+        const me = conditionHolder.current?.current?.player;
+        driver.setCondition(me?.down ?? 0, me?.hurt ?? 0);
       }
 
       // The player's own damage surface ages too, so marks left on them fade
@@ -991,6 +1405,8 @@ export function BoxerModel({
         playerSkin.update(dt);
         if (playerRoot) faces.get(playerRoot)?.update(dt);
       }
+
+      stepDirector(dt);
 
       controls.update();
       renderer.render(scene, camera);
@@ -1014,6 +1430,16 @@ export function BoxerModel({
         }
       });
       punchingDummy?.dispose();
+      // Disposed through the builders' own dispose(), not by the scene
+      // traversal above: the arena shares materials and textures between many
+      // meshes, so the traversal would dispose the same canvas texture a dozen
+      // times over. The builders track each resource once.
+      venue?.dispose();
+      arenaLighting?.dispose();
+      if (hallFloor) {
+        hallFloor.geometry.dispose();
+        (hallFloor.material as THREE.Material).dispose();
+      }
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -1021,9 +1447,9 @@ export function BoxerModel({
     // refs so a change never tears down and reloads the 8MB model.
     // `dummy` is a dependency, unlike every other prop here, which are all
     // mirrored into refs to avoid rebuilding the scene. This one genuinely
-    // changes what is IN the scene — a different object standing at the target
-    // position — so it has to tear down and rebuild rather than being toggled.
-  }, [poseRef, dummy]);
+    // changes what is in the scene - a different object standing at the target
+    // position - so it has to tear down and rebuild rather than being toggled.
+  }, [poseRef, dummy, stage]);
 
   return (
     <div

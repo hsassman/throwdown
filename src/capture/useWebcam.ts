@@ -18,13 +18,13 @@ export interface CameraInfo {
 export function useWebcam(enabled: boolean) {
   const videoRef = useRef<HTMLVideoElement>(null);
   /**
-   * The live stream, kept so it can be RE-ATTACHED if the <video> element is
+   * The live stream, kept so it can be Re-attached if the <video> element is
    * ever replaced.
    *
    * This exists because of a real bug. The stream is attached exactly once, to
    * whatever element the ref held at that moment. If React unmounts that
-   * element and mounts another — which it does whenever the same <video> is
-   * written in two different branches of a tree — the ref silently points at a
+   * element and mounts another - which it does whenever the same <video> is
+   * written in two different branches of a tree - the ref silently points at a
    * fresh element with no `srcObject`, while the old one keeps the camera.
    * The result is a live camera, a green permission light, and a completely
    * frozen picture, with no error anywhere.
@@ -45,7 +45,7 @@ export function useWebcam(enabled: boolean) {
     let cancelled = false;
     // The element the stream was actually attached to. Held separately from
     // videoRef so cleanup detaches from that same element rather than whatever
-    // the ref happens to point at by teardown — the same reasoning as
+    // the ref happens to point at by teardown - the same reasoning as
     // `subscribedVideo` in usePoseTracking.ts.
     let attachedVideo: HTMLVideoElement | null = null;
 
@@ -106,7 +106,7 @@ export function useWebcam(enabled: boolean) {
     };
   }, [enabled]);
 
-  // Runs after EVERY render, deliberately without a dependency array: its whole
+  // Runs after every render, deliberately without a dependency array: its whole
   // job is to notice that the element under the ref has been swapped, and a ref
   // changing does not trigger anything. It is a couple of property reads when
   // nothing has changed.
@@ -115,8 +115,8 @@ export function useWebcam(enabled: boolean) {
     const stream = streamRef.current;
     if (!el || !stream || el.srcObject === stream) return;
     el.srcObject = stream;
-    // A newly mounted element starts paused. Failure here is not actionable —
-    // autoplay policy, or the element being torn down again mid-call — and
+    // A newly mounted element starts paused. Failure here is not actionable -
+    // autoplay policy, or the element being torn down again mid-call - and
     // throwing out of an effect would take the app down over a video element.
     void el.play().catch(() => {});
   });

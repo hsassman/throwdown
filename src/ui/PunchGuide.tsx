@@ -5,12 +5,12 @@ import { leadHand } from "../perception/punchTypes";
 // travels.
 //
 // This exists for measurement validity, not decoration. The confusion matrix
-// compares the punch the player was ASKED for against the punch the classifier
-// reported — so if the player's idea of a hook differs from the classifier's,
+// compares the punch the player was asked for against the punch the classifier
+// reported - so if the player's idea of a hook differs from the classifier's,
 // the matrix measures that disagreement rather than the classifier. Showing
 // the intended trajectory keeps the labels honest.
 //
-// The diagram is drawn MIRRORED, matching the webcam preview: the player sees
+// The diagram is drawn mirrored, matching the webcam preview: the player sees
 // themselves as in a mirror, so their lead hand appears on the same side of
 // the diagram as it does on screen.
 
@@ -20,14 +20,14 @@ interface Props {
   compact?: boolean;
 }
 
-/** Which side of the MIRRORED diagram a hand appears on. */
+/** Which side of the mirrored diagram a hand appears on. */
 function sideOf(hand: "left" | "right"): "viewerLeft" | "viewerRight" {
   // In a mirrored view your left hand appears on the left of the image.
   return hand === "left" ? "viewerLeft" : "viewerRight";
 }
 
 // Figure geometry, in the 0-200 viewBox. Everything below is authored for a
-// LEFT-handed punch and mirrored around x=100 for the right, so the two sides
+// left-handed punch and mirrored around x=100 for the right, so the two sides
 // can never drift out of sync.
 const FIG = {
   headY: 38,
@@ -44,11 +44,11 @@ const FIG = {
 };
 
 interface Trajectory {
-  /** SVG path for the fist's travel. */
+  /** Svg path for the fist's travel. */
   path: string;
   /** Where the punch ends, for the impact marker. */
   end: { x: number; y: number };
-  /** Radius of the end marker — larger reads as "closer to camera". */
+  /** Radius of the end marker - larger reads as "closer to camera". */
   endRadius: number;
   start: { x: number; y: number };
   cues: string[];
@@ -66,7 +66,7 @@ function trajectoryFor(type: PunchType, stance: Stance): Trajectory {
 
   if (type === "hook") {
     // Swings outward, then sweeps horizontally across the body past the
-    // midline. The wide bulge is the whole point — a hook that travels
+    // midline. The wide bulge is the whole point - a hook that travels
     // forward instead of across will be classified as a straight punch.
     const start = pt(FIG.fistX, FIG.fistY);
     const end = pt(136, 74);
@@ -97,7 +97,7 @@ function trajectoryFor(type: PunchType, stance: Stance): Trajectory {
       path:
         `M ${mx(88)} 124 C ${mx(98)} 102, ${mx(104)} 74, ${mx(110)} 38`,
       cues: [
-        "Start low — fist down near your ribs",
+        "Start low - fist down near your ribs",
         "Drive straight UP, palm toward you",
         "Finish at chin height: vertical, not forward",
       ],
@@ -105,7 +105,7 @@ function trajectoryFor(type: PunchType, stance: Stance): Trajectory {
   }
 
   // Jab and cross travel toward the camera, which barely displaces the fist
-  // in a frontal view — it mostly grows larger. The short arrow plus the much
+  // in a frontal view - it mostly grows larger. The short arrow plus the much
   // larger dashed end marker encodes that, since "punch forward" is the least
   // intuitive thing to convey on a flat diagram.
   const start = pt(FIG.fistX, FIG.fistY);
@@ -119,7 +119,7 @@ function trajectoryFor(type: PunchType, stance: Stance): Trajectory {
       type === "jab"
         ? [
             "Lead hand, straight out toward the camera",
-            "Almost no sideways travel — it comes at the lens",
+            "Almost no sideways travel - it comes at the lens",
             "Snap it straight back to guard",
           ]
         : [
@@ -159,7 +159,7 @@ export function PunchGuide({ type, stance, compact = false }: Props) {
           </marker>
         </defs>
 
-        {/* Body, drawn faintly — a reference frame, not the subject. Arms are
+        {/* Body, drawn faintly - a reference frame, not the subject. Arms are
             drawn as upper arm + forearm so the guard position (elbows down,
             fists up by the cheeks) is unambiguous. */}
         <g stroke="#3d4c63" strokeWidth="3.5" fill="none" strokeLinecap="round">

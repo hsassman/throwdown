@@ -14,7 +14,7 @@ import {
 import { STRIKE_CONFIG } from "../config/tuning";
 import type { StrikeEvent } from "../perception/strikeResolver";
 
-// The aggregate report, exercised without a camera, a renderer or a clock —
+// The aggregate report, exercised without a camera, a renderer or a clock -
 // every method takes its own timestamp, the same discipline drill.ts uses.
 
 const EMPTY_STATS: Stats = {
@@ -187,7 +187,7 @@ describe("strike health", () => {
     const m = new SystemMonitor();
     m.sampleReach({ left: 0.5, right: 0.4 }, 0);
     const r = m.report(0, baseReport({}));
-    // The section exists — sampling at all means the resolver is running —
+    // The section exists - sampling at all means the resolver is running -
     // but nothing crossed nearMissReach, so the count is zero.
     expect(r.strike!.nearMisses).toBe(0);
   });
@@ -247,7 +247,7 @@ describe("the overall score", () => {
   });
 
   it("does not let drill or strike activity pull the score down", () => {
-    // Neither section produces a score at all — a burst of strikes or a drill
+    // Neither section produces a score at all - a burst of strikes or a drill
     // in progress is not "unhealthy" at any pace.
     const m = new SystemMonitor();
     m.recordStrike(legalStrike(), 0);
@@ -269,7 +269,7 @@ describe("the overall score", () => {
 
 describe("an unmeasured tracking report is not a failing one", () => {
   // Caught by the smoke run: headless has a camera but no person in it, and
-  // the panel showed "Pose 0 · 0.0 Hz" — a real 0, not a placeholder — the
+  // the panel showed "Pose 0 · 0.0 Hz" - a real 0, not a placeholder - the
   // instant any pose frame arrived, well before the tracking monitor had
   // enough samples to say anything. TrackingReport's own empty placeholder
   // has score 0 because a min() over nothing naturally produces zero, not

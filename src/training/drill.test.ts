@@ -128,7 +128,7 @@ describe("scoring a punch", () => {
   });
 
   it("reports the miss as a SIGNED vector, not just a distance", () => {
-    // The whole adaptation loop depends on this. "6cm out" and "6cm LOW" are
+    // The whole adaptation loop depends on this. "6cm out" and "6cm low" are
     // the same distance and completely different facts.
     const d = fixedDrill(NOSE);
     d.start(0);
@@ -154,7 +154,7 @@ describe("scoring a punch", () => {
   it("counts punches thrown at nothing as strays, not as accuracy", () => {
     const d = fixedDrill(NOSE);
     d.start(0);
-    // Nothing lit yet — update() has not been called.
+    // Nothing lit yet - update() has not been called.
     d.onStrike(makeStrike({ impact: NOSE.centre }), 0);
     d.onStrike(makeStrike({ impact: NOSE.centre }), 0);
     expect(d.stats.stray).toBe(2);
@@ -164,7 +164,7 @@ describe("scoring a punch", () => {
 
 describe("hand requirement", () => {
   it("asks for the hand that can actually reach the target", () => {
-    // The liver is on the puncher's LEFT. Asking for a right hand there would
+    // The liver is on the puncher's left. Asking for a right hand there would
     // drill a punch that cannot physically land.
     const d = fixedDrill(LIVER, 4, true);
     d.start(0);
@@ -235,7 +235,7 @@ describe("stats", () => {
 
 describe("target selection", () => {
   it("never lights the same zone twice running", () => {
-    // A repeat measures nothing — the hand is already there — and reads as a
+    // A repeat measures nothing - the hand is already there - and reads as a
     // bug. With a real rng across many lights, no two consecutive picks may
     // match.
     let seed = 7;

@@ -1,60 +1,48 @@
-// WHERE a strike lands, and HOW it arrived — as continuous quantities.
-// WHY THIS REPLACES THE FOUR-PUNCH MODEL AS THE COMBAT PRIMITIVE
+// Where a strike lands and how it arrived, as continuous quantities.
 //
-// The original design had one perception output: a punch classified into
-// {jab, cross, hook, uppercut}. Everything downstream keyed off that label,
-// which made the four-way classifier load-bearing — and it is the least
-// reliable thing in the project (Milestone 1, ~19% detection).
+// The original design classified a punch into {jab, cross, hook, uppercut} and
+// keyed everything downstream off that label, which made the four-way
+// classifier load-bearing - and it is the least reliable thing in the project
+// (~19%).
 //
-// That coupling was a modelling mistake, not just a risk. A real strike is not
-// a member of a four-element set. It has a landing POINT and an arrival
-// DIRECTION, both continuous, and a full anatomical mesh can be struck
-// anywhere on it. "Jab" is a name humans give to one small neighbourhood of
-// that space; it is a useful DESCRIPTION and a terrible PRIMITIVE.
-//
-// So the model inverts:
+// That was a modelling mistake, not just a risk. A strike has a landing point
+// and an arrival direction, both continuous, and an anatomical mesh can be
+// struck anywhere. "Jab" names one small neighbourhood of that space: a useful
+// description, a terrible primitive. So the model inverts:
 //
 //   before   landmarks -> classify into 4 types -> look up canned effect
 //   after    landmarks -> continuous (impact point, approach vector)
-//                      -> anatomical region and damage fall out of geometry
-//                      -> a punch NAME is derived last, for the HUD only
+//                      -> region and damage fall out of geometry
+//                      -> a punch name is derived last, for the HUD only
 //
-// Consequences worth being explicit about, because they are the whole point:
+// Which means nothing fails to land because the classifier could not name it;
+// the target map can be refined without touching perception; a liver shot and
+// a shoulder graze differ by where they landed; and the classifier is free to
+// be wrong, because it drives a caption.
 //
-//  * Nothing can fail to land because the classifier could not name it. An
-//    unnameable, awkward, half-committed strike still has a position and a
-//    direction, so it still resolves.
-//  * The target map is no longer 2x3 = 6 buckets. It is an anatomical table
-//    that can be refined to whatever resolution the art supports, and refining
-//    it does not touch the perception code at all.
-//  * A liver shot and a shoulder graze differ because of WHERE they landed,
-//    not because two different labels were predicted correctly.
-//  * The classifier is now free to be wrong. It drives a caption.
-//
-// The two standing rules from strikeResolver.ts still hold here without
-// exception: landmarks only (never the character mesh), and MediaPipe's z is
-// never read (depth comes from x/y foreshortening).
+// Standing rules from strikeResolver.ts hold here too: landmarks only, never
+// the character mesh, and MediaPipe's z is never read.
 
 import { STRIKE_CONFIG } from "../config/tuning";
 
 /**
- * Where a strike landed, in the TARGET's own body frame, in torso units.
+ * Where a strike landed, in the target's own body frame, in torso units.
  *
  * Body frame rather than image coordinates so the numbers survive the player
  * walking around the room, standing closer, or being a different size.
  */
 export interface ImpactPoint {
   /**
-   * Offset from the midline. Expressed from the PUNCHER's point of view, so
-   * `+` is to the puncher's right — which lands on the target's own left,
+   * Offset from the midline. Expressed from the puncher's point of view, so
+   * `+` is to the puncher's right - which lands on the target's own left,
    * since they face each other. Getting this backwards puts every mark on the
    * wrong cheek, so it is asserted in the tests rather than trusted.
    */
   lateral: number;
   /**
-   * Height above the hip line. The torso scale IS the shoulder-to-hip
+   * Height above the hip line. The torso scale is the shoulder-to-hip
    * distance, so 0 is the belt, 1.0 is the shoulder line, and the head sits
-   * between roughly 1.15 and 1.6. These are not chosen constants — they fall
+   * between roughly 1.15 and 1.6. These are not chosen constants - they fall
    * out of the normalisation.
    */
   height: number;
@@ -68,7 +56,7 @@ export interface Approach {
   x: number;
   /** Vertical component. Positive is upward (image y is flipped on the way in). */
   y: number;
-  /** Out-of-plane component, recovered from foreshortening — never from z. */
+  /** Out-of-plane component, recovered from foreshortening - never from z. */
   z: number;
   /** 0-1: how much of the travel was forward rather than across or up. */
   directness: number;
@@ -90,7 +78,7 @@ export interface BodyRegion {
    * hardest bone in the body and hurts the puncher more than the punched.
    */
   damage: number;
-  /** False below the belt — a foul, not a hit. */
+  /** False below the belt - a foul, not a hit. */
   legal: boolean;
   /** Which texture zone a bruise on this region paints into. */
   textureZone: string;
@@ -115,7 +103,7 @@ interface RegionRule extends BodyRegion {
 }
 
 /**
- * The anatomical map. FIRST MATCH WINS, so narrower entries come first.
+ * The anatomical map. First match wins, so narrower entries come first.
  *
  * Heights are in shoulder-to-hip units, which makes them proportional to the
  * fighter rather than absolute: a tall fighter's chin is still at ~1.25 of
@@ -247,8 +235,8 @@ const REGIONS: RegionRule[] = [
   {
     id: "liver",
     label: "Liver",
-    // The target's own right side, under the ribs — which appears on the
-    // PUNCHER's left, hence side -1. This asymmetry is real anatomy and is
+    // The target's own right side, under the ribs - which appears on the
+    // puncher's left, hence side -1. This asymmetry is real anatomy and is
     // the reason a left hook to the body ends fights more often than a right.
     h: [0.42, 0.72],
     lat: [0.14, 0.45],
@@ -332,7 +320,7 @@ export function allRegions(): BodyRegion[] {
 }
 
 /**
- * Classifies HOW a strike arrived, from its velocity at impact.
+ * Classifies how a strike arrived, from its velocity at impact.
  *
  * This is the one place a punch "type" still appears, and it is deliberately
  * not a trained classifier or a scoring contest between four hypotheses. It is
@@ -372,7 +360,7 @@ export function approachOf(vx: number, vy: number, vz: number): Approach {
  * The arc bonus is where boxing knowledge enters: an upward strike to the
  * chin rotates the head, which is what actually produces a knockout, whereas
  * the same force straight into the chin mostly pushes someone backwards. So
- * "rising" is rewarded on the chin and jaw specifically — not everywhere,
+ * "rising" is rewarded on the chin and jaw specifically - not everywhere,
  * which would just be a flat bonus for uppercuts.
  */
 export function damageOf(
@@ -392,7 +380,7 @@ export function damageOf(
  * Coarse 2x3 zone for the landing point.
  *
  * Kept because the texture map and the training target's reaction animations
- * are authored against it. It is now DERIVED from the continuous point rather
+ * are authored against it. It is now derived from the continuous point rather
  * than being the primary measurement, which is the whole change: the fine
  * position exists first, and this is a lossy view of it.
  */

@@ -1,11 +1,11 @@
 // Back-to-back A/B of main-thread vs Web Worker inference.
 //
 // Runs both conditions in one sitting so they see the same machine load, the
-// same lighting and the same person — comparing runs taken minutes apart gave
+// same lighting and the same person - comparing runs taken minutes apart gave
 // misleading results, because inference cost on this laptop drifts with
 // background load (36ms to 51ms observed for the same code path).
 //
-// STAND IN FRAME OF THE WEBCAM FOR THE WHOLE RUN. A condition where no body is
+// Stand in frame of the webcam for the whole run. A condition where no body is
 // detected times BlazePose's detection path instead of its tracking path and
 // is not comparable to one where a body is present. The script reports the
 // body-found ratio per condition and refuses to declare a winner if the two
@@ -56,7 +56,7 @@ async function runCondition(useWorker) {
   await page.evaluate(() => {
     // Counts its own frames, matching measure-pose.mjs. Without this the
     // `keepalive` field reported below is always 0, silently discarding the
-    // only evidence that Chrome throttled rAF for a condition — which would
+    // only evidence that Chrome throttled rAF for a condition - which would
     // invalidate that condition's frame-rate numbers without anyone noticing.
     window.__keepaliveFrames = 0;
     const tick = () => {
@@ -143,7 +143,7 @@ if (mainFps === null || workerFps === null) {
   );
   console.log(
     Math.abs(delta) < 1.5
-      ? "Difference is within run-to-run noise on this machine — not a real win."
+      ? "Difference is within run-to-run noise on this machine - not a real win."
       : delta > 0
         ? "Worker helps."
         : "Worker HURTS. Keep inference on the main thread."

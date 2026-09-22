@@ -25,16 +25,16 @@ interface Move {
   /** Image-space shift of the whole body. */
   dx?: number;
   dy?: number;
-  /** Multiplies every distance from the body centre — i.e. stepping in/out. */
+  /** Multiplies every distance from the body centre - i.e. stepping in/out. */
   zoom?: number;
-  /** Multiplies shoulder width only — i.e. blading the torso. */
+  /** Multiplies shoulder width only - i.e. blading the torso. */
   narrow?: number;
   confidence?: number;
 }
 
 function pose(m: Move = {}): PoseFrame {
   const { dx = 0, dy = 0, zoom = 1, narrow = 1, confidence = 0.95 } = m;
-  // Zoom is about the OPTICAL AXIS — the image centre — because that is what
+  // Zoom is about the optical axis - the image centre - because that is what
   // a camera actually does when the subject steps nearer. Zooming about some
   // other point would be modelling a lens that does not exist.
   const cx = 0.5;
@@ -72,7 +72,7 @@ describe("sampling", () => {
 
   it("takes the WEAKEST landmark's confidence, not the mean", () => {
     // A mean lets a well-tracked shoulder hide a lost hip, and the hips are
-    // what the torso scale — and so the whole depth channel — rests on.
+    // what the torso scale - and so the whole depth channel - rests on.
     const p = pose();
     p.leftHip.confidence = 0.2;
     p.rightHip.confidence = 0.2;
@@ -83,7 +83,7 @@ describe("sampling", () => {
 
 describe("the neutral", () => {
   it("reports nothing on the very first frame", () => {
-    // The first pose IS the reference. Reporting motion against a reference
+    // The first pose is the reference. Reporting motion against a reference
     // that does not exist yet would mean the character lurched on startup.
     const t = new BodyMotionTracker();
     const m = t.update(pose({ dx: 0.2 }));
@@ -202,7 +202,7 @@ describe("depth", () => {
 describe("turn", () => {
   it("ignores small changes, because acos is steepest where the signal is weakest", () => {
     // Without the dead zone, resting noise near square-on turns into a
-    // visibly twitching torso — the worst place to put jitter, since it is a
+    // visibly twitching torso - the worst place to put jitter, since it is a
     // part of the body the player is not moving.
     expect(tracked({ narrow: 0.999 }).state.turn).toBe(0);
     expect(tracked({ narrow: 0.995 }).state.turn).toBe(0);
@@ -266,8 +266,8 @@ describe("channel independence", () => {
   });
 
   it("does not leak a turn into depth", () => {
-    // Blading narrows the shoulders but does NOT change shoulder-to-hip
-    // distance, so the torso scale — and therefore depth — must hold still.
+    // Blading narrows the shoulders but does not change shoulder-to-hip
+    // distance, so the torso scale - and therefore depth - must hold still.
     const m = tracked({ narrow: 0.75 }).state;
     expect(Math.abs(m.turn)).toBeGreaterThan(0);
     expect(m.depth).toBeCloseTo(0, 6);

@@ -5,13 +5,13 @@
 // separation is what lets the whole thing be tested without a camera, and it
 // is the layer docs/ARCHITECTURE.md calls "simulation".
 //
-// SCORING IS THE TEN-POINT MUST
+// Scoring is the ten-point must
 //
 // The universal system in boxing and MMA: the round winner gets 10, the loser
 // 9, minus one more for each knockdown, floor of 6. It is worth using the real
 // one rather than inventing a points system, because it is the thing players
 // already know how to read, and because it produces draws and split decisions
-// naturally — which is what makes a decision feel earned rather than arbitrary.
+// naturally - which is what makes a decision feel earned rather than arbitrary.
 
 import {
   attributesFor,
@@ -21,19 +21,20 @@ import {
 } from "./attributes";
 import type { WeightClass } from "../menu/menuModel";
 import type { StrikeEvent } from "../perception/strikeResolver";
+import type { BodyMotion } from "../perception/bodyMotion";
 import { FIGHT_CONFIG } from "../config/tuning";
 
 /** What a fighter is protecting. */
 export type GuardPosture = "high" | "low" | "none";
 
 /**
- * A committed head movement, in the EVADING fighter's own frame.
+ * A committed head movement, in the evading fighter's own frame.
  *
  * Left and right are that fighter's own left and right, not the puncher's.
- * `ImpactPoint.lateral` is expressed from the PUNCHER's point of view (see
+ * `ImpactPoint.lateral` is expressed from the puncher's point of view (see
  * strikeGeometry.ts), so the two frames are mirrored and the conversion has to
  * happen exactly once, in `evades` below, where it is tested. Getting it
- * backwards would make every slip move the head INTO the punch, which would
+ * backwards would make every slip move the head into the punch, which would
  * still look like evasion and would be almost impossible to spot by eye.
  */
 export type Evasion = "none" | "slipLeft" | "slipRight" | "duck";
@@ -44,9 +45,9 @@ export type Evasion = "none" | "slipLeft" | "slipRight" | "duck";
  * The rules, and why they are these rules:
  *
  *   A slip moves the head sideways off the line of a punch travelling toward
- *   it. That beats a STRAIGHT or RISING punch, which have already committed to
- *   a line. It does NOT beat a HOOK, which curves around the outside and
- *   arrives where the head has just moved to — slipping into a hook is how
+ *   it. That beats a straight or rising punch, which have already committed to
+ *   a line. It does not beat a hook, which curves around the outside and
+ *   arrives where the head has just moved to - slipping into a hook is how
  *   people get knocked out, and a slip that beat everything would make the
  *   guard pointless.
  *
@@ -55,26 +56,100 @@ export type Evasion = "none" | "slipLeft" | "slipRight" | "duck";
  *   different choices rather than two names for the same move: the duck is
  *   the stronger answer to the head and the total non-answer to the body.
  *
- * Nothing here decides whether the punch was THROWN accurately — perception
+ * Nothing here decides whether the punch was thrown accurately - perception
  * already resolved that. This only asks whether the target was still there.
  */
 export function evades(evasion: Evasion, strike: StrikeEvent): boolean {
   if (evasion === "none") return false;
   // Both slips and ducks are head movement. A body shot is not evaded by
-  // moving the head, and pretending otherwise would let the AI slip a liver
+  // moving the head, and pretending otherwise would let the CPU slip a liver
   // shot, which reads as the game cheating.
   if (strike.zone.height !== "head") return false;
   if (evasion === "duck") return true;
 
   if (strike.approach.arc === "hooking" || strike.approach.arc === "falling") return false;
 
-  // The mirror. A lane of "right" is the PUNCHER's right, which arrives on the
-  // target's own LEFT — so moving to your own left carries you into it, and
+  // The mirror. A lane of "right" is the puncher's right, which arrives on the
+  // target's own left - so moving to your own left carries you into it, and
   // moving to your own right carries you off it.
   const arrivesOnTargetsLeft = strike.zone.lane === "right";
   const arrivesOnTargetsRight = strike.zone.lane === "left";
   if (evasion === "slipLeft") return !arrivesOnTargetsLeft;
   return !arrivesOnTargetsRight;
+}
+
+/**
+ * Turns the player's measured body movement into a committed evasion.
+ *
+ * The evasion rules above were written, tested and wired for the CPU, and for
+ * the player they were dead: nothing ever called `setEvasion` for them. A
+ * player could duck under a right hand, watch their character duck, and take
+ * the punch flush anyway, because the simulation was never told. Every piece
+ * was present except the one line connecting them.
+ *
+ * Why it reads BodyMotion rather than DodgeDetector
+ *
+ * `dodgeDetector` classifies head movement relative to the shoulder line, which
+ * is the better measurement of a slip in the abstract - but it needs a
+ * calibration pass the fight does not have, and, more importantly, it is not
+ * the signal that moves the character. `BodyMotion` is. Deriving the rule from
+ * the same number that drives the animation is what guarantees the two can
+ * never disagree, and "my character visibly ducked and the punch hit me anyway"
+ * is a far worse failure than a slip measured slightly coarsely.
+ *
+ * `current` is the evasion already held, and it selects the exit threshold
+ * rather than the entry one - see FIGHT_CONFIG.duckExit.
+ */
+export function evasionFromBody(motion: BodyMotion, current: Evasion): Evasion {
+  if (!motion.tracked) return "none";
+
+  // A duck outranks a slip when the body is doing both. It is the stronger
+  // answer to a head shot, and a player who has dropped into a crouch while
+  // drifting sideways has ducked.
+  const duckBar = current === "duck" ? FIGHT_CONFIG.duckExit : FIGHT_CONFIG.duckEnter;
+  if (motion.crouch >= duckBar) return "duck";
+
+  const slipping = current === "slipLeft" || current === "slipRight";
+  const slipBar = slipping ? FIGHT_CONFIG.slipExit : FIGHT_CONFIG.slipEnter;
+  if (Math.abs(motion.lateral) >= slipBar) {
+    // `lateral` is positive toward the player's own right, and `slipRight`
+    // means the fighter moved to their own right - the same frame, so no
+    // mirror here. The mirror that does matter is in `evades`, which converts
+    // the puncher's lane into the target's side.
+    return motion.lateral > 0 ? "slipRight" : "slipLeft";
+  }
+  return "none";
+}
+
+/**
+ * Turns the player's measured hand height into a guard posture.
+ *
+ * The companion to `evasionFromBody`, and it closes the same kind of gap:
+ * `setGuard` has always existed and the CPU has always used it, but nothing
+ * ever called it for the player. Blocking - half of boxing's defence - was
+ * simply unavailable to them, so the only way to avoid a punch was to move.
+ *
+ * `current` selects the exit threshold over the entry one; see
+ * FIGHT_CONFIG.guardHighExit.
+ */
+export function guardFromBody(
+  motion: BodyMotion,
+  current: GuardPosture
+): GuardPosture {
+  if (!motion.tracked) return "none";
+  const h = motion.guardHeight;
+
+  const highBar =
+    current === "high" ? FIGHT_CONFIG.guardHighExit : FIGHT_CONFIG.guardHighEnter;
+  if (h >= highBar) return "high";
+
+  // A hand on its way down from a high guard should pass through low rather
+  // than falling straight to nothing, so the low bar is read against whether
+  // any guard is currently held at all.
+  const lowBar =
+    current === "none" ? FIGHT_CONFIG.guardLowEnter : FIGHT_CONFIG.guardLowExit;
+  if (h >= lowBar) return "low";
+  return "none";
 }
 
 export interface FighterState {
@@ -86,15 +161,16 @@ export interface FighterState {
   stamina: number;
   maxStamina: number;
   guard: GuardPosture;
-  /** Knockdowns taken THIS round — three ends it. */
+  /** Knockdowns taken this round - three ends it. */
   knockdowns: number;
   /** Knockdowns taken across the whole fight, for the scorecard. */
   totalKnockdowns: number;
   /** Seconds left of being unable to act. */
   stunned: number;
-  /** Committed head movement, if any. Set by whoever drives this fighter —
-   *  the AI today, the player's own tracked dodges later. The sim only reads
-   *  it; it never decides to evade on a fighter's behalf. */
+  /** Committed head movement, if any. Set by whoever drives this fighter: the
+   *  CPU from its own state machine, the player from their tracked body via
+   *  `evasionFromBody`. The sim only reads it; it never decides to evade on a
+   *  fighter's behalf. */
   evasion: Evasion;
   landed: number;
   thrown: number;
@@ -227,7 +303,7 @@ export class FightSim {
     // Evasion beats guard, and is checked first. A punch that missed cannot
     // also have been blocked, and the two produce different events because
     // they are different things to watch: a block is a hit you absorbed, a
-    // miss is a hit that never arrived. A stunned fighter evades nothing —
+    // miss is a hit that never arrived. A stunned fighter evades nothing -
     // the same rule the guard follows, and the reason a knockdown is a real
     // turning point.
     if (target.stunned <= 0 && evades(target.evasion, strike)) {
@@ -240,7 +316,7 @@ export class FightSim {
       return;
     }
 
-    // Guard. A high guard covers the head, a low guard the body — the classic
+    // Guard. A high guard covers the head, a low guard the body - the classic
     // trade, and the reason feinting upstairs to go downstairs works at all.
     // A stunned fighter's guard is down, which is what makes a knockdown a
     // real turning point rather than a cosmetic pause.
@@ -255,7 +331,7 @@ export class FightSim {
 
     if (covered) {
       damage *= FIGHT_CONFIG.blockedDamage;
-      // Blocking is not free — it drains the blocker, which is what stops a
+      // Blocking is not free - it drains the blocker, which is what stops a
       // permanent high guard being a winning strategy.
       target.stamina = Math.max(
         0,
@@ -319,7 +395,7 @@ export class FightSim {
    * Starting an evasion costs stamina. It has to: a fighter who slips
    * everything for free is strictly better than one who blocks, and the whole
    * point of having both is that they are different trades. This is also why
-   * the cost is charged on ENTERING the state rather than per second — it
+   * the cost is charged on entering the state rather than per second - it
    * prices the decision, not the duration, so holding a slip an extra frame is
    * not punished and spamming slips is.
    */
@@ -342,7 +418,7 @@ export class FightSim {
       this.betweenTimer -= dt;
       for (const f of Object.values(this.fighters)) {
         // The corner. A full minute back recovers a real chunk of gas and a
-        // little health — which is why a fighter who survives to the bell gets
+        // little health - which is why a fighter who survives to the bell gets
         // a genuine reprieve.
         f.stamina = Math.min(
           f.maxStamina,
@@ -400,7 +476,7 @@ export class FightSim {
    *
    * Winner 10, loser 9, minus one per knockdown taken, floored at 6. A round
    * with no knockdowns and effectively equal damage is scored 10-10 rather
-   * than being forced to a winner — real judges avoid it, but a simulation
+   * than being forced to a winner - real judges avoid it, but a simulation
    * that invents a winner from a 0.3% damage difference is producing noise and
    * calling it a decision.
    */

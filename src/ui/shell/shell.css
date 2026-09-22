@@ -2,7 +2,7 @@
  *
  * Built around one constraint that is not obvious from a screenshot: the
  * player is standing a couple of metres back with their arm in the air. That
- * makes this closer to a TV interface than a web page — type has to be large,
+ * makes this closer to a TV interface than a web page - type has to be large,
  * targets have to be tall, and contrast has to survive a bright room.
  *
  * Hence the row height (~92px, far taller than a web list), the type scale,
@@ -86,6 +86,37 @@
   min-height: 1.4em;
 }
 
+/* The input legend. Small, quiet, and permanent - it is reference material,
+   not a message, so it must never compete with the status hint above it. */
+.shell-inputs {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: #6c7c96;
+}
+
+.shell-inputs li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shell-inputs kbd {
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b6c3d6;
+}
+
 /* --- Layout ------------------------------------------------------------ */
 
 .shell-body {
@@ -102,6 +133,45 @@
 .shell-list-wrap {
   position: relative;
   min-width: 0;
+  /* The list is taller than the viewport on a laptop - ten rows plus group
+     headings - and `.shell` clips its overflow, so the bottom rows were simply
+     invisible with nothing to suggest they existed. Scrolling the COLUMN
+     rather than the page keeps the detail panel and the title fixed where the
+     eye expects them.
+
+     min-height:0 is the load-bearing part: a grid item defaults to min-content
+     height, which refuses to shrink below its contents, so overflow-y alone
+     would do nothing at all here. */
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  /* Room for the fade below, so the last row is never sitting under it. */
+  padding-bottom: 28px;
+  /* Fades the top and bottom edges as content runs past them - the affordance
+     that says "there is more this way" without spending a row on a scrollbar
+     the player may not see against a dark background. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 26px),
+    transparent 100%
+  );
+}
+
+.shell-list-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shell-list-wrap::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.shell-list-wrap::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .shell-list,
@@ -161,7 +231,7 @@
 }
 
 /* The dwell fill. Driven by the --dwell custom property, which the camera
- * hook writes directly to the element every frame — this is what keeps a
+ * hook writes directly to the element every frame - this is what keeps a
  * 60fps progress animation out of React's render path entirely. */
 .shell-row-fill {
   position: absolute;

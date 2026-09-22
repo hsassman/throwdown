@@ -1,5 +1,5 @@
 /* Training read-out. Sits over the 3D stage, so everything here has to stay
- * legible against an arbitrary background — hence the solid backing rather
+ * legible against an arbitrary background - hence the solid backing rather
  * than a pure blur, which goes muddy over a bright dummy. */
 
 .thud {

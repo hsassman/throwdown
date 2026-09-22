@@ -9,42 +9,27 @@ import {
 
 // Closes the character's hands into fists.
 //
-// WHY THIS IS NOT DRIVEN BY TRACKING
+// Not driven by tracking. MediaPipe Pose gives three points per hand and no
+// finger articulation; the Hands model would, but a second model per frame is
+// inference budget this project does not have. So curl is inferred from what
+// the arm is doing - which is right anyway, since a boxer's hands are never
+// open and the mesh ships in a relaxed, splayed bind pose.
 //
-// MediaPipe Pose gives three points per hand (wrist, index MCP, pinky MCP) and
-// no finger articulation at all — the Hands model would, but running a second
-// model per frame is exactly the inference budget this project does not have
-// (see risk log 12: pose inference alone already caps the sample rate). So
-// finger curl is not measured, it is inferred from what the arm is doing.
+// The first version curled each bone about its own derived axis and produced a
+// splayed claw with the fingers passing through each other. Three faults:
 //
-// That turns out to be the right answer anyway, because a boxer's hands are
-// never open. The mesh ships in a relaxed, splayed bind pose that reads as
-// wrong the moment you look at it in a boxing context.
-// HOW A FIST IS ACTUALLY MADE, AND WHAT THE FIRST ATTEMPT GOT WRONG
-//
-// The first version curled each bone about an axis derived independently for
-// that bone, and produced a splayed claw with the fingers passing through each
-// other. Three distinct faults, all visible in the rig's measured geometry:
-//
-//  1. EVERY BONE GOT A DIFFERENT HINGE. The knuckle line was perpendicularised
-//     against each bone's own direction, so no two bones rotated in the same
-//     plane and the fingers fanned apart as they curled. Real finger joints are
-//     near-PARALLEL hinges — that is why fingers stay in formation when you
-//     close your hand. There is now ONE hinge axis per hand, shared by every
-//     segment, expressed in each bone's local frame. Because a child's local
-//     axis rides on its parent's rotation, the whole chain stays in plane.
-//
-//  2. THE DIRECTION VECTOR WAS THE WHOLE FINGER, NOT THE SEGMENT. `index1` was
-//     measured toward the FINGERTIP rather than toward `index2`, tilting its
-//     axis further still.
-//
-//  3. CURLING ALONE CANNOT CLOSE A FIST. Measured on this rig, the fingertips
-//     sit 0.029-0.033 apart at bind while the knuckles are only ~0.021 apart:
-//     the fingers fan outward by roughly half. Curling preserves that fan, so
-//     the fist closed with visible gaps between the fingers. Each finger now
-//     also ADDUCTS — swings sideways about the palm normal — by its own
-//     measured splay angle, which brings it parallel to the middle finger.
-//     Measured splays: index +3.9deg, middle +0.3, ring -7.7, pinky -7.9.
+//  1. Every bone got a different hinge, so no two rotated in the same plane
+//     and the fingers fanned apart as they curled. Real finger joints are
+//     near-parallel hinges. There is now one hinge axis per hand, expressed in
+//     each bone's local frame; because a child's local axis rides on its
+//     parent's rotation, the chain stays in plane.
+//  2. The direction vector was the whole finger, not the segment - `index1`
+//     was measured toward the fingertip rather than toward `index2`.
+//  3. Curling alone cannot close a fist. Measured on this rig, fingertips sit
+//     0.029-0.033 apart at bind while knuckles are ~0.021 apart, so the
+//     fingers fan outward by about half. Each finger now also adducts about
+//     the palm normal by its own measured splay: index +3.9deg, middle +0.3,
+//     ring -7.7, pinky -7.9.
 
 export interface FingerBoneBind {
   bone: THREE.Object3D;
@@ -65,7 +50,7 @@ export interface FingerBoneBind {
 export interface HandBind {
   side: HandSideKey;
   bones: FingerBoneBind[];
-  /** Palm-ward direction in world space at bind — useful to callers that want
+  /** Palm-ward direction in world space at bind - useful to callers that want
    * to place something against the palm. */
   palmNormal: THREE.Vector3;
 }
@@ -120,7 +105,7 @@ export function captureHandBind(
   const middleTipW = worldPos(middleTip);
 
   // The middle finger defines the hand's "forward"; the knuckle line defines
-  // its "across". Perpendicularising across against forward ONCE gives the
+  // its "across". Perpendicularising across against forward once gives the
   // single hinge every joint shares.
   const forward = middleTipW.clone().sub(middle1W);
   if (forward.lengthSq() < 1e-12) return null;
@@ -173,7 +158,7 @@ export function captureHandBind(
       const toLocal = boneWorldQuat.clone().invert();
 
       // Adduction belongs at the knuckle only. Segment 1 is the knuckle for
-      // every finger — the pinky's segment 0 is a metacarpal, which barely
+      // every finger - the pinky's segment 0 is a metacarpal, which barely
       // moves and must not be swung sideways.
       const isKnuckle = segment === 1;
 
@@ -195,14 +180,14 @@ export function captureHandBind(
   if (bones.length === 0) return null;
   const hand: HandBind = { side, bones, palmNormal };
 
-  // The splay angles above are only a SEED. Cancelling the knuckle's splay
+  // The splay angles above are only a seed. Cancelling the knuckle's splay
   // gets most of the way but not all: each finger also carries its own
   // curvature in segments 2 and 3, which survives the knuckle correction and
   // leaves the fingertips further apart than the knuckles. Measured before
   // this step, the middle-ring fingertip gap closed to 0.0298 against a
-  // knuckle spacing of 0.0203 — still half a finger too wide.
+  // knuckle spacing of 0.0203 - still half a finger too wide.
   //
-  // So the final angle is SOLVED for, against the closed fist itself.
+  // So the final angle is solved for, against the closed fist itself.
   calibrateAdduction(root, hand, hinge);
   applyClench(hand, 0);
   root.updateMatrixWorld(true);
@@ -216,7 +201,7 @@ const SOLVED_FINGERS: FingerName[] = ["index", "ring", "pinky"];
 
 /**
  * Tunes each finger's adduction so that, at a full fist, the fingertips sit
- * the same distance apart as the knuckles they hang from — which is what
+ * the same distance apart as the knuckles they hang from - which is what
  * "the fingers are touching" means geometrically.
  *
  * A secant solve rather than a formula, because the relationship between a
@@ -243,14 +228,14 @@ function calibrateAdduction(
   /**
    * How far the finger's PIP joint sits from where it should, sideways.
    *
-   * The PIP joint — the far end of the proximal phalanx — is the right target,
+   * The PIP joint - the far end of the proximal phalanx - is the right target,
    * and the fingertip is not. Solving for the tip failed instructively: at a
    * full fist the fingertip folds back to within 0.033 of its own knuckle, so
    * its lever arm has collapsed and closing a 0.012 gap there demanded about
    * 29 degrees of knuckle adduction, which pinned the solver against its
    * clamp and is not something a finger can do. The proximal phalanx keeps its
    * full 0.039 lever arm whatever the curl, needs only the ~8 degrees the bind
-   * splay already implies, and is the part you actually SEE: in a closed fist
+   * splay already implies, and is the part you actually see: in a closed fist
    * the tips are buried in the palm and are not in a neat row in a real hand
    * either.
    */
@@ -278,9 +263,9 @@ function calibrateAdduction(
     // of magnitude, falling back to a fixed step if that splay is ~zero.
     let a1 = Math.abs(knuckle.adductSeed) > 1e-4 ? knuckle.adductSeed : 0.15;
 
-    // Track the best angle SEEN, not the last one proposed. A secant step
+    // Track the best angle seen, not the last one proposed. A secant step
     // produces an untested guess, so ending the loop on one would ship an
-    // angle that was never evaluated — and silently undo a good solve.
+    // angle that was never evaluated - and silently undo a good solve.
     let bestAngle = a0;
     let bestError = Math.abs(e0);
 
@@ -306,7 +291,7 @@ function calibrateAdduction(
 }
 
 /**
- * The thumb does not curl into the palm like a finger — it wraps ACROSS the
+ * The thumb does not curl into the palm like a finger - it wraps across the
  * front of the folded index and middle fingers, which is what makes a fist a
  * fist rather than a cup. Curling it like a finger drives it straight through
  * the other bones.
@@ -332,7 +317,7 @@ function captureThumb(
   const base = worldPos(thumb0);
   const tip = worldPos(thumbTip);
 
-  // Where the thumb should end up. The palm normal points AWAY from the palm
+  // Where the thumb should end up. The palm normal points away from the palm
   // when curlSign is negative, so it is oriented by the same measured sign the
   // fingers use rather than by assumption.
   const palmWard = palmNormal.clone().multiplyScalar(-curlSign);
@@ -400,19 +385,19 @@ const _curl = new THREE.Quaternion();
 
 /**
  * Sets how closed the hand is. 0 is the exported rest pose, 1 a full fist.
- * Values outside that are clamped rather than extrapolated — overshooting
+ * Values outside that are clamped rather than extrapolated - overshooting
  * drives phalanges through each other.
  *
- * ORDER MATTERS, and getting it backwards is silent. Composing
- * `bind * adduct * curl` applies the CURL first in world terms, because
+ * Order matters, and getting it backwards is silent. Composing
+ * `bind * adduct * curl` applies the curl first in world terms, because
  * `Wb * A * C == R_palm(a) * R_hinge(c) * Wb`. At a ~90 degree curl the finger
  * points along the palm normal, and rotating a vector about an axis it is
- * parallel to does nothing at all — so adduction had EXACTLY ZERO effect on a
+ * parallel to does nothing at all - so adduction had exactly zero effect on a
  * closed fist, which is why the first fix still left gaps between the fingers.
  *
  * `bind * curl * adduct` gives `R_hinge(c) * R_palm(a) * Wb`: the finger swings
  * sideways into formation while it is still pointing forward, then folds. That
- * is also the anatomical order — abduction at the knuckle, then flexion.
+ * is also the anatomical order - abduction at the knuckle, then flexion.
  */
 export function applyClench(hand: HandBind, clench: number): void {
   const t = THREE.MathUtils.clamp(clench, 0, 1);
