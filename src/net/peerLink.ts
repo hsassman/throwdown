@@ -81,7 +81,11 @@ export class PeerLink {
    * the internet has candidates worth trying. A TURN server for NATs STUN
    * cannot traverse is docs/PLAN.md step 4, not added yet.
    */
-  constructor(private readonly iceServers: RTCIceServer[] = []) {}
+  private readonly iceServers: RTCIceServer[];
+
+  constructor(iceServers: RTCIceServer[] = []) {
+    this.iceServers = iceServers;
+  }
 
   get state(): LinkState {
     return this.status.state;

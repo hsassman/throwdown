@@ -41,8 +41,10 @@ export class MatchmakingClient {
   private matchedCb: ((m: MatchFoundEvent) => void) | null = null;
   private offerCb: ((from: string, sdp: string) => void) | null = null;
   private answerCb: ((from: string, sdp: string) => void) | null = null;
+  private readonly connection: HubConnectionLike;
 
-  constructor(private readonly connection: HubConnectionLike) {
+  constructor(connection: HubConnectionLike) {
+    this.connection = connection;
     connection.on("Waiting", () => this.set("waiting"));
     connection.on("Matched", (...args: unknown[]) => {
       const [matchId, opponentConnectionId, isOfferer] = args as [string, string, boolean];
