@@ -18,7 +18,7 @@ public class CorsTests
     {
         using var factory = MakeFactory();
         using var client = factory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hubs/matchmaking/negotiate?negotiateVersion=1");
         request.Headers.Add("Origin", "http://localhost:5174");
 
         var response = await client.SendAsync(request);
@@ -32,7 +32,7 @@ public class CorsTests
     {
         using var factory = MakeFactory();
         using var client = factory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hubs/matchmaking/negotiate?negotiateVersion=1");
         request.Headers.Add("Origin", "http://evil.example");
 
         var response = await client.SendAsync(request);
