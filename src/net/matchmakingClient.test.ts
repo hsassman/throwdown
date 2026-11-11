@@ -10,6 +10,7 @@ class FakeConnection implements HubConnectionLike {
   stopCalled = false;
   invoked: { method: string; args: unknown[] }[] = [];
   private handlers = new Map<string, (...args: unknown[]) => void>();
+  private closeCallback: ((error?: Error) => void) | null = null;
 
   async start(): Promise<void> {
     if (this.startShouldFail) throw new Error("connection refused");
@@ -35,6 +36,14 @@ class FakeConnection implements HubConnectionLike {
 
   trigger(methodName: string, ...args: unknown[]): void {
     this.handlers.get(methodName)?.(...args);
+  }
+
+  onclose(callback: (error?: Error) => void): void {
+    this.closeCallback = callback;
+  }
+
+  triggerClose(): void {
+    this.closeCallback?.();
   }
 }
 
@@ -150,6 +159,27 @@ describe("MatchmakingClient", () => {
     await client.leave();
 
     expect(conn.stopCalled).toBe(true);
+    expect(client.state).toBe("closed");
+  });
+
+  it("reports failure when the connection closes unexpectedly", async () => {
+    const conn = new FakeConnection();
+    const client = new MatchmakingClient(conn);
+    await client.findMatch();
+
+    conn.triggerClose();
+
+    expect(client.state).toBe("failed");
+  });
+
+  it("does not override a deliberate leave with a failure", async () => {
+    const conn = new FakeConnection();
+    const client = new MatchmakingClient(conn);
+    await client.findMatch();
+
+    await client.leave();
+    conn.triggerClose();
+
     expect(client.state).toBe("closed");
   });
 

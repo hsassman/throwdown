@@ -45,7 +45,19 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
   poseHolder.current = poseRef;
 
   const attachLink = useCallback((link: PeerLink) => {
-    link.onStatus(setLinkStatus);
+    link.onStatus((next) => {
+      setLinkStatus(next);
+      // A link that failed or closed is not still "matched" — without this
+      // FindMatchPanel hung on "Opponent found, connecting..." forever on
+      // the expected STUN-only failure case. Same reason useSession.ts
+      // resets on this transition.
+      if (next.state === "closed" || next.state === "failed") {
+        setRole(null);
+        remotePoseRef.current = null;
+        remoteStrikeQueueRef.current.length = 0;
+        remoteStateRef.current = null;
+      }
+    });
     link.onMessage((m) => {
       if (m.kind === "pose") {
         remotePoseRef.current = m.frame;
@@ -61,10 +73,12 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
 
   const findMatch = useCallback(async () => {
     setBusy(true);
-    const connection = new HubConnectionBuilder()
-      .withUrl(NET_CONFIG.matchmakingUrl)
-      .withAutomaticReconnect()
-      .build();
+    // No automatic reconnect: a reconnect gets a new ConnectionId, which the
+    // server's matchmaking queue has no way to re-associate with this
+    // player's old slot. A dropped connection reports failure instead (see
+    // MatchmakingClient's onclose handling) rather than silently resuming
+    // under an id nobody can reach.
+    const connection = new HubConnectionBuilder().withUrl(NET_CONFIG.matchmakingUrl).build();
     const client = new MatchmakingClient(connection);
     clientRef.current = client;
     client.onStatus(setMatchStatus);
@@ -78,23 +92,39 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
       setRole(isOfferer ? "host" : "guest");
 
       if (isOfferer) {
-        link.host().then((code) => client.relayOffer(opponentConnectionId, code));
+        link
+          .host()
+          .then((code) => client.relayOffer(opponentConnectionId, code))
+          .catch(() => {
+            setMatchStatus({ state: "failed", detail: "Could not reach the other fighter." });
+          });
       }
     });
 
     client.onOffer(async (from, sdp) => {
       const link = linkRef.current;
       if (!link) return;
-      const reply = await link.accept(sdp);
-      await client.relayAnswer(from, reply);
+      try {
+        const reply = await link.accept(sdp);
+        await client.relayAnswer(from, reply);
+      } catch {
+        setMatchStatus({ state: "failed", detail: "Could not reach the other fighter." });
+      }
     });
 
     client.onAnswer(async (_from, sdp) => {
-      await linkRef.current?.complete(sdp);
+      try {
+        await linkRef.current?.complete(sdp);
+      } catch {
+        setMatchStatus({ state: "failed", detail: "Could not reach the other fighter." });
+      }
     });
 
     try {
       await client.findMatch();
+    } catch {
+      // MatchmakingClient already set matchStatus to "failed" with its own
+      // detail — this just stops the rejection from being unhandled.
     } finally {
       setBusy(false);
     }

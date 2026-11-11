@@ -37,19 +37,29 @@ const DOT_CLASS: Record<MatchmakingStatus["state"], string> = {
 
 export function FindMatchPanel({ matchStatus, linkStatus, onFindMatch, onLeave }: Props) {
   const connected = linkStatus.state === "open";
+  const linkFailed = linkStatus.state === "failed" || linkStatus.state === "closed";
   const searching =
-    matchStatus.state === "connecting" ||
-    matchStatus.state === "waiting" ||
-    matchStatus.state === "matched";
+    !linkFailed &&
+    (matchStatus.state === "connecting" ||
+      matchStatus.state === "waiting" ||
+      matchStatus.state === "matched");
 
   return (
     <section className="vs" aria-label="Online fight">
       <header className="vs-head">
         <span
-          className={`vs-dot vs-${connected ? "open" : DOT_CLASS[matchStatus.state]}`}
+          className={`vs-dot vs-${connected ? "open" : linkFailed ? linkStatus.state : DOT_CLASS[matchStatus.state]}`}
           aria-hidden="true"
         />
-        <strong>{connected ? "Connected" : MATCH_STATE_LABEL[matchStatus.state]}</strong>
+        <strong>
+          {connected
+            ? "Connected"
+            : linkFailed
+              ? linkStatus.state === "failed"
+                ? "Could not connect"
+                : "Disconnected"
+              : MATCH_STATE_LABEL[matchStatus.state]}
+        </strong>
         {connected && linkStatus.latency !== null && (
           <span className="vs-ping">{linkStatus.latency} ms</span>
         )}

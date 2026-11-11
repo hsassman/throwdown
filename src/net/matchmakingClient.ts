@@ -33,6 +33,7 @@ export interface HubConnectionLike {
   invoke<T = void>(methodName: string, ...args: unknown[]): Promise<T>;
   on(methodName: string, newMethod: (...args: unknown[]) => void): void;
   off(methodName: string): void;
+  onclose(callback: (error?: Error) => void): void;
 }
 
 export class MatchmakingClient {
@@ -58,6 +59,15 @@ export class MatchmakingClient {
     connection.on("ReceiveAnswer", (...args: unknown[]) => {
       const [from, sdp] = args as [string, string];
       this.answerCb?.(from, sdp);
+    });
+    connection.onclose(() => {
+      // Only report failure if this wasn't a deliberate leave() — leave()
+      // already set state to "closed" itself; onclose can fire for that too
+      // (stop() closing the connection), and re-marking it "failed" would
+      // be wrong in that case.
+      if (this.status.state !== "closed") {
+        this.set("failed", "Lost connection to the matchmaking server.");
+      }
     });
   }
 
