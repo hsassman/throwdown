@@ -169,9 +169,9 @@ by hand on every re-export.
 | | |
 | --- | --- |
 | Pose | `@mediapipe/tasks-vision` PoseLandmarker, GPU delegate with CPU fallback |
-| UI | React 19 + TypeScript 5 |
+| UI | React 19 + TypeScript 6 |
 | 3D | three.js r185 |
-| Build | Vite 7 (rolldown) |
+| Build | Vite 8 (rolldown) |
 | Test | Vitest - unit tests plus Playwright end-to-end |
 | Lint | oxlint |
 | Character | Meta MHR (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
@@ -229,6 +229,22 @@ inherent accessibility ceiling worth naming plainly.
 
 ---
 
+## Roadmap: online matchmaking (planned)
+
+Not built yet. See [`docs/PLAN.md`](docs/PLAN.md).
+
+Today two players swap a WebRTC connection code by hand. The plan is a small
+**ASP.NET Core** service (C#, .NET 11, with .NET 10 LTS as the fallback) that
+only helps players *find* each other: a SignalR hub pairs two players and relays
+the WebRTC offer and answer, plus a leaderboard and OpenTelemetry traces.
+
+The game stays in the browser. Fights still run peer-to-peer, and video and pose
+data never touch the server. This does reopen the "no server" rule in
+`docs/ARCHITECTURE.md`, so that rule will be amended in the same PR that adds the
+service.
+
+---
+
 ## Layout
 
 ```
@@ -243,7 +259,8 @@ src/
   render/       three.js
   ui/           React
   config/       every tunable constant
-docs/           architecture, asset pipeline
+docs/           architecture, plan, asset pipeline
+server/         (planned) ASP.NET Core matchmaking service
 blender/        offline kit authoring
 tools/          measurement and the end-to-end smoke test
 ```
