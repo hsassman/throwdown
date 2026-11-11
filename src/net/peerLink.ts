@@ -72,6 +72,17 @@ export class PeerLink {
    *  see protocol.ts on authority. */
   isHost = false;
 
+  /**
+   * ICE servers passed to every RTCPeerConnection this link creates.
+   *
+   * Empty by default, which is today's "Same Network" behaviour — see
+   * makeConnection() below on why LAN mode skips STUN entirely. Online mode
+   * (useOnlineSession.ts) passes a STUN server here so a connection across
+   * the internet has candidates worth trying. A TURN server for NATs STUN
+   * cannot traverse is docs/PLAN.md step 4, not added yet.
+   */
+  constructor(private readonly iceServers: RTCIceServer[] = []) {}
+
   get state(): LinkState {
     return this.status.state;
   }
@@ -186,11 +197,11 @@ export class PeerLink {
   // --- internals ---------------------------------------------------------
 
   private makeConnection(): RTCPeerConnection {
-    // No STUN. On a local network the direct host candidates are what connect,
-    // and a STUN lookup that cannot reach the internet only adds a timeout to
-    // every gather. The "Online" mode in the menu is where relays belong, and
-    // it is still honestly marked as not built.
-    const pc = new RTCPeerConnection({ iceServers: [] });
+    // iceServers is [] for "Same Network": on a local network the direct host
+    // candidates are what connect, and a STUN lookup that cannot reach the
+    // internet only adds a timeout to every gather. Online mode passes a real
+    // STUN server in (see the constructor).
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "failed") {
         this.fail("The connection could not be established.");
