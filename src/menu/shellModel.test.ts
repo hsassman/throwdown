@@ -45,9 +45,20 @@ describe("the honesty rule", () => {
   it("marks the multiplayer that is not built as locked", () => {
     // Still genuinely not started. "Preview" would imply a player could get
     // into a fight and be disappointed rather than informed.
-    for (const id of ["internet", "local"]) {
+    for (const id of ["local"]) {
       expect(ITEM_BY_ID.get(id)!.availability).toBe("locked");
     }
+  });
+
+  it("does not oversell online play", () => {
+    // Built as of docs/superpowers/plans/2026-11-11-online-matchmaking-client.md,
+    // but STUN-only — docs/PLAN.md step 4 (TURN) is not done, so some
+    // pairings behind a strict NAT will fail to connect. The menu has to say
+    // that instead of promising "ranked fights" it cannot yet deliver.
+    const online = ITEM_BY_ID.get("internet")!;
+    expect(online.availability).toBe("preview");
+    expect(online.lockedReason).toBeUndefined();
+    expect(online.detail).toMatch(/STUN/i);
   });
 
   it("does not oversell same-network play", () => {
