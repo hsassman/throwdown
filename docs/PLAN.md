@@ -25,7 +25,7 @@ A small ASP.NET Core service, in `server/`:
 
 1. **Matchmaking and signalling** (SignalR hub): pair two players, relay the
    WebRTC offer/answer. Fights stay peer-to-peer.
-2. **Leaderboard** (minimal API): store and list results.
+2. **Leaderboard** (minimal API) stored in Supabase Postgres via Npgsql.
 3. **Telemetry** (OpenTelemetry): live traces for the talk.
 
 Target .NET 11 (STS, GA expected November 2026). Fall back to .NET 10 (LTS,
@@ -34,22 +34,37 @@ auth refresh (finalized in .NET 11 RC1, with a TypeScript client) and OpenAPI 3.
 output by default are the features worth showing. Verify each against the final
 release notes before the talk.
 
-## Rule change
+## Hosting
 
-`docs/ARCHITECTURE.md` says "client-side only, no server, not even a signalling
-one". This plan reopens that rule narrowly: a server may exist for
-matchmaking and scores only. Video and pose landmarks stay peer-to-peer. The
-rule is amended in the PR that adds the service.
+| Part | Where | Why |
+| --- | --- | --- |
+| Game (static React build) | Vercel | Already the plan. Fast, free HTTPS, which the camera needs. |
+| .NET service | A container host with WebSocket support (Fly.io, Azure Container Apps or Railway) | To our knowledge Vercel cannot run .NET and does not keep WebSocket connections open, so SignalR can't live there. Verify before committing. |
+| Database | Supabase Postgres | Already chosen. .NET talks to it with Npgsql. |
+| TURN relay | Hosted TURN service | Needed on mobile data and conference Wi-Fi. |
 
-## Steps
+The browser calls the .NET service by URL, so CORS must allow the Vercel domain.
 
-1. Docs: README fix and this plan (this PR).
-2. `server/`: SignalR matchmaking hub, tests, own CI job.
-3. Browser client: replace the paste-a-code step with "Find a match", behind one
-   small module in `src/net/`.
-4. TURN relay so WebRTC works on conference Wi-Fi.
-5. Leaderboard and OpenTelemetry.
-6. Load test, rehearsal, recorded backup demo.
+## Phases
+
+0. **Baseline:** measure frame rate and load time on a real iPhone (Safari) and
+   an Android phone (Chrome), using the existing `measure:sweep` and smoke
+   tools. Fix nothing before measuring.
+1. **Performance and bugs** (AI-assisted loop, each fix its own small PR with
+   tests): mobile camera and pose speed, load time, memory, iOS Safari quirks.
+2. **Backend:** `server/` matchmaking, then leaderboard, then telemetry.
+3. **Client:** "Find a match", TURN, mobile layout.
+4. **Graphics and animation** (Hayden's ideas), after the road map is settled.
+5. **Load test, rehearsal, recorded backup demo.**
+
+## Mobile (iOS Safari and Android Chrome)
+
+Known risks to test on real devices:
+- Camera needs HTTPS and a tap before it starts on iOS.
+- MediaPipe GPU path may be slower or fall back to CPU on phones.
+- Audio needs a tap to unlock on iOS.
+- Phone framing and portrait layout are not calibrated yet (see README).
+- Cellular networks need TURN for peer-to-peer.
 
 ## Risks
 
@@ -60,10 +75,8 @@ rule is amended in the PR that adds the service.
   around what works (reach, zone, dodges).
 - **Webcam and lighting** in a room full of people.
 - **Load:** many players at once. Load test before the day.
-- **Hosting:** needs a public HTTPS host that stays up.
 
 ## Open questions
 
-- Where is the service hosted?
-- Is a database acceptable, or is an in-memory leaderboard enough for the demo?
+- Which container host for the .NET service (Fly.io, Azure or Railway)?
 - .NET 11 or .NET 10 on the day?
