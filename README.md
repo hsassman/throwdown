@@ -220,8 +220,10 @@ together would have made every hit inherit that number.
 
 **Rough:** same-network multiplayer works and is verified end to end by two
 real browsers in the smoke test, but it is host-authoritative with no lag
-compensation, and the connection codes are pasted by hand. Internet play with a
-relay is not started.
+compensation, and the connection codes are pasted by hand. Online play now
+exists too — a SignalR hub finds you an opponent automatically — but it is
+STUN-only: there is no TURN relay yet, so some pairings behind strict NATs
+will fail to connect.
 
 **Not verified:** phone-camera framing has its own calibration to do, and no
 WCAG audit has been performed. This is a physical-movement game and has an
@@ -229,9 +231,11 @@ inherent accessibility ceiling worth naming plainly.
 
 ---
 
-## Roadmap: online matchmaking (planned)
+## Roadmap: online matchmaking (in progress)
 
-Not built yet. See [`docs/PLAN.md`](docs/PLAN.md).
+Matchmaking and SDP relay are built — see [`docs/PLAN.md`](docs/PLAN.md).
+STUN only: TURN relay, the leaderboard, and OpenTelemetry traces are not
+built yet.
 
 Today two players swap a WebRTC connection code by hand. The plan is a small
 **ASP.NET Core** service (C#, .NET 11, with .NET 10 LTS as the fallback) that
@@ -240,7 +244,7 @@ the WebRTC offer and answer, plus a leaderboard and OpenTelemetry traces.
 
 The game stays in the browser. Fights still run peer-to-peer, and video and pose
 data never touch the server. This does reopen the "no server" rule in
-`docs/ARCHITECTURE.md`, so that rule will be amended in the same PR that adds the
+`docs/ARCHITECTURE.md`, so that rule has been amended in the same PR that adds the
 service.
 
 ---
