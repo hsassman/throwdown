@@ -1,23 +1,28 @@
 import { decode, encode, PROTOCOL_VERSION, type NetMessage } from "./protocol";
 
 // The connection between two fighters.
-// WHY PEER-TO-PEER, AND WHY THE CODE IS COPIED BY HAND
+// WHY PEER-TO-PEER, AND WHY SAME-NETWORK PLAY COPIES A CODE BY HAND
 //
-// Shadow Box is a static build. There is no server, and inventing one is a
-// much larger decision than adding a second fighter — it means hosting,
-// accounts, moderation and a bill. WebRTC connects two browsers directly, and
-// the only thing it genuinely needs from the outside world is a way to hand
-// one blob of text to the other end ONCE.
+// WebRTC connects two browsers directly. The video and pose landmarks never
+// touch a server either way — that rule holds for every mode below. What
+// differs is how the two ends find each other and exchange the one blob of
+// text (the SDP offer/answer) WebRTC needs to connect.
 //
-// So the players do that themselves: the host generates a code, sends it to
-// their opponent however they already talk to them, and pastes the reply back.
-// It is clumsy for thirty seconds and then it is a direct connection with
-// nobody in the middle. The alternative is a signalling server, which is the
-// same clumsiness moved into infrastructure somebody has to run.
+// "Same Network" has no server at all: the host generates a code, sends it
+// to their opponent however they already talk to them, and pastes the reply
+// back. It is clumsy for thirty seconds and then it is a direct connection
+// with nobody in the middle.
+//
+// "Online" (useOnlineSession.ts) uses a small SignalR hub (server/) only to
+// find an opponent and relay that same offer/answer automatically — the hub
+// never sees video, pose, or the fight itself, and this class's API
+// (host()/accept()/complete()) is identical either way.
 //
 // This is what the menu calls "Same Network". On a LAN the direct host
-// candidates connect without a STUN server at all, which is why `iceServers`
-// is empty: a STUN lookup that cannot reach the internet only adds a timeout.
+// candidates connect without a STUN server at all, which is why the default
+// `iceServers` is empty: a STUN lookup that cannot reach the internet only
+// adds a timeout. Online mode passes a real STUN server in instead (see the
+// constructor).
 // NO TRICKLE
 //
 // ICE candidates are normally exchanged continuously, which needs a live
@@ -71,6 +76,21 @@ export class PeerLink {
   /** True on the end that generated the offer. The host runs the simulation —
    *  see protocol.ts on authority. */
   isHost = false;
+
+  /**
+   * ICE servers passed to every RTCPeerConnection this link creates.
+   *
+   * Empty by default, which is today's "Same Network" behaviour — see
+   * makeConnection() below on why LAN mode skips STUN entirely. Online mode
+   * (useOnlineSession.ts) passes a STUN server here so a connection across
+   * the internet has candidates worth trying. A TURN server for NATs STUN
+   * cannot traverse is docs/PLAN.md step 4, not added yet.
+   */
+  private readonly iceServers: RTCIceServer[];
+
+  constructor(iceServers: RTCIceServer[] = []) {
+    this.iceServers = iceServers;
+  }
 
   get state(): LinkState {
     return this.status.state;
@@ -186,11 +206,11 @@ export class PeerLink {
   // --- internals ---------------------------------------------------------
 
   private makeConnection(): RTCPeerConnection {
-    // No STUN. On a local network the direct host candidates are what connect,
-    // and a STUN lookup that cannot reach the internet only adds a timeout to
-    // every gather. The "Online" mode in the menu is where relays belong, and
-    // it is still honestly marked as not built.
-    const pc = new RTCPeerConnection({ iceServers: [] });
+    // iceServers is [] for "Same Network": on a local network the direct host
+    // candidates are what connect, and a STUN lookup that cannot reach the
+    // internet only adds a timeout to every gather. Online mode passes a real
+    // STUN server in (see the constructor).
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "failed") {
         this.fail("The connection could not be established.");

@@ -27,6 +27,8 @@ import { currentOpponent, recordResult, type FightOutcome } from "./training/car
 import { loadCareerProfile, saveCareerProfile } from "./training/careerStore";
 import { CareerPanel } from "./ui/CareerPanel";
 import { useSession } from "./net/useSession";
+import { useOnlineSession } from "./net/useOnlineSession";
+import { FindMatchPanel } from "./ui/FindMatchPanel";
 import type { NetFightState } from "./net/protocol";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
@@ -103,7 +105,8 @@ export default function App() {
   const onDummy = screen === "dummy" || screen === "freeplay";
   const inCareer = screen === "career";
   const onLan = screen === "lan";
-  const inFight = screen === "cpu" || inCareer || onLan;
+  const onInternet = screen === "internet";
+  const inFight = screen === "cpu" || inCareer || onLan || onInternet;
 
   const [careerProfile, setCareerProfile] = useState(() => loadCareerProfile().profile);
   const [careerOutcome, setCareerOutcome] = useState<FightOutcome | null>(null);
@@ -158,7 +161,15 @@ export default function App() {
     poseRef,
     subscribe: strike.subscribe,
   });
-  const netOpen = onLan && session.status.state === "open";
+  const onlineSession = useOnlineSession({
+    enabled: onInternet,
+    poseRef,
+    subscribe: strike.subscribe,
+  });
+  const netOpen =
+    (onLan && session.status.state === "open") ||
+    (onInternet && onlineSession.linkStatus.state === "open");
+  const netRole = onLan ? session.role : onInternet ? onlineSession.role : null;
   // Depends on `session.send`, not on `session`.
   //
   // The hook returns a fresh object every render, so `[session]` rebuilt this
@@ -167,7 +178,7 @@ export default function App() {
   // symptom was the round clock frozen at 2:59 in all modes, including the
   // CPU fight that has nothing to do with networking. `send` is a useCallback
   // with no dependencies, so it is stable for the life of the session.
-  const sendToPeer = session.send;
+  const sendToPeer = onInternet ? onlineSession.send : session.send;
   const publishState = useCallback(
     (state: NetFightState) => sendToPeer({ kind: "state", state }),
     [sendToPeer]
@@ -177,15 +188,15 @@ export default function App() {
     // A networked fight does not start until the two ends are actually
     // connected. Starting the clock on a connection that never completes would
     // run a round against nobody.
-    enabled: inFight && (!onLan || netOpen),
+    enabled: inFight && (!(onLan || onInternet) || netOpen),
     rules: DEFAULT_RULES,
     difficulty: careerFightOpponentRef.current?.difficulty ?? "contender",
     opponentClass: careerFightOpponentRef.current?.weightClass,
     subscribe: strike.subscribe,
     bodyRef,
-    mode: netOpen ? (session.role === "host" ? "host" : "guest") : "cpu",
-    remoteStrikeRef: session.remoteStrikeQueueRef,
-    remoteStateRef: session.remoteStateRef,
+    mode: netOpen ? (netRole === "host" ? "host" : "guest") : "cpu",
+    remoteStrikeRef: onInternet ? onlineSession.remoteStrikeQueueRef : session.remoteStrikeQueueRef,
+    remoteStateRef: onInternet ? onlineSession.remoteStateRef : session.remoteStateRef,
     publishState,
   });
 
@@ -300,7 +311,7 @@ export default function App() {
     // The connection panel is the screen until the two ends are connected.
     // Once they are, the codes have done their job and the fight takes the
     // whole width, with a floating chip carrying the link status instead.
-    (onLan && !netOpen) ||
+    ((onLan || onInternet) && !netOpen) ||
     screen === "punchlab" ||
     screen === "tracking" ||
     inCareer ||
@@ -388,7 +399,9 @@ export default function App() {
               }
               phaseRef={inFight ? fight.phaseRef : undefined}
               conditionRef={inFight ? fight.conditionRef : undefined}
-              remotePoseRef={netOpen ? session.remotePoseRef : undefined}
+              remotePoseRef={
+                netOpen ? (onInternet ? onlineSession.remotePoseRef : session.remotePoseRef) : undefined
+              }
               onTargetDebug={setTargetDebug}
               onStatusChange={(s, detail) => {
                 setBoxerStatus(s);
@@ -430,9 +443,9 @@ export default function App() {
         )}
         {netOpen && (
           <VersusChip
-            status={session.status}
-            role={session.role}
-            onLeave={session.leave}
+            status={onInternet ? onlineSession.linkStatus : session.status}
+            role={netRole}
+            onLeave={onInternet ? onlineSession.leave : session.leave}
           />
         )}
 
@@ -465,6 +478,15 @@ export default function App() {
               onJoin={session.join}
               onComplete={session.completeHost}
               onLeave={session.leave}
+            />
+          )}
+
+          {onInternet && (
+            <FindMatchPanel
+              matchStatus={onlineSession.matchStatus}
+              linkStatus={onlineSession.linkStatus}
+              onFindMatch={onlineSession.findMatch}
+              onLeave={onlineSession.leave}
             />
           )}
 

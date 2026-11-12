@@ -25,6 +25,11 @@ dist-ssr
 
 tools/out/
 
+# .NET build output (server/). *.sln above is Node Tools for VS boilerplate and
+# doesn't match server/Throwdown.slnx, which is tracked on purpose.
+server/**/bin/
+server/**/obj/
+
 # Track B offline asset pipeline (docs/ASSET-PIPELINE.md).
 # The Python env, the ~199MB MHR asset archive and its extracted contents are
 # all reproducible from the documented download step and must not be committed.

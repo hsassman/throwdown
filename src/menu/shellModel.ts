@@ -113,11 +113,10 @@ export const SHELL_ITEMS: ShellItem[] = [
   {
     id: "internet",
     title: "Online",
-    blurb: "Ranked fights over the internet. Not built.",
+    blurb: "Fight a stranger over the internet. Rough: STUN only, no relay yet.",
     detail:
-      "Internet play with relay fallback. Explicitly after local-network play is validated and feels fair - building relay infrastructure before knowing whether the game is playable at all would be the wrong order.",
-    availability: "locked",
-    lockedReason: "Comes after same-network play is proven.",
+      "The matchmaking server (not the fight itself) pairs you with whoever else is looking, over a SignalR hub - see docs/PLAN.md. Everything that makes Same Network work still applies: the camera and pose landmarks go to your opponent's machine and nowhere else, the host runs the clock and the scoring, and this is not rollback netcode. The one real difference is STUN: without it two strangers' browsers could not find each other's address at all, but STUN cannot get through every kind of NAT. A TURN relay for the ones it cannot (docs/PLAN.md step 4) is not built, so some pairings will simply fail to connect rather than silently play badly.",
+    availability: "preview",
     category: "online",
   },
   {
