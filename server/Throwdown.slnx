@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Throwdown.Server.Tests/Throwdown.Server.Tests.csproj" />
+  <Project Path="Throwdown.Server/Throwdown.Server.csproj" />
+</Solution>

@@ -73,6 +73,20 @@ export const POSE_CONFIG = {
   },
 };
 
+export const NET_CONFIG = {
+  /** The MatchmakingHub this build talks to for "Find a match". Override with
+   *  VITE_MATCHMAKING_URL for anything other than a local dotnet run. */
+  matchmakingUrl:
+    import.meta.env.VITE_MATCHMAKING_URL ?? "http://localhost:5160/hubs/matchmaking",
+  /**
+   * STUN only — enough for most home NATs, not for the symmetric/CGNAT ones
+   * STUN cannot traverse. TURN (docs/PLAN.md step 4) is not built yet, so
+   * some pairings will fail to connect; shellModel.ts's "Online" entry says
+   * so.
+   */
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }] as RTCIceServer[],
+};
+
 /**
  * Reads a numeric override from the query string, so measurement runs can A/B
  * capture settings without editing this file (e.g. ?camW=320&camH=240).
