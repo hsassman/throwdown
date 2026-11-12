@@ -26,14 +26,32 @@ public sealed class MatchmakingHub : Hub
         await Clients.Client(result.OpponentConnectionId!).SendAsync("Matched", result.MatchId, Context.ConnectionId, false);
     }
 
-    public Task RelayOffer(string targetConnectionId, string sdp) =>
-        Clients.Client(targetConnectionId).SendAsync("ReceiveOffer", Context.ConnectionId, sdp);
+    public Task RelayOffer(string targetConnectionId, string sdp)
+    {
+        EnsureMatched(targetConnectionId);
+        return Clients.Client(targetConnectionId).SendAsync("ReceiveOffer", Context.ConnectionId, sdp);
+    }
 
-    public Task RelayAnswer(string targetConnectionId, string sdp) =>
-        Clients.Client(targetConnectionId).SendAsync("ReceiveAnswer", Context.ConnectionId, sdp);
+    public Task RelayAnswer(string targetConnectionId, string sdp)
+    {
+        EnsureMatched(targetConnectionId);
+        return Clients.Client(targetConnectionId).SendAsync("ReceiveAnswer", Context.ConnectionId, sdp);
+    }
 
-    public Task RelayIceCandidate(string targetConnectionId, string candidate) =>
-        Clients.Client(targetConnectionId).SendAsync("ReceiveIceCandidate", Context.ConnectionId, candidate);
+    public Task RelayIceCandidate(string targetConnectionId, string candidate)
+    {
+        EnsureMatched(targetConnectionId);
+        return Clients.Client(targetConnectionId).SendAsync("ReceiveIceCandidate", Context.ConnectionId, candidate);
+    }
+
+    // A client may only message the opponent it was paired with, never an arbitrary connection id.
+    private void EnsureMatched(string targetConnectionId)
+    {
+        if (!_queue.AreMatched(Context.ConnectionId, targetConnectionId))
+        {
+            throw new HubException("Not matched with that connection.");
+        }
+    }
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {

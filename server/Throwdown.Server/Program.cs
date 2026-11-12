@@ -17,6 +17,7 @@ var app = builder.Build();
 app.UseCors();
 
 app.MapGet("/", () => "Hello World!");
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapHub<MatchmakingHub>("/hubs/matchmaking");
 
 app.Run();
