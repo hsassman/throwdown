@@ -1,6 +1,9 @@
 # Plan: online matchmaking with .NET
 
-Status: **proposal, nothing built yet.** Goal: a live, playable demo at a
+Status (13 Nov 2026): **server built and tested, not deployed.** Matchmaking,
+signalling, leaderboard, ICE config and telemetry are in `server/`; the browser
+uses matchmaking and ICE config. Still to do: leaderboard UI, deploy the server,
+Vercel settings, a TURN provider, phone testing, then graphics. Goal: a live, playable demo at a
 15-minute conference talk, where the audience opens a link and fights each other.
 
 ## Where the project is
