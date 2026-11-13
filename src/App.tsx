@@ -20,6 +20,8 @@ import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
 import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
 import { useFight } from "./sim/useFight";
+import { unlockAudio } from "./audio/sharedContext";
+import { useWakeLock } from "./ui/useWakeLock";
 import { FightHud } from "./ui/FightHud";
 import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
@@ -87,6 +89,8 @@ export default function App() {
   const [, setTargetDebug] = useState<TargetDebugState | null>(null);
 
   const { videoRef, status: camStatus, error: camError, info } = useWebcam(started);
+  // Phones would dim and lock mid-fight: nobody touches the screen.
+  useWakeLock(started);
   const {
     poseRef,
     rawPoseRef,
@@ -285,7 +289,15 @@ export default function App() {
           Grants camera access and runs pose tracking locally. No video and no
           body data ever leaves the browser.
         </p>
-        <button className="gate-btn" onClick={() => setStarted(true)}>
+        <button
+          className="gate-btn"
+          onClick={() => {
+            // The only real tap before the camera-driven menu takes over, so
+            // audio is unlocked here. See audio/sharedContext.ts.
+            unlockAudio();
+            setStarted(true);
+          }}
+        >
           Enable camera
         </button>
       </div>
@@ -368,6 +380,11 @@ export default function App() {
             <MenuShell
               poseRef={poseRef}
               cameraReady={poseStatus === "ready"}
+              cameraProblem={
+                camStatus === "denied"
+                  ? "permission denied. Allow camera access and reload."
+                  : camError
+              }
               onLaunch={setScreen}
             />
           </Suspense>
