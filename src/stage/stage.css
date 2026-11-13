@@ -1,0 +1,77 @@
+.stagepage {
+  box-sizing: border-box;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4vw;
+  align-items: center;
+  padding: 4vh 5vw;
+  background: #0b0f16;
+  color: #e8eef7;
+  font-family: inherit;
+}
+.stagepage h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 5rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.stagepage-sub {
+  margin: 0.5rem 0 2rem;
+  font-size: clamp(1rem, 1.8vw, 1.8rem);
+  color: #9fb0c6;
+}
+.stagepage-qr {
+  display: block;
+  width: min(38vw, 62vh);
+  height: auto;
+  border-radius: 12px;
+}
+.stagepage-url {
+  margin: 1rem 0 0;
+  font-size: clamp(1rem, 2vw, 2rem);
+  font-weight: 600;
+  word-break: break-all;
+}
+.stagepage-board h2 {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.5rem, 3vw, 3rem);
+}
+.stagepage-board ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stagepage-board li {
+  display: grid;
+  grid-template-columns: 3ch minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: clamp(1rem, 2.2vw, 2.4rem);
+}
+.stagepage-rank {
+  color: #9fb0c6;
+}
+.stagepage-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stagepage-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stagepage-note {
+  color: #9fb0c6;
+  font-size: clamp(1rem, 2vw, 2rem);
+}
+@media (max-width: 800px) {
+  .stagepage {
+    grid-template-columns: 1fr;
+  }
+  .stagepage-qr {
+    width: min(80vw, 50vh);
+  }
+}
