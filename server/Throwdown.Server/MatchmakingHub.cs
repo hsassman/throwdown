@@ -14,6 +14,9 @@ public sealed class MatchmakingHub : Hub
 
     public async Task JoinQueue()
     {
+        // Joining again ends any previous pairing first, so the old opponent isn't left waiting on us.
+        await NotifyOpponentLeft(_queue.Leave(Context.ConnectionId));
+
         var result = _queue.Join(Context.ConnectionId);
         if (!result.IsMatched)
         {
@@ -53,9 +56,16 @@ public sealed class MatchmakingHub : Hub
         }
     }
 
-    public override Task OnDisconnectedAsync(Exception? exception)
+    public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _queue.Leave(Context.ConnectionId);
-        return base.OnDisconnectedAsync(exception);
+        // A player closing the tab mid-handshake would otherwise leave their opponent stuck on
+        // "connecting" forever. Tell them, so they can look for someone else.
+        await NotifyOpponentLeft(_queue.Leave(Context.ConnectionId));
+        await base.OnDisconnectedAsync(exception);
     }
+
+    private Task NotifyOpponentLeft(string? opponentConnectionId) =>
+        opponentConnectionId is null
+            ? Task.CompletedTask
+            : Clients.Client(opponentConnectionId).SendAsync("OpponentLeft");
 }

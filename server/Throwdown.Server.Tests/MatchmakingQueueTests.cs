@@ -112,4 +112,25 @@ public class MatchmakingQueueTests
         Assert.False(queue.AreMatched("conn-1", "conn-2"));
         Assert.False(queue.AreMatched("conn-2", "conn-1"));
     }
+
+    [Fact]
+    public void LeavingReturnsTheOpponentToNotify()
+    {
+        var queue = new MatchmakingQueue();
+        queue.Join("conn-1");
+        queue.Join("conn-2");
+
+        Assert.Equal("conn-2", queue.Leave("conn-1"));
+        Assert.Null(queue.Leave("conn-2"));
+    }
+
+    [Fact]
+    public void LeavingWhileOnlyWaitingHasNoOneToNotify()
+    {
+        var queue = new MatchmakingQueue();
+        queue.Join("conn-1");
+
+        Assert.Null(queue.Leave("conn-1"));
+        Assert.False(queue.Join("conn-2").IsMatched);
+    }
 }

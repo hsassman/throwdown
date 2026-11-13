@@ -26,6 +26,7 @@ export interface OnlineSessionOptions {
 export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionOptions) {
   const clientRef = useRef<MatchmakingClient | null>(null);
   const linkRef = useRef<PeerLink | null>(null);
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [matchStatus, setMatchStatus] = useState<MatchmakingStatus>({
     state: "idle",
     detail: null,
@@ -45,9 +46,30 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
   const poseHolder = useRef(poseRef);
   poseHolder.current = poseRef;
 
+  const clearConnectTimer = () => {
+    if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
+    connectTimerRef.current = null;
+  };
+
+  /**
+   * Ends a pairing that never became a fight, and says why. The player is
+   * back at "Find a match" with a reason, rather than stuck on "connecting".
+   */
+  const abandonMatch = useCallback(async (reason: string) => {
+    clearConnectTimer();
+    linkRef.current?.close("left");
+    linkRef.current = null;
+    const client = clientRef.current;
+    clientRef.current = null;
+    setRole(null);
+    await client?.leave().catch(() => {});
+    setMatchStatus({ state: "failed", detail: reason });
+  }, []);
+
   const attachLink = useCallback((link: PeerLink) => {
     link.onStatus((next) => {
       setLinkStatus(next);
+      if (next.state === "open") clearConnectTimer();
       // A link that failed or closed is not still "matched" — without this
       // FindMatchPanel hung on "Opponent found, connecting..." forever on
       // the expected STUN-only failure case. Same reason useSession.ts
@@ -92,7 +114,23 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     // before it finishes.
     let linkReady: Promise<PeerLink | null> = Promise.resolve(null);
 
+    client.onOpponentLeft(() => {
+      // Once the peer link is open, its own close is what reports a departure
+      // (see attachLink). Before that, this is the only signal there is.
+      if (linkRef.current?.state === "open") return;
+      void abandonMatch("Your opponent left before the fight started. Find another match.");
+    });
+
     client.onMatched(({ opponentConnectionId, isOfferer }) => {
+      clearConnectTimer();
+      connectTimerRef.current = setTimeout(() => {
+        if (clientRef.current !== client) return;
+        if (linkRef.current?.state === "open") return;
+        void abandonMatch(
+          "Couldn't connect to your opponent. Their network may block it. Find another match."
+        );
+      }, NET_CONFIG.connectTimeoutMs);
+
       linkReady = (async () => {
         const iceServers = await iceServersPromise;
         if (clientRef.current !== client) return null; // left while waiting
@@ -142,9 +180,10 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     } finally {
       setBusy(false);
     }
-  }, [attachLink]);
+  }, [attachLink, abandonMatch]);
 
   const leave = useCallback(() => {
+    clearConnectTimer();
     linkRef.current?.close("left");
     linkRef.current = null;
     clientRef.current?.leave();
@@ -188,6 +227,7 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
   useEffect(() => () => {
+    clearConnectTimer();
     linkRef.current?.close("left");
     clientRef.current?.leave();
   }, []);
