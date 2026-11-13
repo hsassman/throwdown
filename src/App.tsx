@@ -29,6 +29,7 @@ import { CareerPanel } from "./ui/CareerPanel";
 import { useSession } from "./net/useSession";
 import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
+import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { NetFightState } from "./net/protocol";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
@@ -487,6 +488,13 @@ export default function App() {
               linkStatus={onlineSession.linkStatus}
               onFindMatch={onlineSession.findMatch}
               onLeave={onlineSession.leave}
+            />
+          )}
+
+          {(screen === "cpu" || onInternet) && (
+            <LeaderboardPanel
+              result={fight.hud?.result ?? null}
+              landed={fight.hud?.player.landed ?? 0}
             />
           )}
 
