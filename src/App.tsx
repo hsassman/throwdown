@@ -21,6 +21,7 @@ import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
 import { useFight } from "./sim/useFight";
 import { FightHud } from "./ui/FightHud";
+import { ImpactPopups } from "./ui/ImpactPopups";
 import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
@@ -399,6 +400,7 @@ export default function App() {
               }
               phaseRef={inFight ? fight.phaseRef : undefined}
               conditionRef={inFight ? fight.conditionRef : undefined}
+              impactLogRef={inFight ? fight.impactLogRef : undefined}
               remotePoseRef={
                 netOpen ? (onInternet ? onlineSession.remotePoseRef : session.remotePoseRef) : undefined
               }
@@ -432,6 +434,7 @@ export default function App() {
             </>
           </Suspense>
         )}
+        {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}
