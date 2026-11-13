@@ -101,7 +101,13 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     // player's old slot. A dropped connection reports failure instead (see
     // MatchmakingClient's onclose handling) rather than silently resuming
     // under an id nobody can reach.
-    const connection = new HubConnectionBuilder().withUrl(NET_CONFIG.matchmakingUrl).build();
+    // withCredentials: false because the game (Vercel) and the server (Fly)
+    // are different origins and nothing here uses cookies. SignalR's default
+    // of true makes the browser demand Access-Control-Allow-Credentials, which
+    // the server doesn't send, so every negotiate was blocked by CORS.
+    const connection = new HubConnectionBuilder()
+      .withUrl(NET_CONFIG.matchmakingUrl, { withCredentials: false })
+      .build();
     const client = new MatchmakingClient(connection);
     clientRef.current = client;
     // Fetched while queueing, so it is ready by the time a match arrives.
