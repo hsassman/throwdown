@@ -25,7 +25,11 @@ public sealed class MatchmakingQueue
         }
     }
 
-    public void Leave(string connectionId)
+    /// <summary>
+    /// Removes the connection from the queue and ends its pairing. Returns the opponent it was paired with,
+    /// if any, so the hub can tell them; null if it was only waiting or not known at all.
+    /// </summary>
+    public string? Leave(string connectionId)
     {
         lock (_lock)
         {
@@ -37,7 +41,10 @@ public sealed class MatchmakingQueue
             if (_opponents.Remove(connectionId, out var opponent))
             {
                 _opponents.Remove(opponent);
+                return opponent;
             }
+
+            return null;
         }
     }
 

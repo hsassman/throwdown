@@ -191,4 +191,15 @@ describe("MatchmakingClient", () => {
 
     expect(cb).toHaveBeenCalledWith({ state: "idle", detail: null });
   });
+
+  it("fires onOpponentLeft when the hub reports OpponentLeft", async () => {
+    const conn = new FakeConnection();
+    const client = new MatchmakingClient(conn);
+    const left = vi.fn();
+    client.onOpponentLeft(left);
+
+    conn.trigger("OpponentLeft");
+
+    expect(left).toHaveBeenCalledTimes(1);
+  });
 });
