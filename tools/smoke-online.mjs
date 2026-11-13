@@ -43,6 +43,12 @@ const browser = await chromium.launch({
     "--use-fake-device-for-media-stream",
     "--autoplay-policy=no-user-gesture-required",
     "--enable-unsafe-swiftshader",
+    // Chrome hides local addresses behind random .local (mDNS) names, which
+    // the other page has to resolve over multicast. CI runners have no mDNS
+    // responder, so those candidates never resolve and ICE has nothing to try.
+    // Real phones on a real network are unaffected; this only makes the two
+    // pages on one runner able to see each other's address.
+    "--disable-features=WebRtcHideLocalIpsWithMdns",
   ],
 });
 
@@ -53,12 +59,33 @@ function check(name, ok, detail = "") {
 }
 
 const errors = [];
+// Every RTCPeerConnection's states and candidates, per player, printed if the
+// test fails - the difference between "matchmaking broke" and "the two pages
+// could not reach each other" is otherwise invisible in a CI log.
+const rtcLog = [];
+const players = [];
 async function openPlayer(label) {
   const context = await browser.newContext({
     permissions: ["camera"],
     viewport: { width: 1280, height: 800 },
   });
   const page = await context.newPage();
+  players.push({ label, page });
+  await page.exposeFunction("__rtcLog", (msg) => rtcLog.push(`${label} ${msg}`));
+  await page.addInitScript(() => {
+    const Orig = window.RTCPeerConnection;
+    window.RTCPeerConnection = function (cfg) {
+      const pc = new Orig(cfg);
+      const log = (m) => window.__rtcLog?.(m);
+      log(`new pc ${JSON.stringify(cfg?.iceServers ?? [])}`);
+      pc.addEventListener("icecandidate", (e) => log(`candidate ${e.candidate?.candidate ?? "(end)"}`));
+      pc.addEventListener("iceconnectionstatechange", () => log(`ice ${pc.iceConnectionState}`));
+      pc.addEventListener("connectionstatechange", () => log(`conn ${pc.connectionState}`));
+      pc.addEventListener("signalingstatechange", () => log(`signal ${pc.signalingState}`));
+      return pc;
+    };
+    window.RTCPeerConnection.prototype = Orig.prototype;
+  });
   page.on("pageerror", (e) => errors.push(`${label} pageerror: ${e.message}`));
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(`${label} console: ${m.text()}`);
@@ -106,14 +133,28 @@ try {
 
   // The host runs the clock, so a clock ticking on both ends proves the fight
   // itself started and state is flowing, not just that a socket opened.
-  const clock = (page) => page.locator(".fh-clock").first().textContent();
-  await a.page.waitForTimeout(3000);
-  const c1 = await clock(a.page).catch(() => null);
-  const g1 = await clock(b.page).catch(() => null);
-  await a.page.waitForTimeout(2500);
-  const c2 = await clock(a.page).catch(() => null);
-  const g2 = await clock(b.page).catch(() => null);
-  check("the fight clock runs on both ends", !!c1 && !!g1 && (c1 !== c2 || g1 !== g2), `${c1}->${c2} / ${g1}->${g2}`);
+  // Polled rather than sampled twice: the HUD refreshes a few times a second
+  // and a loaded runner can skip a fixed window, which made a two-sample
+  // check flaky.
+  const clockMoves = async (page) => {
+    const first = await page.locator(".fh-clock").first().textContent({ timeout: TIMEOUT });
+    await page.waitForFunction(
+      (start) => {
+        const now = document.querySelector(".fh-clock")?.textContent;
+        return !!now && now !== start;
+      },
+      first,
+      { timeout: 20000 }
+    );
+    return `${first} -> ${await page.locator(".fh-clock").first().textContent()}`;
+  };
+  const hostClock = await clockMoves(a.page).catch((e) => `stuck (${e.message.split("\n")[0]})`);
+  const guestClock = await clockMoves(b.page).catch((e) => `stuck (${e.message.split("\n")[0]})`);
+  check(
+    "the fight clock runs on both ends",
+    !hostClock.startsWith("stuck") && !guestClock.startsWith("stuck"),
+    `${hostClock} / ${guestClock}`
+  );
 
   await a.page.screenshot({ path: `${OUT}/online-a.png` });
   await b.page.screenshot({ path: `${OUT}/online-b.png` });
@@ -136,14 +177,34 @@ try {
   await c.context.close();
   const d = await openPlayer("D");
   await findMatch(d.page);
+  // Wait until D is really in the queue (the hub connection can take a few
+  // seconds on a loaded runner), then give a stale pairing time to happen.
+  await d.page.waitForFunction(
+    () => document.querySelector(".vs-head strong")?.textContent?.includes("Finding an opponent"),
+    undefined,
+    { timeout: TIMEOUT }
+  );
   await d.page.waitForTimeout(4000);
   const dHead = await headline(d.page);
   check("a player who left the queue is not matched", /Finding an opponent/.test(dHead ?? ""), dHead ?? "");
   await d.context.close();
   await b.context.close();
 } catch (err) {
-  console.log(`  FAIL  threw: ${err.message}`);
+  console.log(`  FAIL  threw: ${err.message.split("\n")[0]}`);
   failures += 1;
+}
+
+if (failures > 0) {
+  console.log("\n--- what each player's screen said ---");
+  for (const { label, page } of players) {
+    const text = await page
+      .evaluate(() => document.querySelector(".vs")?.innerText ?? "(no panel)")
+      .catch(() => "(page closed)");
+    console.log(`  ${label}: ${text.replace(/\s+/g, " ")}`);
+    await page.screenshot({ path: `${OUT}/fail-${label}.png` }).catch(() => {});
+  }
+  console.log("\n--- WebRTC log ---");
+  for (const line of rtcLog) console.log(`  ${line}`);
 }
 
 // Same filter as smoke-shell.mjs, plus WebRTC/socket noise from the pages we
