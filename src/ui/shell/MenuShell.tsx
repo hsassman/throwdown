@@ -195,7 +195,15 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
                             if (el) rowEls.current.set(item.id, el);
                             else rowEls.current.delete(item.id);
                           }}
-                          onMouseEnter={() => setFocusId(item.id)}
+                          // Hover-to-focus for a real mouse only. On a touch
+                          // screen a tap fires an emulated mouseenter just before
+                          // the click; focusing then swaps the detail panel above
+                          // the list for one of a different height, the row moves,
+                          // and the click lands on whatever slid under the finger.
+                          // A tap should simply open the row.
+                          onPointerEnter={(e) => {
+                            if (e.pointerType === "mouse") setFocusId(item.id);
+                          }}
                           onFocus={() => setFocusId(item.id)}
                           onClick={() => launch(item.id)}
                         >
