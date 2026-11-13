@@ -5,6 +5,7 @@ public sealed class MatchmakingQueue
 {
     private readonly object _lock = new();
     private string? _waitingConnectionId;
+    private readonly Dictionary<string, string> _opponents = new();
 
     public MatchResult Join(string connectionId)
     {
@@ -18,6 +19,8 @@ public sealed class MatchmakingQueue
 
             var opponentConnectionId = _waitingConnectionId;
             _waitingConnectionId = null;
+            _opponents[connectionId] = opponentConnectionId;
+            _opponents[opponentConnectionId] = connectionId;
             return MatchResult.Matched(Guid.NewGuid().ToString("N"), opponentConnectionId);
         }
     }
@@ -30,6 +33,20 @@ public sealed class MatchmakingQueue
             {
                 _waitingConnectionId = null;
             }
+
+            if (_opponents.Remove(connectionId, out var opponent))
+            {
+                _opponents.Remove(opponent);
+            }
+        }
+    }
+
+    /// <summary>True only if the two connections were paired with each other and neither has left.</summary>
+    public bool AreMatched(string connectionId, string otherConnectionId)
+    {
+        lock (_lock)
+        {
+            return _opponents.TryGetValue(connectionId, out var opponent) && opponent == otherConnectionId;
         }
     }
 }
