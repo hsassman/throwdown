@@ -466,6 +466,17 @@
     position: static;
   }
 
+  /* Some descriptions run to 20+ lines. Above the list on a phone, that pushes
+   * every row below the fold. Keep the first few lines; the full text is
+   * still there on a wider screen. */
+  .shell-detail-body {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+  }
+
   .shell-row {
     min-height: 72px;
   }
