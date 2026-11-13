@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import { MatchmakingClient, type MatchmakingStatus } from "./matchmakingClient";
 import { PeerLink, type LinkStatus } from "./peerLink";
+import { fetchIceServers } from "./iceServers";
 import { NET_CONFIG } from "../config/tuning";
 import type { NetFightState, NetMessage } from "./protocol";
 import type { PoseFrame } from "../pose/poseTypes";
@@ -81,20 +82,33 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     const connection = new HubConnectionBuilder().withUrl(NET_CONFIG.matchmakingUrl).build();
     const client = new MatchmakingClient(connection);
     clientRef.current = client;
+    // Fetched while queueing, so it is ready by the time a match arrives.
+    // Falls back to the built-in STUN list on any failure.
+    const iceServersPromise = fetchIceServers(NET_CONFIG.matchmakingUrl, NET_CONFIG.iceServers);
     client.onStatus(setMatchStatus);
 
+    // Resolves to the link once onMatched has built it. onOffer awaits this,
+    // because the ICE fetch makes link creation async and an offer can arrive
+    // before it finishes.
+    let linkReady: Promise<PeerLink | null> = Promise.resolve(null);
+
     client.onMatched(({ opponentConnectionId, isOfferer }) => {
-      // host()/accept() each set link.isHost themselves — no need to set it
-      // here too.
-      const link = new PeerLink(NET_CONFIG.iceServers);
-      linkRef.current = link;
-      attachLink(link);
-      setRole(isOfferer ? "host" : "guest");
+      linkReady = (async () => {
+        const iceServers = await iceServersPromise;
+        if (clientRef.current !== client) return null; // left while waiting
+        // host()/accept() each set link.isHost themselves — no need to set it
+        // here too.
+        const link = new PeerLink(iceServers);
+        linkRef.current = link;
+        attachLink(link);
+        setRole(isOfferer ? "host" : "guest");
+        return link;
+      })();
 
       if (isOfferer) {
-        link
-          .host()
-          .then((code) => client.relayOffer(opponentConnectionId, code))
+        linkReady
+          .then((link) => link?.host())
+          .then((code) => (code ? client.relayOffer(opponentConnectionId, code) : undefined))
           .catch(() => {
             setMatchStatus({ state: "failed", detail: "Could not reach the other fighter." });
           });
@@ -102,7 +116,7 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     });
 
     client.onOffer(async (from, sdp) => {
-      const link = linkRef.current;
+      const link = await linkReady;
       if (!link) return;
       try {
         const reply = await link.accept(sdp);

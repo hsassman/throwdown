@@ -19,11 +19,18 @@ npm install
 npm run dev          # http://localhost:5174
 ```
 
+For online "Find a match", also run the server (needs the .NET 11 SDK):
+
+```bash
+dotnet run --project server/Throwdown.Server   # http://localhost:5160
+```
+
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | 633 unit tests. |
+| `npm test` | Web unit tests (654). |
+| `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine. |
@@ -82,11 +89,18 @@ is obviously a state machine.
 It cannot read your mind: it defends the side you have *been* going to, which is
 the same information a person in front of you would have.
 
-### Same network: fighting a person
+### Fighting a person: same network or online
 
-Peer-to-peer over WebRTC, with **no server**. One player hosts and sends a code;
-the other joins and sends a reply back. After that the two browsers talk
-directly.
+Peer-to-peer over WebRTC. Two ways to connect:
+
+- **Same network**, with no server: one player hosts and sends a code, the
+  other joins and sends a reply back.
+- **Online, "Find a match"**: a small ASP.NET Core server (see
+  [Online server](#online-server)) pairs two queued players and passes the
+  connection details between them.
+
+Either way, once connected the two browsers talk directly. Video and pose data
+never go through the server.
 
 The remote fighter is drawn from **their own live pose**, through the same
 retargeting that draws your character, so they duck, step and throw exactly as
@@ -221,9 +235,10 @@ together would have made every hit inherit that number.
 **Rough:** same-network multiplayer works and is verified end to end by two
 real browsers in the smoke test, but it is host-authoritative with no lag
 compensation, and the connection codes are pasted by hand. Online play now
-exists too — a SignalR hub finds you an opponent automatically — but it is
-STUN-only: there is no TURN relay yet, so some pairings behind strict NATs
-will fail to connect.
+exists too — a SignalR hub finds you an opponent automatically — but no TURN
+relay is running yet, so some pairings behind strict NATs will fail to connect.
+The server is built and tested but not deployed, and the leaderboard has no
+browser UI yet.
 
 **Not verified:** phone-camera framing has its own calibration to do, and no
 WCAG audit has been performed. This is a physical-movement game and has an
@@ -231,21 +246,37 @@ inherent accessibility ceiling worth naming plainly.
 
 ---
 
-## Roadmap: online matchmaking (in progress)
+## Online server
 
-Matchmaking and SDP relay are built — see [`docs/PLAN.md`](docs/PLAN.md).
-STUN only: TURN relay, the leaderboard, and OpenTelemetry traces are not
-built yet.
+`server/` is a small **ASP.NET Core** service (C#, .NET 11; .NET 10 LTS is the
+fallback). It only helps players find each other and keeps scores. The game
+itself stays in the browser.
 
-Today two players swap a WebRTC connection code by hand. The plan is a small
-**ASP.NET Core** service (C#, .NET 11, with .NET 10 LTS as the fallback) that
-only helps players *find* each other: a SignalR hub pairs two players and relays
-the WebRTC offer and answer, plus a leaderboard and OpenTelemetry traces.
+| Endpoint | What it does |
+| --- | --- |
+| `/hubs/matchmaking` (SignalR) | `JoinQueue` pairs two players. `RelayOffer`, `RelayAnswer` and `RelayIceCandidate` pass WebRTC details, only between the two matched players. |
+| `GET /ice-servers` | STUN/TURN servers from configuration, so TURN credentials stay off the client. The browser falls back to public STUN if this fails. |
+| `GET /leaderboard?top=N` | Top scores (default 10, max 50). |
+| `POST /leaderboard` | Submit `{ name, score }`. Validated and limited to 10 per minute per IP. |
+| `GET /health` | Health check for the host. |
 
-The game stays in the browser. Fights still run peer-to-peer, and video and pose
-data never touch the server. This does reopen the "no server" rule in
-`docs/ARCHITECTURE.md`, so that rule has been amended in the same PR that adds the
-service.
+| Setting | Purpose |
+| --- | --- |
+| `Cors:AllowedOrigins` | Browser origins allowed to connect (must include the Vercel domain). |
+| `ConnectionStrings:Leaderboard` | Supabase Postgres connection string. Set as an environment variable on the host, never committed. Without it, scores are kept in memory. |
+| `Ice:Servers` | STUN/TURN servers. |
+| `Telemetry:Console` / `Telemetry:OtlpEndpoint` | OpenTelemetry traces to the console or a collector. |
+
+The browser finds the server through `VITE_MATCHMAKING_URL` (default
+`http://localhost:5160/hubs/matchmaking`). `server/Dockerfile` builds a
+container that listens on port 8080.
+
+**Limits, stated plainly:** scores are reported by the browser, so the
+leaderboard is not cheat-proof. No TURN server is running yet, so some
+pairings behind strict NATs will fail. The Postgres store has not yet been run
+against the real Supabase database, and the server is not deployed yet.
+
+Plan and remaining work: [`docs/PLAN.md`](docs/PLAN.md).
 
 ---
 
@@ -264,7 +295,7 @@ src/
   ui/           React
   config/       every tunable constant
 docs/           architecture, plan, asset pipeline
-server/         (planned) ASP.NET Core matchmaking service
+server/         ASP.NET Core service: matchmaking, leaderboard, ICE config
 blender/        offline kit authoring
 tools/          measurement and the end-to-end smoke test
 ```

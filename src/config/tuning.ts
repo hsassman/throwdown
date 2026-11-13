@@ -79,10 +79,10 @@ export const NET_CONFIG = {
   matchmakingUrl:
     import.meta.env.VITE_MATCHMAKING_URL ?? "http://localhost:5160/hubs/matchmaking",
   /**
-   * STUN only — enough for most home NATs, not for the symmetric/CGNAT ones
-   * STUN cannot traverse. TURN (docs/PLAN.md step 4) is not built yet, so
-   * some pairings will fail to connect; shellModel.ts's "Online" entry says
-   * so.
+   * Fallback only. "Find a match" asks the server's /ice-servers endpoint
+   * first (see net/iceServers.ts), which is where TURN gets configured. This
+   * STUN-only list is used when that fails, and is enough for most home NATs
+   * but not for the symmetric/CGNAT ones STUN cannot traverse.
    */
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }] as RTCIceServer[],
 };
