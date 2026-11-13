@@ -1,0 +1,32 @@
+# Runs the matchmaking server next to the .NET Aspire dashboard, so its
+# OpenTelemetry traces can be watched live (e.g. on stage during the talk).
+#
+#   cd server && docker compose up --build
+#
+#   Server:     http://localhost:5160   (/health, /hubs/matchmaking, /leaderboard)
+#   Dashboard:  http://localhost:18888  (Traces tab)
+#
+# Point a local game build at it with VITE_MATCHMAKING_URL=http://localhost:5160/hubs/matchmaking.
+services:
+  server:
+    build: .
+    image: throwdown-server
+    ports:
+      - "5160:8080"
+    environment:
+      # The browser origins allowed to connect: the dev server and the preview.
+      Cors__AllowedOrigins__0: http://localhost:5174
+      Cors__AllowedOrigins__1: http://localhost:4173
+      # Send traces to the dashboard (OTLP over gRPC).
+      Telemetry__OtlpEndpoint: http://dashboard:18889
+    depends_on:
+      - dashboard
+
+  dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.5
+    ports:
+      - "18888:18888"
+    environment:
+      # No login for a local demo. Do not expose this port to the internet.
+      Dashboard__Frontend__AuthMode: Unsecured
+      Dashboard__Otlp__AuthMode: Unsecured
