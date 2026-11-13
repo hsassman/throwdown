@@ -12,7 +12,8 @@
     "measure:ab": "node tools/ab-worker.mjs",
     "measure:sweep": "node tools/perf-sweep.mjs",
     "test": "vitest run",
-    "smoke": "npm run build && node tools/smoke-shell.mjs"
+    "smoke": "npm run build && node tools/smoke-shell.mjs",
+    "smoke:online": "node tools/smoke-online.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
