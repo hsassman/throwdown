@@ -85,6 +85,14 @@ export const NET_CONFIG = {
    * but not for the symmetric/CGNAT ones STUN cannot traverse.
    */
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }] as RTCIceServer[],
+  /**
+   * How long a matched pair gets to open the peer link before this side gives
+   * up and offers "Find a match" again. Long enough for a slow phone to gather
+   * candidates and the ICE checks to run; short enough that a pairing a
+   * network can never connect (no TURN, strict NAT) doesn't strand a player at
+   * the front of a conference room.
+   */
+  connectTimeoutMs: 20000,
 };
 
 /**
