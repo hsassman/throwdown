@@ -25,12 +25,16 @@ const BASE = process.env.BASE_URL ?? "http://localhost:4173";
 const SERVER = process.env.SERVER_URL ?? "http://localhost:5160";
 const OUT = "tools/out";
 const TIMEOUT = 45000;
-// A small, slow camera and the CPU pose backend. Two pages each running full
-// pose tracking under software rendering starve Chrome's network thread on a
-// 4-core runner: ICE never even starts checking and the test fails for a
-// reason that has nothing to do with matchmaking. Measured: the same raw
-// WebRTC pair connects with these settings and does not without them.
-const QUERY = process.env.SMOKE_QUERY ?? "?camW=160&camH=120&camFps=10&delegate=cpu";
+// No camera by default. This test is about matchmaking and the peer
+// connection, not tracking, and two pages each running pose tracking under
+// software rendering starve Chrome's network thread on a CI runner: ICE never
+// even starts checking and the test fails for a reason that has nothing to do
+// with what it tests (seen in CI: signalling completes, both sides have host
+// and srflx candidates, and the ICE state never leaves "new"). The menu and
+// the fight both work without a camera, so the browsers get none.
+// SMOKE_CAMERA=1 brings back a small fake camera for a manual run.
+const WITH_CAMERA = process.env.SMOKE_CAMERA === "1";
+const QUERY = process.env.SMOKE_QUERY ?? (WITH_CAMERA ? "?camW=160&camH=120&camFps=10&delegate=cpu" : "");
 
 await mkdir(OUT, { recursive: true });
 
@@ -39,8 +43,9 @@ const browser = await chromium.launch({
   executablePath: process.env.PW_EXECUTABLE || undefined,
   headless: true,
   args: [
-    "--use-fake-ui-for-media-stream",
-    "--use-fake-device-for-media-stream",
+    ...(WITH_CAMERA
+      ? ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]
+      : []),
     "--autoplay-policy=no-user-gesture-required",
     "--enable-unsafe-swiftshader",
     // Chrome hides local addresses behind random .local (mDNS) names, which
@@ -66,7 +71,7 @@ const rtcLog = [];
 const players = [];
 async function openPlayer(label) {
   const context = await browser.newContext({
-    permissions: ["camera"],
+    permissions: WITH_CAMERA ? ["camera"] : [],
     viewport: { width: 1280, height: 800 },
   });
   const page = await context.newPage();
