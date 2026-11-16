@@ -1,7 +1,10 @@
 # Plan: online matchmaking with .NET
 
-Status: **proposal, nothing built yet.** Goal: a live, playable demo at a
-15-minute conference talk, where the audience opens a link and fights each other.
+Status (13 Nov 2026): **server built and tested, not deployed.** Matchmaking,
+signalling, leaderboard, ICE config and telemetry are in `server/`. The browser
+uses matchmaking, ICE config and the leaderboard. Deploy config is ready
+(`docs/DEPLOY.md`). Still to do: deploy (needs Fly, Vercel and Supabase
+access), choose a TURN provider, test on phones, then graphics.
 
 ## Where the project is
 
