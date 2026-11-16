@@ -1,3 +1,4 @@
+import { ImpactLog, impactKind, impactPower } from "./impactFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FightSim,
@@ -182,6 +183,9 @@ export function useFight(options: UseFightOptions) {
   const cpuRef = useRef<CpuOpponent | null>(null);
   const audioRef = useRef<ImpactAudio | null>(null);
   const logRef = useRef<string[]>([]);
+  /** Recent punch outcomes from the player's side, for hit feedback (camera
+   *  kick, words on screen). Read-only to the renderer and HUD. */
+  const impactLogRef = useRef(new ImpactLog());
   const resultRef = useRef<FightResult | null>(null);
   const [hud, setHud] = useState<FightHudState | null>(null);
 
@@ -336,6 +340,8 @@ export function useFight(options: UseFightOptions) {
       if (fightEventQueueRef.current.length > 32) {
         fightEventQueueRef.current.splice(0, fightEventQueueRef.current.length - 32);
       }
+      const kind = impactKind(e, PLAYER);
+      if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now());
       if (e.type === "knockdown") downAt[e.target] = performance.now();
       if (e.type === "knockdown") audioRef.current?.bell(1);
       if (e.type === "roundEnd") audioRef.current?.bell(1);
@@ -705,6 +711,7 @@ export function useFight(options: UseFightOptions) {
     fightEventQueueRef,
     phaseRef,
     conditionRef,
+    impactLogRef,
   };
 }
 

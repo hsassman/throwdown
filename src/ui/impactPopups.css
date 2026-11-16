@@ -1,0 +1,54 @@
+.impact-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.impact-word {
+  position: absolute;
+  top: 34%;
+  transform: translate(-50%, 0);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  animation: impact-pop 700ms cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+.impact-size-0 { font-size: clamp(22px, 4vw, 40px); }
+.impact-size-1 { font-size: clamp(30px, 5.5vw, 56px); }
+.impact-size-2 { font-size: clamp(40px, 7.5vw, 80px); }
+
+.impact-good { color: #ffd84a; }
+.impact-neutral { color: #cfd8e6; }
+.impact-bad { color: #ff6b6b; }
+
+@keyframes impact-pop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  30% { transform: translate(-50%, -4px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+}
+
+/* Being hit: the screen edges flash red for a moment. */
+.impact-flash {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 120px 30px rgba(255, 40, 40, 0.55);
+  animation: impact-flash 320ms ease-out forwards;
+}
+@keyframes impact-flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .impact-word {
+    animation: impact-fade 700ms linear forwards;
+  }
+  @keyframes impact-fade {
+    0%, 70% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, 0); }
+  }
+}

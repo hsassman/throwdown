@@ -1,3 +1,4 @@
+import { ImpactLog, shakeFor, shakeOffset } from "../sim/impactFeedback";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -285,6 +286,8 @@ interface Props {
   phaseRef?: React.RefObject<FightPhase>;
   /** Down / hurt / count per fighter, read every frame. */
   conditionRef?: React.RefObject<FightCondition>;
+  /** Recent punch outcomes, for the camera kick on a landed or taken punch. */
+  impactLogRef?: React.RefObject<ImpactLog>;
   /**
    * The remote player's live pose, when the opponent is a person.
    *
@@ -319,6 +322,7 @@ export function BoxerModel({
   fightEventQueueRef,
   phaseRef,
   conditionRef,
+  impactLogRef,
   remotePoseRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -366,6 +370,8 @@ export function BoxerModel({
   phaseHolder.current = phaseRef;
   const conditionHolder = useRef(conditionRef);
   conditionHolder.current = conditionRef;
+  const impactHolder = useRef(impactLogRef);
+  impactHolder.current = impactLogRef;
   const remotePoseHolder = useRef(remotePoseRef);
   remotePoseHolder.current = remotePoseRef;
   // Read inside the setup effect, like `dummy`: it decides what drives the
@@ -391,6 +397,12 @@ export function BoxerModel({
     if (!container) return;
 
     let cancelled = false;
+    // Camera kick state (see the hit-feedback block in tick()).
+    let lastImpactSeq = impactHolder.current?.current?.since(0).at(-1)?.seq ?? 0;
+    let shake: { amplitude: number; duration: number; start: number; seed: number } | null = null;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     let rafId = 0;
 
     const scene = new THREE.Scene();
@@ -1409,7 +1421,40 @@ export function BoxerModel({
       stepDirector(dt);
 
       controls.update();
+
+      // Hit feedback: a short camera kick when a punch lands either way. The
+      // offset is added just for this frame's render and taken off again, so
+      // it never accumulates into the camera's real placement or fights the
+      // orbit controls and the director.
+      const log = impactHolder.current?.current;
+      if (log) {
+        for (const imp of log.since(lastImpactSeq)) {
+          lastImpactSeq = imp.seq;
+          const s = shakeFor(imp);
+          if (s.amplitude > 0 && !reduceMotion) {
+            shake = { ...s, start: imp.at, seed: imp.seq };
+          }
+        }
+      }
+      let kick: { x: number; y: number } | null = null;
+      if (shake) {
+        kick = shakeOffset(
+          (performance.now() - shake.start) / 1000,
+          shake.amplitude,
+          shake.duration,
+          shake.seed
+        );
+        if (kick.x === 0 && kick.y === 0) shake = null;
+        else {
+          camera.position.x += kick.x;
+          camera.position.y += kick.y;
+        }
+      }
       renderer.render(scene, camera);
+      if (kick) {
+        camera.position.x -= kick.x;
+        camera.position.y -= kick.y;
+      }
     }
     tick();
 
