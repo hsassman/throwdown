@@ -52,6 +52,18 @@ export function useWebcam(enabled: boolean) {
     async function start() {
       setStatus("requesting");
       setError(null);
+      // On a plain-http page (e.g. a phone opening a LAN address) browsers
+      // hide navigator.mediaDevices entirely, so getUserMedia would throw a
+      // TypeError that tells the player nothing. Say what is actually wrong.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStatus("error");
+        setError(
+          window.isSecureContext
+            ? "This browser can't use the camera. Try Safari on iPhone or Chrome on Android."
+            : "The camera only works on a secure page. Open this site with https:// (or on localhost)."
+        );
+        return;
+      }
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {

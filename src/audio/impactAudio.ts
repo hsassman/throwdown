@@ -19,6 +19,7 @@
 // darker and longer (mass and air). That axis does most of the work.
 
 import type { StrikeEvent } from "../perception/strikeResolver";
+import { getSharedAudioContext } from "./sharedContext";
 
 export interface ImpactAudioOptions {
   master?: number;
@@ -49,15 +50,12 @@ function noiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
 }
 
 export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio | null {
-  const Ctor =
-    typeof window !== "undefined"
-      ? window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext
-      : undefined;
-  if (!Ctor) return null;
-
-  const ctx = new Ctor();
+  // The app-wide context, unlocked by a real tap (see sharedContext.ts). A
+  // context created here, when a fight starts, would never be inside a user
+  // gesture on a camera-driven menu, and would stay silent.
+  const shared = getSharedAudioContext();
+  if (!shared) return null;
+  const ctx: AudioContext = shared;
   const master = ctx.createGain();
   master.gain.value = options.master ?? 0.8;
 
@@ -265,7 +263,12 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
 
     dispose() {
       disposed = true;
-      void ctx.close();
+      // The context is shared and outlives this fight; unplug this fight's
+      // nodes instead of closing it.
+      master.disconnect();
+      roomSend.disconnect();
+      room.disconnect();
+      limiter.disconnect();
     },
   };
 }
