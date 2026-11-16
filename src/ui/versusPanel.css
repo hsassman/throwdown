@@ -210,3 +210,27 @@
   outline: 2px solid #8ab4ff;
   outline-offset: 2px;
 }
+
+/* LeaderboardPanel */
+.vs input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8eef7;
+  font: inherit;
+  /* 16px stops iOS Safari zooming the page when the field is focused. */
+  font-size: max(16px, 1em);
+}
+.lb-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+}
+.lb-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
