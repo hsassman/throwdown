@@ -33,6 +33,9 @@ interface Props {
   poseRef: React.RefObject<PoseFrame | null>;
   /** True once the camera is delivering usable poses. */
   cameraReady: boolean;
+  /** Why the camera is not running, if known (permission denied, needs
+   *  https, unsupported browser). Shown instead of the generic hint. */
+  cameraProblem?: string | null;
   onLaunch: (id: string) => void;
 }
 
@@ -40,7 +43,7 @@ const GROUPS = grouped();
 const FLAT: ShellItem[] = GROUPS.flatMap((g) => g.items);
 const LOCKED = SHELL_ITEMS.filter((i) => !isPlayable(i)).map((i) => i.id);
 
-export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
+export function MenuShell({ poseRef, cameraReady, cameraProblem, onLaunch }: Props) {
   const [focusId, setFocusId] = useState<string>(FLAT[0].id);
   const [rejected, setRejected] = useState<string | null>(null);
   const rowEls = useRef(new Map<string, HTMLElement>());
@@ -122,7 +125,9 @@ export function MenuShell({ poseRef, cameraReady, onLaunch }: Props) {
   // keyboard and mouse either work or the machine is broken, and reporting on
   // them frame by frame would be noise.
   const hint = !cameraReady
-    ? "Camera not running."
+    ? cameraProblem
+      ? `Camera not running: ${cameraProblem}`
+      : "Camera not running."
     : !camera.tracked
       ? "Raise a hand into frame to point."
       : camera.reason === "moving"
