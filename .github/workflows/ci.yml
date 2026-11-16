@@ -30,3 +30,41 @@ jobs:
         with:
           dotnet-version: "11.0.x"
       - run: dotnet test server/Throwdown.slnx
+
+  # Online play end to end: the real server and two headless browsers pressing
+  # "Find a match". See tools/smoke-online.mjs.
+  online-smoke:
+    runs-on: ubuntu-latest
+    env:
+      VITE_MATCHMAKING_URL: http://localhost:5160/hubs/matchmaking
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "11.0.x"
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run build
+      - name: Start the server and the game
+        run: |
+          Cors__AllowedOrigins__0=http://localhost:4173 \
+            nohup dotnet run --project server/Throwdown.Server --urls http://localhost:5160 > server.log 2>&1 &
+          nohup npm run preview > preview.log 2>&1 &
+          for i in $(seq 1 90); do
+            curl -sf http://localhost:5160/health && curl -sf http://localhost:4173 > /dev/null && exit 0
+            sleep 2
+          done
+          echo "server or preview did not start"; cat server.log preview.log; exit 1
+      - run: npm run smoke:online
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-smoke
+          path: |
+            tools/out/
+            server.log
+            preview.log
