@@ -42,6 +42,7 @@ export class MatchmakingClient {
   private matchedCb: ((m: MatchFoundEvent) => void) | null = null;
   private offerCb: ((from: string, sdp: string) => void) | null = null;
   private answerCb: ((from: string, sdp: string) => void) | null = null;
+  private opponentLeftCb: (() => void) | null = null;
   private readonly connection: HubConnectionLike;
 
   constructor(connection: HubConnectionLike) {
@@ -60,6 +61,10 @@ export class MatchmakingClient {
       const [from, sdp] = args as [string, string];
       this.answerCb?.(from, sdp);
     });
+    // The hub sends this when the player we were paired with disconnects or
+    // queues again. Before the peer link opens it is the only way to find out:
+    // otherwise this side waits on "connecting" for a fighter who is gone.
+    connection.on("OpponentLeft", () => this.opponentLeftCb?.());
     connection.onclose(() => {
       // Only report failure if this wasn't a deliberate leave() — leave()
       // already set state to "closed" itself; onclose can fire for that too
@@ -90,6 +95,10 @@ export class MatchmakingClient {
 
   onAnswer(cb: (from: string, sdp: string) => void): void {
     this.answerCb = cb;
+  }
+
+  onOpponentLeft(cb: () => void): void {
+    this.opponentLeftCb = cb;
   }
 
   async findMatch(): Promise<void> {
