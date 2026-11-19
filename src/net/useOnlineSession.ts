@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HubConnectionBuilder } from "@microsoft/signalr";
 import { MatchmakingClient, type MatchmakingStatus } from "./matchmakingClient";
 import { PeerLink, type LinkStatus } from "./peerLink";
 import { fetchIceServers } from "./iceServers";
@@ -105,6 +104,9 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     // are different origins and nothing here uses cookies. SignalR's default
     // of true makes the browser demand Access-Control-Allow-Credentials, which
     // the server doesn't send, so every negotiate was blocked by CORS.
+    // Loaded on first use: the SignalR client is only needed for "Find a
+    // match", and every other player would otherwise download it up front.
+    const { HubConnectionBuilder } = await import("@microsoft/signalr");
     const connection = new HubConnectionBuilder()
       .withUrl(NET_CONFIG.matchmakingUrl, { withCredentials: false })
       .build();

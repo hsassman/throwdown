@@ -207,8 +207,27 @@ export class RoiTracker {
   mapBack(nx: number, ny: number, videoW: number, videoH: number): [number, number] {
     const r = this.rect;
     if (!r) return [nx, ny];
-    return [(r.x + nx * r.w) / videoW, (r.y + ny * r.h) / videoH];
+    return cropToFrame(nx, ny, r, videoW, videoH);
   }
+}
+
+/**
+ * Maps a crop-space landmark back to full-frame normalized coordinates, for a
+ * given crop.
+ *
+ * Separate from `RoiTracker.mapBack` because that reads the tracker's current
+ * window, which is only right when the result comes back before the window
+ * moves. Inference in a worker returns after the tracker may have been
+ * updated, so the worker path maps with the crop it actually sent.
+ */
+export function cropToFrame(
+  nx: number,
+  ny: number,
+  rect: CropRect,
+  videoW: number,
+  videoH: number
+): [number, number] {
+  return [(rect.x + nx * rect.w) / videoW, (rect.y + ny * rect.h) / videoH];
 }
 
 function clampToFrame(rect: CropRect, videoW: number, videoH: number): CropRect {

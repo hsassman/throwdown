@@ -5,12 +5,12 @@ import {
   type PoseLandmarkerResult,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
-import { DEBUG_CONFIG, POSE_CONFIG, STRIKE_SMOOTHING } from "../config/tuning";
+import { DEBUG_CONFIG, POSE_CONFIG, ROI_CONFIG, STRIKE_SMOOTHING } from "../config/tuning";
 import { ALL_POSE_KEYS, MP_LANDMARKS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { PoseSmoother } from "./smoothing";
 import { SkeletonSolver, type SkeletonDebug } from "./skeletonSolver";
 import { PosePredictor, type PredictorDebug } from "./predictor";
-import { CropCanvas, RoiTracker, type RoiDebug } from "./roiCrop";
+import { CropCanvas, RoiTracker, cropToFrame, type CropRect, type RoiDebug } from "./roiCrop";
 import {
   TrackingMonitor,
   type TrackingReport,
@@ -71,6 +71,18 @@ function mapFrameToFullFrame(
     const [x, y] = hasCrop
       ? roi.mapBack(kp.x, kp.y, videoW, videoH)
       : cropper.unletterbox(kp.x, kp.y, videoW, videoH);
+    out[key] = { x, y, z: kp.z, confidence: kp.confidence };
+  }
+  return out;
+}
+
+/** Rewrites a pose from a known crop back into full-frame coordinates. */
+function mapCropFrame(frame: PoseFrame, crop: CropRect, videoW: number, videoH: number): PoseFrame {
+  const out = { timestamp: frame.timestamp } as PoseFrame;
+  for (const key of ALL_POSE_KEYS) {
+    const kp = frame[key];
+    if (!kp) continue;
+    const [x, y] = cropToFrame(kp.x, kp.y, crop, videoW, videoH);
     out[key] = { x, y, z: kp.z, confidence: kp.confidence };
   }
   return out;
@@ -489,6 +501,15 @@ export function usePoseTracking(
     let inFlight = false;
     const lastEnd = { current: 0 };
     const smoother = new PoseSmoother();
+    // The same crop-to-the-player and constraint solving as the main-thread
+    // path. The worker path used to skip both, and the crop is most of what
+    // makes inference fast: fed the whole 640x480 frame, inference in the
+    // worker measured ~115ms against ~43ms for the cropped main-thread path.
+    const solver = new SkeletonSolver();
+    const roi = new RoiTracker();
+    /** What the frame in flight was cut from, to map its result back. */
+    let sent: { crop: CropRect | null; vw: number; vh: number } | null = null;
+    predictorRef.current.reset();
     strikeSmootherRef.current.reset();
 
     // Vite's `?worker` import respects the `worker.format: "iife"` config, so
@@ -514,8 +535,21 @@ export function usePoseTracking(
 
       // result
       inFlight = false;
-      const raw = msg.values ? unpackFrame(msg.values, msg.timestamp) : null;
-      recordFrameRef.current(raw, msg.inferenceMs, performance.now(), lastEnd, smoother);
+      let raw = msg.values ? unpackFrame(msg.values, msg.timestamp) : null;
+      const from = sent;
+      sent = null;
+      if (raw && from?.crop) raw = mapCropFrame(raw, from.crop, from.vw, from.vh);
+      // Fed the full-frame pose, as in the main-thread path.
+      if (from) roi.update(raw, from.vw, from.vh);
+      recordFrameRef.current(
+        raw,
+        msg.inferenceMs,
+        performance.now(),
+        lastEnd,
+        smoother,
+        solver,
+        roi.debug
+      );
     };
 
     worker.onerror = (e) => {
@@ -548,15 +582,35 @@ export function usePoseTracking(
         lastVideoTime = video.currentTime;
         inFlight = true;
         try {
-          const bitmap = await createImageBitmap(video);
+          // Stamped before the bitmap is cut, which is when the frame was
+          // taken - see the main-thread path on why the stamp's age matters.
+          const timestamp = performance.now();
+          const vw = video.videoWidth;
+          const vh = video.videoHeight;
+          const crop = POSE_CONFIG.useRoi ? roi.crop : null;
+          // Cropped and scaled by the browser, off the main thread, to the
+          // size the model wants anyway. Before a crop is acquired the whole
+          // frame is only scaled down, aspect kept, so its normalized
+          // coordinates need no mapping.
+          const size = ROI_CONFIG.tensorSize;
+          const fit = Math.min(1, ROI_CONFIG.searchSize / Math.max(vw, vh));
+          const bitmap = crop
+            ? await createImageBitmap(video, crop.x, crop.y, crop.w, crop.h, {
+                resizeWidth: size,
+                resizeHeight: size,
+                resizeQuality: "low",
+              })
+            : await createImageBitmap(video, {
+                resizeWidth: Math.max(1, Math.round(vw * fit)),
+                resizeHeight: Math.max(1, Math.round(vh * fit)),
+                resizeQuality: "low",
+              });
           if (cancelled) {
             bitmap.close();
             return;
           }
-          worker.postMessage(
-            { type: "frame", bitmap, timestamp: performance.now() },
-            [bitmap]
-          );
+          sent = { crop, vw, vh };
+          worker.postMessage({ type: "frame", bitmap, timestamp }, [bitmap]);
         } catch (err) {
           inFlight = false;
           console.warn("createImageBitmap failed:", err);
@@ -573,6 +627,7 @@ export function usePoseTracking(
       minPoseDetectionConfidence: POSE_CONFIG.minPoseDetectionConfidence,
       minPosePresenceConfidence: POSE_CONFIG.minPosePresenceConfidence,
       minTrackingConfidence: POSE_CONFIG.minTrackingConfidence,
+      delegate: POSE_CONFIG.workerDelegate,
     } satisfies InitMessage);
 
     return () => {

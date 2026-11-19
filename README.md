@@ -29,11 +29,13 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (716). |
+| `npm test` | Web unit tests (731). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
-| `npm run measure:sweep` | Measures the pose pipeline on this machine. |
+| `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
+| `node tools/fake-player.mjs` | Renders the game's boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
+| `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight with the fake player as the camera: pose rate, render fps, main-thread long tasks. No person needed. |
 
 The smoke run needs `npm run preview` in another terminal.
 

@@ -20,6 +20,15 @@ export const POSE_CONFIG = {
    * Inference in a Web Worker. Off: measured at 13.8 vs 15.1 FPS, and it cannot
    * load under the dev server (MediaPipe needs a classic worker). `?worker=1`
    * against a production build re-runs the comparison on other hardware.
+   *
+   * Re-measured Nov 2026 with tools/perf-ab.mjs (fake player, CPU fight,
+   * headless Chrome, GPU). The worker frees the main thread - render ~16 ->
+   * ~34 fps, long tasks ~600 -> 0 ms/s - but GPU inference inside a worker ran
+   * 120-400ms against ~40ms on the main thread, so the pose rate fell from ~20
+   * to ~6/s. That held after the worker path gained the ROI crop, with the CPU
+   * delegate (~110ms either thread), and with WebCodecs VideoFrames (~900ms).
+   * Pose rate is what hits are resolved from, so the main thread stays the
+   * default here. Worth re-running on any machine where that may differ.
    */
   get useWorker() {
     return queryFlag("worker", false);
@@ -64,6 +73,14 @@ export const POSE_CONFIG = {
    * cost more than they save for a model this small, so the assumption that
    * GPU is faster here is exactly the kind this project is supposed to check.
    */
+  /**
+   * First-choice backend for the worker path. Follows ?delegate= like the
+   * main-thread path; absent, GPU first as the ground rule says.
+   */
+  get workerDelegate(): "GPU" | "CPU" {
+    return this.forceDelegate ?? "GPU";
+  },
+
   get forceDelegate(): "GPU" | "CPU" | null {
     if (typeof window === "undefined") return null;
     const raw = new URLSearchParams(window.location.search)
@@ -753,6 +770,54 @@ export const ROI_CONFIG = {
    *  Staying zoomed on an empty box is self-sealing: the player cannot be
    *  re-acquired from outside the only region being examined. */
   lostFramesBeforeReset: 12,
+
+  /**
+   * Longest side, px, the whole frame is scaled to before a crop has been
+   * acquired, on the worker path. The detector that searches for a body runs
+   * on a ~224px input, so a full 640x480 bitmap is mostly upload cost; the
+   * main-thread path likewise letterboxes the frame into `tensorSize`.
+   */
+  searchSize: 320,
+} as const;
+
+/**
+ * The framing coach: tells the player when the camera cannot see them well
+ * enough to play, and what to do about it. See perception/framingCheck.ts.
+ *
+ * Advice only. Nothing here changes how a punch is judged - a player who
+ * ignores it simply keeps playing with a worse signal, exactly as before.
+ */
+export const FRAMING_CONFIG = {
+  /** Landmark confidence below which a body part counts as not seen. */
+  minConfidence: 0.5,
+  /**
+   * Shoulder-to-hip length as a fraction of frame height. The game reads a
+   * torso of ~0.3 (the synthetic fixtures, and the rendered fake player);
+   * well below it every landmark is a few pixels and jitter dominates, well
+   * above it a punch leaves the frame.
+   */
+  minTorso: 0.15,
+  maxTorso: 0.48,
+  /** How close to the bottom edge the hips may come, as a fraction. */
+  edgeMargin: 0.03,
+  /** Highest the nose may sit, as a fraction from the top. The crown is about
+   *  a tenth of a frame above the nose at normal framing, so a nose higher
+   *  than this means the head is already cut off. */
+  minNoseY: 0.09,
+  /** Shoulder midpoint outside [offCentre, 1 - offCentre] is off to one side. */
+  offCentre: 0.22,
+  /** Mean frame luma (0-255) below which the picture is too dark to track. */
+  minLuma: 45,
+  /** Outer-ring luma exceeding centre luma by this much reads as backlit -
+   *  a window or lamp behind the player, which silhouettes them. */
+  backlightMargin: 55,
+  /** A problem must persist this long before it is shown, ms, so a passing
+   *  stumble does not flash a prompt. */
+  showAfterMs: 900,
+  /** And the picture must be fine for this long before the prompt clears. */
+  hideAfterMs: 700,
+  /** How often the frame's brightness is sampled, ms. */
+  lumaIntervalMs: 500,
 } as const;
 
 /**

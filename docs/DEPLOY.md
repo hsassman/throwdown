@@ -64,6 +64,14 @@ The browser reads these from `/ice-servers`. Nothing changes in the client.
 Vite bakes `VITE_` variables in at build time, so redeploy Vercel after
 changing it.
 
+`vercel.json` caches `/models/` and `/mediapipe/` for a day (and serves them
+stale for a week while revalidating). Together they are ~17 MB of the ~20 MB
+first load, so repeat visits matter, especially on phones. The catch: those
+files are not content-hashed. After upgrading `@mediapipe/tasks-vision`, copy
+the new WASM into `public/mediapipe/wasm/` as usual, and expect a returning
+visitor to need one reload, because a WASM runtime that doesn't match the
+package's JS fails to load.
+
 ## Checks after deploying
 
 - `/health` on the server returns ok.

@@ -24,6 +24,8 @@ import { unlockAudio } from "./audio/sharedContext";
 import { useWakeLock } from "./ui/useWakeLock";
 import { FightHud } from "./ui/FightHud";
 import { ImpactPopups } from "./ui/ImpactPopups";
+import { FramingPrompt } from "./ui/FramingPrompt";
+import { useFramingCoach } from "./perception/useFramingCoach";
 import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
@@ -133,6 +135,14 @@ export default function App() {
   // simulation and the renderer - see useDummyTraining on why a second one
   // would drift.
   const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight);
+
+  // Tells the player when the camera cannot see them well enough to play -
+  // the menu, the dummy and the fight, the screens played with the body.
+  const framingIssue = useFramingCoach(
+    videoRef,
+    poseRef,
+    camStatus === "ready" && poseStatus === "ready" && (screen === null || onDummy || inFight)
+  );
 
   const training = useDummyTraining({
     enabled: onDummy,
@@ -454,6 +464,7 @@ export default function App() {
           </Suspense>
         )}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
+        <FramingPrompt issue={framingIssue} />
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}

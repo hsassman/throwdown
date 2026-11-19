@@ -28,6 +28,8 @@ export interface InitMessage {
   minPoseDetectionConfidence: number;
   minPosePresenceConfidence: number;
   minTrackingConfidence: number;
+  /** Backend to try first; the other is the fallback. */
+  delegate: "GPU" | "CPU";
 }
 
 export interface FrameMessage {
@@ -100,14 +102,16 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const msg = e.data;
 
   if (msg.type === "init") {
+    const first = msg.delegate;
+    const second = first === "GPU" ? "CPU" : "GPU";
     try {
       try {
-        landmarker = await createLandmarker(msg, "GPU");
-        post({ type: "ready", delegate: "GPU" });
-      } catch (gpuErr) {
-        console.warn("[poseWorker] GPU delegate failed, using CPU:", gpuErr);
-        landmarker = await createLandmarker(msg, "CPU");
-        post({ type: "ready", delegate: "CPU" });
+        landmarker = await createLandmarker(msg, first);
+        post({ type: "ready", delegate: first });
+      } catch (firstErr) {
+        console.warn(`[poseWorker] ${first} delegate failed, using ${second}:`, firstErr);
+        landmarker = await createLandmarker(msg, second);
+        post({ type: "ready", delegate: second });
       }
     } catch (err) {
       post({
