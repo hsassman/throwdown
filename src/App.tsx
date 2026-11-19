@@ -26,6 +26,8 @@ import { FightHud } from "./ui/FightHud";
 import { ImpactPopups } from "./ui/ImpactPopups";
 import { FramingPrompt } from "./ui/FramingPrompt";
 import { useFramingCoach } from "./perception/useFramingCoach";
+import { useDepthMap } from "./depth/useDepthMap";
+import { DepthPanel } from "./ui/DepthPanel";
 import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
@@ -135,6 +137,18 @@ export default function App() {
   // simulation and the renderer - see useDummyTraining on why a second one
   // would drift.
   const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight);
+
+  // Monocular depth, off unless asked for (?depth=1, or D in game): a second
+  // network on the GPU pose needs. See DEPTH_CONFIG.
+  const [depthOn, setDepthOn] = useState(
+    () => new URLSearchParams(window.location.search).get("depth") === "1"
+  );
+  const depth = useDepthMap(
+    videoRef,
+    poseRef,
+    subscribeStrikePose,
+    depthOn && camStatus === "ready" && (onDummy || inFight)
+  );
 
   // Tells the player when the camera cannot see them well enough to play -
   // the menu, the dummy and the fight, the screens played with the body.
@@ -278,6 +292,11 @@ export default function App() {
       if (e.key === "`" || e.key === "F3") {
         e.preventDefault();
         setShowDiagnostics((v) => !v);
+      }
+      // D for depth - but not while typing, e.g. a connection code.
+      const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]");
+      if ((e.key === "d" || e.key === "D") && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setDepthOn((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -465,6 +484,9 @@ export default function App() {
         )}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
         <FramingPrompt issue={framingIssue} />
+        {depth.status.state !== "off" && (
+          <DepthPanel status={depth.status} frameRef={depth.frameRef} />
+        )}
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}

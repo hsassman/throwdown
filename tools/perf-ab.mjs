@@ -41,6 +41,7 @@ const browser = await chromium.launch({
     "--enable-gpu",
     "--ignore-gpu-blocklist",
     "--use-angle=d3d11",
+    "--enable-unsafe-webgpu",
     "--use-fake-ui-for-media-stream",
     "--use-fake-device-for-media-stream",
     `--use-file-for-fake-video-capture=${VIDEO}`,

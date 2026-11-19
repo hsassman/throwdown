@@ -29,7 +29,7 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (731). |
+| `npm test` | Web unit tests (742). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
@@ -147,6 +147,27 @@ way. And the **sign** of a torso turn is not observable from the front at all:
 turning left and right narrow the shoulder line identically. It is taken from
 stance instead, because a boxer does not turn both ways.
 
+### Depth map
+
+`?depth=1`, or **D** during the dummy or a fight, adds a live depth map of the
+player from a second network: Depth Anything V2 Small (Apache-2.0), run in the
+browser with ONNX Runtime Web on WebGPU, falling back to the CPU. The weights
+(19-27 MB) are fetched from a commit-pinned Hugging Face URL on first use and
+kept in Cache Storage; nothing downloads until depth is switched on.
+
+The panel shows the map (near is warm, far is cool) and how far each fist is
+in front of the chest. Depth Anything's output has an unknown scale and offset
+per frame, so that reading is a ratio of differences against the far wall,
+which cancels both. Two lessons from building it against the fake player:
+sample the chest rather than the shoulders, because a guard covers them, and
+read the fist as the nearest surface around the wrist, because a pose and a
+depth frame are never from quite the same instant.
+
+**It does not decide hits.** On the development machine it runs at ~1.5-2 Hz
+(~500 ms per inference, sharing the GPU with pose and the renderer) and costs
+~20% of the pose rate. A punch lasts ~250 ms, so most would fall between depth
+frames. It is a view and a measured signal for now, not an input.
+
 ### The pipeline tunes itself, visibly
 
 A tracking monitor grades the signal continuously and adjusts smoothing and
@@ -192,8 +213,9 @@ by hand on every re-export.
 | Lint | oxlint |
 | Character | Meta MHR (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
 
-**No Python and no GPU inference in the runtime path.** The asset pipeline is
-offline and one-time; it ships a static `.glb`.
+**No Python in the runtime path.** The asset pipeline is offline and one-time;
+it ships a static `.glb`. The one optional extra network, depth, is opt-in
+(see [Depth map](#depth-map)).
 
 ---
 

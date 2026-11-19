@@ -781,6 +781,67 @@ export const ROI_CONFIG = {
 } as const;
 
 /**
+ * Monocular depth: Depth Anything V2 Small (Apache-2.0), run in the browser
+ * with ONNX Runtime Web. See src/depth/.
+ *
+ * Off by default (?depth=1, or D in game). It is a second neural network on
+ * the same GPU as pose inference and the renderer, so it is opt-in until it
+ * has been measured on the hardware it would ship to - phones above all.
+ */
+export const DEPTH_CONFIG = {
+  /**
+   * Pinned to a commit, so the weights under a URL can never change. Fetched
+   * at runtime and kept in Cache Storage rather than committed: 19-27 MB of
+   * binary per variant would bloat every clone of the repo.
+   */
+  modelBase:
+    "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/4472b7362082ad9968fee890ca0f1e5aca36b93d/onnx",
+  /** 19 MB, 4-bit weights with fp16 compute. Needs WebGPU with shader-f16. */
+  modelWebGpuF16: "model_q4f16.onnx",
+  /** 27 MB, int8. Runs on any WebGPU device and on the WASM fallback. */
+  modelPortable: "model_int8.onnx",
+  cacheName: "shadowbox-models-v1",
+
+  /**
+   * Model input side, px. Must be a multiple of the ViT patch size (14). The
+   * model was trained at 518; at 252 a player-sized crop still resolves an
+   * arm clearly and inference costs about a quarter as much.
+   */
+  inputSize: 252,
+  /** ImageNet normalisation, from the model's preprocessor_config.json. */
+  mean: [0.485, 0.456, 0.406],
+  std: [0.229, 0.224, 0.225],
+
+  /** Shortest gap between depth inferences, ms - a ceiling of ~8 Hz. Depth
+   *  is a slower signal than pose and must not take GPU time pose needs. */
+  minIntervalMs: 120,
+
+  /** Margin around the body's landmarks when cropping, as a fraction of the
+   *  box's larger side - enough that a punching fist stays inside. */
+  cropMargin: 0.35,
+  /** Where the chest reference sits, from the shoulder line (0) to the hip
+   *  line (1). Low enough to clear raised gloves, high enough to stay above
+   *  a fist held at the body. */
+  chestFraction: 0.4,
+  /** Half-width of the window searched for the fist, as a fraction of the
+   *  map - about a glove's width at normal framing. */
+  fistWindow: 0.07,
+  /** Percentile of that window taken as the fist: near the top, but not the
+   *  very top, so one bright pixel cannot be the reading. */
+  fistQuantile: 0.9,
+  /** Sampling window around a landmark, in map pixels (radius). */
+  sampleRadius: 2,
+  /**
+   * Percentile of the map taken as "the background". Depth Anything outputs
+   * relative inverse depth with an unknown scale and offset per frame, so a
+   * single reading means nothing; differences against the far wall do.
+   */
+  backgroundPercentile: 0.1,
+  /** Below this shoulder-to-background separation the ratio is noise. */
+  minSeparation: 1e-3,
+} as const;
+
+/**
  * The framing coach: tells the player when the camera cannot see them well
  * enough to play, and what to do about it. See perception/framingCheck.ts.
  *
