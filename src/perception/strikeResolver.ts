@@ -96,6 +96,10 @@ interface HandState {
    *  forward component of travel without ever reading MediaPipe's z. */
   lastDepth: number;
   lastT: number;
+  /** Recent wrist samples, oldest first, spanning STRIKE_CONFIG.speedWindowMs.
+   *  Velocity is measured across the window rather than between the last two
+   *  samples - see speedWindowMs. */
+  trail: { t: number; x: number; y: number; depth: number }[];
   speed: number;
   /** Body-frame velocity at the last sample: across, up, forward. */
   vel: { x: number; y: number; z: number };
@@ -103,6 +107,24 @@ interface HandState {
   /** Time the current extension began; strikes shorter than the minimum
    * interval are suppressed. */
   lastStrikeAt: number;
+  /** Recent segment-length readings, newest last, for confirming growth of
+   *  the learned full length. See STRIKE_CONFIG.spanConfirmFrames. */
+  spans: ArmSpan[];
+  /** A strike that has crossed the threshold and is waiting for the fist to
+   *  reach its peak before it resolves. See STRIKE_CONFIG.peakLatchMs. */
+  pending: PendingStrike | null;
+}
+
+/** A strike between crossing the threshold and resolving. */
+interface PendingStrike {
+  /** Interpolated time the reach crossed the threshold. */
+  crossedAt: number;
+  /** Samples seen since the crossing, which bounds the latch. */
+  samples: number;
+  peakReach: number;
+  impact: ImpactPoint;
+  vel: { x: number; y: number; z: number };
+  peakSpeed: number;
 }
 
 function freshHand(): HandState {
@@ -112,10 +134,13 @@ function freshHand(): HandState {
     lastPos: null,
     lastDepth: 0,
     lastT: 0,
+    trail: [],
     speed: 0,
     vel: { x: 0, y: 0, z: 0 },
     peakSpeed: 0,
     lastStrikeAt: -Infinity,
+    spans: [],
+    pending: null,
   };
 }
 
@@ -284,45 +309,77 @@ export class StrikeResolver {
         elbow.confidence < minConf ||
         wrist.confidence < minConf
       ) {
-        // Losing the arm must not fire a strike, and must not leave the hand
-        // latched "extended" - otherwise the next good frame registers a hit
-        // the player never threw.
+        // A strike that already crossed the threshold was really thrown -
+        // the arm being lost on the way to its peak does not un-throw it, so
+        // it resolves with the peak it had reached.
+        if (state.pending) out.push(this.resolve(hand, state));
+        // Losing the arm must not fire a new strike, and must not leave the
+        // hand latched "extended" - otherwise the next good frame registers a
+        // hit the player never threw.
         state.extended = false;
         state.lastPos = null;
+        state.spans.length = 0;
+        state.trail.length = 0;
         continue;
       }
 
-      // Learn this player's segment lengths. Grows immediately (a longer
-      // observation is real evidence), never shrinks - a shorter reading is
-      // foreshortening, which is the signal, not noise.
+      // Learn this player's segment lengths. Never shrinks - a shorter
+      // reading is foreshortening, which is the signal, not noise - and only
+      // grows on a reading that has held for several samples, because one
+      // mis-tracked frame would otherwise lengthen the reference for good.
       const span: ArmSpan = {
         upper: Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) / torso,
         lower: Math.hypot(wrist.x - elbow.x, wrist.y - elbow.y) / torso,
       };
       const full = this.fullArm[hand];
-      if (span.upper > full.upper) full.upper = span.upper;
-      if (span.lower > full.lower) full.lower = span.lower;
+      state.spans.push(span);
+      if (state.spans.length > STRIKE_CONFIG.spanConfirmFrames) state.spans.shift();
+      if (state.spans.length === STRIKE_CONFIG.spanConfirmFrames) {
+        const seed = STRIKE_CONFIG.seedArmSpan;
+        const held = (k: keyof ArmSpan) =>
+          Math.min(
+            Math.min(...state.spans.map((s) => s[k])),
+            seed[k] * STRIKE_CONFIG.spanMaxGrowth
+          );
+        full.upper = Math.max(full.upper, held("upper"));
+        full.lower = Math.max(full.lower, held("lower"));
+      }
 
+      const prevReach = state.lastReach;
+      const prevT = state.lastT;
       const { reach, depth } = reachOf(shoulder, wrist, torso, span, full);
       state.lastReach = reach;
 
       // Fist speed and body-frame velocity, torso-widths per second.
-      if (state.lastPos && pose.timestamp > state.lastT) {
-        const dt = (pose.timestamp - state.lastT) / 1000;
-        const dx = wrist.x - state.lastPos.x;
-        const dy = wrist.y - state.lastPos.y;
-        state.speed = Math.hypot(dx, dy) / torso / dt;
+      // Measured against the oldest sample still inside the window, so the
+      // displacement spans one to three pose intervals depending on the rate.
+      const trail = state.trail;
+      while (trail.length > 0 && pose.timestamp - trail[0].t > STRIKE_CONFIG.speedWindowMs) {
+        trail.shift();
+      }
+      const ref = trail[0];
+      if (ref && pose.timestamp > ref.t) {
+        const dt = (pose.timestamp - ref.t) / 1000;
+        const dx = wrist.x - ref.x;
+        const dy = wrist.y - ref.y;
         state.vel = {
           // Same two sign conventions as impactPointOf: unmirrored camera, and
           // image y growing downward.
           x: -dx / torso / dt,
           y: -dy / torso / dt,
-          z: (depth - state.lastDepth) / dt,
+          z: (depth - ref.depth) / dt,
         };
+        // On-screen speed alone is blind to a punch thrown down the lens.
+        state.speed = Math.hypot(
+          Math.hypot(dx, dy) / torso / dt,
+          state.vel.z * STRIKE_CONFIG.depthSpeedWeight
+        );
       }
+      const hadPos = state.lastPos !== null;
       state.lastPos = { x: wrist.x, y: wrist.y };
       state.lastDepth = depth;
       state.lastT = pose.timestamp;
+      trail.push({ t: pose.timestamp, x: wrist.x, y: wrist.y, depth });
 
       // Continuous landing point, in the player's own body frame. Using the
       // body frame rather than image coordinates is what makes it hold when
@@ -332,36 +389,50 @@ export class StrikeResolver {
       this.zone[hand] = coarseZone(impact);
 
       const threshold = STRIKE_CONFIG.reachThreshold;
+
+      // A crossed strike waits for its peak: it resolves on the first sample
+      // where the reach stops growing, or when the latch runs out.
+      const pending = state.pending;
+      if (pending) {
+        pending.samples++;
+        const growing = reach > pending.peakReach;
+        if (growing) {
+          pending.peakReach = reach;
+          pending.impact = impact;
+          pending.peakSpeed = Math.max(pending.peakSpeed, state.speed);
+        }
+        if (!growing || pending.samples >= STRIKE_CONFIG.peakLatchSamples) {
+          out.push(this.resolve(hand, state));
+        }
+      }
+
       if (!state.extended) {
         state.peakSpeed = Math.max(state.peakSpeed, state.speed);
         const fastEnough = state.speed >= STRIKE_CONFIG.minStrikeSpeed;
         const late = pose.timestamp - state.lastStrikeAt >= STRIKE_CONFIG.refractoryMs;
         if (reach >= threshold && fastEnough && late) {
           state.extended = true;
-          state.lastStrikeAt = pose.timestamp;
-          const power = Math.min(
-            1,
-            (reach - threshold) / STRIKE_CONFIG.powerRange + STRIKE_CONFIG.basePower
-          );
-          const region = regionAt(impact);
-          const approach = approachOf(state.vel.x, state.vel.y, state.vel.z);
-          const event: StrikeEvent = {
-            hand,
-            zone: this.zone[hand]!,
+          // The threshold was crossed somewhere between the last sample and
+          // this one. At 19 FPS that interval is ~50ms, which is the same
+          // order as the windows the fight judges evasion by, so the crossing
+          // is interpolated rather than rounded to the later sample.
+          const crossedAt =
+            hadPos && reach > prevReach && prevReach < threshold && pose.timestamp > prevT
+              ? prevT + ((threshold - prevReach) / (reach - prevReach)) * (pose.timestamp - prevT)
+              : pose.timestamp;
+          state.lastStrikeAt = crossedAt;
+          state.pending = {
+            crossedAt,
+            samples: 0,
+            peakReach: reach,
             impact,
-            region,
-            approach,
-            damage: damageOf(region, power, approach),
-            power,
-            speed: Math.max(state.peakSpeed, state.speed),
-            contactReach: reach + STRIKE_CONFIG.gloveNoseReach,
-            timestamp: pose.timestamp,
+            vel: { ...state.vel },
+            peakSpeed: Math.max(state.peakSpeed, state.speed),
           };
           state.peakSpeed = 0;
-          out.push(event);
-          for (const cb of this.listeners) cb(event);
+          if (STRIKE_CONFIG.peakLatchSamples <= 0) out.push(this.resolve(hand, state));
         }
-      } else if (reach < threshold * STRIKE_CONFIG.releaseFraction) {
+      } else if (!state.pending && reach < threshold * STRIKE_CONFIG.releaseFraction) {
         // Hysteresis: the fist has to come meaningfully back before another
         // strike can register. Without it, noise around the threshold machine-
         // guns events out of one held extension.
@@ -371,6 +442,35 @@ export class StrikeResolver {
     }
 
     return out;
+  }
+
+  /** Turns a hand's pending strike into an event, at its peak. */
+  private resolve(hand: HandSide, state: HandState): StrikeEvent {
+    const p = state.pending!;
+    state.pending = null;
+    const threshold = STRIKE_CONFIG.reachThreshold;
+    const power = Math.min(
+      1,
+      (p.peakReach - threshold) / STRIKE_CONFIG.powerRange + STRIKE_CONFIG.basePower
+    );
+    const region = regionAt(p.impact);
+    // Approach is read from the velocity at the crossing, while the fist is
+    // still travelling - at the peak it has all but stopped.
+    const approach = approachOf(p.vel.x, p.vel.y, p.vel.z);
+    const event: StrikeEvent = {
+      hand,
+      zone: coarseZone(p.impact),
+      impact: p.impact,
+      region,
+      approach,
+      damage: damageOf(region, power, approach),
+      power,
+      speed: p.peakSpeed,
+      contactReach: p.peakReach + STRIKE_CONFIG.gloveNoseReach,
+      timestamp: p.crossedAt,
+    };
+    for (const cb of this.listeners) cb(event);
+    return event;
   }
 }
 

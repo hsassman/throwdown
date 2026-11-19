@@ -198,6 +198,64 @@ export interface FightRules {
   stoppages: boolean;
 }
 
+/** The part of a fighter a strike is judged against. */
+export interface DefenceSnapshot {
+  guard: GuardPosture;
+  evasion: Evasion;
+  stunned: number;
+}
+
+/**
+ * Whether a guard takes a strike. A high guard covers the head, a low guard
+ * the body; a stunned fighter's guard is down. The one definition, shared by
+ * the sim and by anything (the fight's audio) that has to agree with it.
+ */
+export function guardCovers(d: DefenceSnapshot, strike: StrikeEvent): boolean {
+  return (
+    d.stunned <= 0 &&
+    ((d.guard === "high" && strike.zone.height === "head") ||
+      (d.guard === "low" && strike.zone.height === "body"))
+  );
+}
+
+/**
+ * A fighter's recent defence, so a strike can be judged against the defence
+ * that was in place when it was thrown.
+ *
+ * A player's strike reaches the fight loop around 100ms after the punch -
+ * inference, one sample of peak latch, a tick - and judged against the
+ * defence of that later moment, a punch that arrived at an open head could be
+ * scored as slipped by a move that started after it landed. Lag compensation
+ * in the usual sense: the shot is judged where it was aimed. Bounded by
+ * FIGHT_CONFIG.maxRewindMs.
+ *
+ * Only for strikes timed on this machine's clock. A networked strike carries
+ * the other machine's timestamps, which mean nothing here.
+ */
+export class DefenceHistory {
+  private samples: { t: number; d: DefenceSnapshot }[] = [];
+
+  record(t: number, d: DefenceSnapshot): void {
+    this.samples.push({ t, d: { guard: d.guard, evasion: d.evasion, stunned: d.stunned } });
+    const horizon = t - 2 * FIGHT_CONFIG.maxRewindMs;
+    while (this.samples.length > 1 && this.samples[0].t < horizon) this.samples.shift();
+  }
+
+  /** The defence in force at `t`, rewound no further than the cap from `now`.
+   *  Null when nothing that old was recorded. */
+  at(t: number, now: number): DefenceSnapshot | null {
+    const when = Math.max(t, now - FIGHT_CONFIG.maxRewindMs);
+    for (let i = this.samples.length - 1; i >= 0; i--) {
+      if (this.samples[i].t <= when) return this.samples[i].d;
+    }
+    return null;
+  }
+
+  clear(): void {
+    this.samples.length = 0;
+  }
+}
+
 function freshFighter(id: string, weightClass: WeightClass): FighterState {
   const attrs = attributesFor(weightClass);
   return {
@@ -276,11 +334,15 @@ export class FightSim {
    * damage value derived from geometry, so this layer does no classification
    * and cannot fail to understand a punch it has no name for.
    */
-  applyStrike(byId: string, strike: StrikeEvent): void {
+  applyStrike(byId: string, strike: StrikeEvent, defence?: DefenceSnapshot): void {
     if (this.phase !== "fighting") return;
     const attacker = this.fighters[byId];
     const target = this.other(byId);
     if (!attacker || !target) return;
+    // The defence the strike is judged against: the target as it was when the
+    // punch was thrown, when the caller knows that (see DefenceHistory), or
+    // as it is now.
+    const d: DefenceSnapshot = defence ?? target;
 
     attacker.thrown++;
 
@@ -306,11 +368,11 @@ export class FightSim {
     // miss is a hit that never arrived. A stunned fighter evades nothing -
     // the same rule the guard follows, and the reason a knockdown is a real
     // turning point.
-    if (target.stunned <= 0 && evades(target.evasion, strike)) {
+    if (d.stunned <= 0 && evades(d.evasion, strike)) {
       this.emit({
         type: "miss",
         target: target.id,
-        evasion: target.evasion,
+        evasion: d.evasion,
         region: strike.region.id,
       });
       return;
@@ -320,10 +382,7 @@ export class FightSim {
     // trade, and the reason feinting upstairs to go downstairs works at all.
     // A stunned fighter's guard is down, which is what makes a knockdown a
     // real turning point rather than a cosmetic pause.
-    const covered =
-      target.stunned <= 0 &&
-      ((target.guard === "high" && strike.zone.height === "head") ||
-        (target.guard === "low" && strike.zone.height === "body"));
+    const covered = guardCovers(d, strike);
 
     let damage = strike.damage * fatigue * this.rules.damageScale;
     damage *= attacker.attrs.power;

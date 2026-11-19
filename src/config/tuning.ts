@@ -182,6 +182,31 @@ export const SMOOTHING_DEFAULTS = {
 };
 
 /**
+ * The filter in front of strike resolution, separate from SMOOTHING_DEFAULTS.
+ *
+ * Two reasons it is its own filter. First, lag: the display filter passes
+ * about 30% of each new sample at 19 FPS, so a fast punch is attenuated before
+ * resolution sees it - on synthetic straights thrown down the lens, 0 of 40
+ * registered through it. Second, the display filter is auto-tuned by the
+ * tracking monitor, and nothing that decides whether a punch landed may be
+ * auto-tuned. This one is fixed.
+ *
+ * Unfiltered is not the answer either: foreshortening amplifies landmark
+ * jitter when an arm is near full length, and on noisy synthetic input the
+ * raw pose fired from a still guard. Units are normalized image coordinates
+ * per second, so a low `minCutoff` holds a still guard down while a high
+ * `beta` opens the filter almost fully once anything moves at punch speed.
+ * Chosen by sweep (src/perception/hitRegistration.test.ts pins the result):
+ * 95-100% of synthetic straights and hooks at 19 and 30 FPS, no false strikes
+ * from a still guard, a guard adjustment or a slow reach.
+ */
+export const STRIKE_SMOOTHING = {
+  minCutoff: 2.0,
+  beta: 20,
+  dCutoff: 1.0,
+} as const;
+
+/**
  * Punch detection and classification (Milestone 1, Approach A).
  *
  * All distances are **torso-normalized**: 1.0 means one shoulder-to-hip
@@ -513,9 +538,76 @@ export const STRIKE_CONFIG = {
    */
   depthReachWeight: 0.8,
 
-  /** Fist speed floor, torso-widths per second. Stops a slow reach forward -
-   * adjusting your guard, scratching your nose - registering as a punch. */
-  minStrikeSpeed: 1.2,
+  /**
+   * Fist speed floor, torso-widths per second. Stops a slow reach forward -
+   * adjusting your guard, scratching your nose - registering as a punch.
+   *
+   * Raised from 1.2 when speed gained its out-of-plane component
+   * (depthSpeedWeight), which makes every reading larger. The margin is
+   * narrower than it looks, because the gate is read as the fist crosses the
+   * threshold, late in its travel where it is already slowing: in
+   * hitRegistration.test.ts 1.2 let a noisy 900ms reach through and 1.6
+   * started rejecting real straights. Revisit against recorded punches.
+   */
+  minStrikeSpeed: 1.4,
+
+  /**
+   * How much the fist's out-of-plane speed counts toward the speed gate,
+   * relative to its on-screen speed.
+   *
+   * The gate used to read on-screen speed only, which is blind along exactly
+   * the axis a straight punch travels: thrown down the lens, the wrist barely
+   * moves on screen, so a committed cross could reach full extension and still
+   * fail the gate as "too slow". Measured on synthetic straights at 19 FPS,
+   * that alone cost 20-50% of them. Below depthReachWeight because
+   * foreshortening is the noisier signal and its derivative noisier still: at
+   * 0.8 a noisy 900ms reach forward started passing the gate, at 0.5 it did
+   * not, and straights were registered just as often.
+   */
+  depthSpeedWeight: 0.5,
+
+  /**
+   * Span the fist's speed is measured over, ms.
+   *
+   * Speed was the displacement between two consecutive samples, ~50ms apart
+   * at 19 FPS, and dividing landmark jitter by an interval that short made
+   * the speed gate mostly a noise detector: in a noisy synthetic run a 900ms
+   * reach forward - nowhere near a punch - passed it more often than not.
+   * Measured across a window that holds two intervals at 19 FPS and three at
+   * 30, the jitter term halves while a real punch, whose outward travel takes
+   * 100-200ms, keeps nearly all of its speed.
+   */
+  speedWindowMs: 120,
+
+  /**
+   * Consecutive samples a longer arm-segment reading must hold before it may
+   * raise that arm's learned full length.
+   *
+   * The learned length only ever grows, so a single mis-tracked frame (an
+   * elbow snapping onto the hip for one sample) used to raise it permanently -
+   * after which every real punch read as foreshortened by less than it was,
+   * and stopped reaching the threshold for the rest of the session. The
+   * minimum over this many samples is what is allowed to raise it.
+   */
+  spanConfirmFrames: 3,
+  /** Ceiling on a learned segment length, as a multiple of its anthropometric
+   *  seed. Generous - real arms vary - but finite, so a sustained tracking
+   *  fault cannot make the reference arbitrarily long. */
+  spanMaxGrowth: 1.5,
+
+  /**
+   * Pose samples a strike may wait after crossing the threshold for the fist
+   * to reach its peak, before it resolves anyway. 0 resolves on the crossing.
+   *
+   * Power is "how far past the threshold the punch got". Measured on the
+   * crossing frame, that is mostly a measure of where in the punch the camera
+   * happened to sample: synthetic hooks at 19 FPS read 0.89 +/- 0.16 power
+   * depending on frame phase, against 1.00 +/- 0.00 with one sample of latch.
+   * Counted in samples rather than ms so the cost is exactly one pose frame at
+   * any rate - two (measured, at 70ms) was ~100ms of visible delay. The strike
+   * is still timestamped at the interpolated crossing.
+   */
+  peakLatchSamples: 1,
 
   /** Minimum gap between strikes from the same hand, ms. A fast double jab is
    * around 250ms, so this must stay below that or it eats real punches. */
@@ -838,6 +930,20 @@ export const FIGHT_CONFIG = {
   /** Stamina the blocker spends per point of damage absorbed. The other half
    *  of why a permanent high guard is not a winning strategy. */
   blockStaminaCost: 0.9,
+
+  /**
+   * Furthest back, ms, a player's strike is judged against the opponent's
+   * defence as it was when the punch was thrown, rather than as it is when
+   * the strike reaches the fight loop.
+   *
+   * A strike arrives late by construction: inference (~36ms), one sample of
+   * peak latch (~50ms at 19 FPS) and up to a fight tick - ~100ms in all, which
+   * is longer than a CPU slip takes to start. Judging against "now" meant a
+   * clean shot at an open head could be scored as slipped because the CPU
+   * began moving after the punch had already arrived. Capped so a stalled
+   * pipeline cannot rewind the fight arbitrarily.
+   */
+  maxRewindMs: 150,
 
   /** Seconds of stun per point of unblocked damage. */
   stunSecondsPerDamage: 0.03,

@@ -96,6 +96,7 @@ export default function App() {
   const {
     poseRef,
     rawPoseRef,
+    subscribeStrikePose,
     frameIntervalStats,
     inferenceStats,
     poseFoundRatio,
@@ -131,7 +132,7 @@ export default function App() {
   // Strike resolution. One resolver, shared by the dummy drill, the fight
   // simulation and the renderer - see useDummyTraining on why a second one
   // would drift.
-  const strike = useStrikeTraining(poseRef, onDummy || inFight);
+  const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight);
 
   const training = useDummyTraining({
     enabled: onDummy,

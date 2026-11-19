@@ -1,8 +1,10 @@
 import { ImpactLog, impactKind, impactPower } from "./impactFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  DefenceHistory,
   FightSim,
   evasionFromBody,
+  guardCovers,
   guardFromBody,
   type FightEvent,
   type FightPhase,
@@ -382,6 +384,9 @@ export function useFight(options: UseFightOptions) {
      * is not a live read and should not be described as one.
      */
     let lastSide: "left" | "right" | null = null;
+    /** The opponent's recent defence, so each player strike is judged against
+     *  the defence that was up when it was thrown - see DefenceHistory. */
+    const opponentDefence = new DefenceHistory();
     const unsubscribeStrikes = subscribe((s) => {
       inbox.push(s);
       // `lane` is the puncher's right/left; the CPU's own frame is mirrored.
@@ -405,15 +410,13 @@ export function useFight(options: UseFightOptions) {
 
       // --- Player strikes ------------------------------------------------
       for (const strike of inbox) {
-        // Read the guard before applying, or a hit that drops the opponent's
+        // Read the defence before applying, or a hit that drops the opponent's
         // guard would be reported as having got through a guard that was up
-        // when it was thrown.
-        const guard = sim.fighters[OPPONENT].guard;
-        const blocked =
-          guard !== "none" &&
-          ((guard === "high" && strike.zone.height === "head") ||
-            (guard === "low" && strike.zone.height === "body"));
-        sim.applyStrike(PLAYER, strike);
+        // when it was thrown. And read it as of the throw, not as of now.
+        const defence =
+          opponentDefence.at(strike.timestamp, now) ?? sim.fighters[OPPONENT];
+        const blocked = guardCovers(defence, strike);
+        sim.applyStrike(PLAYER, strike, defence);
         audioRef.current?.play(strike, { blocked });
         if (!blocked && strike.damage > 0.9) ai.onHurt(0.45);
       }
@@ -497,6 +500,7 @@ export function useFight(options: UseFightOptions) {
       });
       if (intent.guard) sim.setGuard(OPPONENT, intent.guard);
       if (intent.evasion !== undefined) sim.setEvasion(OPPONENT, intent.evasion);
+      opponentDefence.record(now, me);
 
       // Republish the body. Guard and evasion are read back off the sim rather
       // than off the intent, because the sim has the last word - it refuses

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FilesetResolver,
   PoseLandmarker,
   type PoseLandmarkerResult,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
-import { DEBUG_CONFIG, POSE_CONFIG } from "../config/tuning";
+import { DEBUG_CONFIG, POSE_CONFIG, STRIKE_SMOOTHING } from "../config/tuning";
 import { ALL_POSE_KEYS, MP_LANDMARKS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { PoseSmoother } from "./smoothing";
 import { SkeletonSolver, type SkeletonDebug } from "./skeletonSolver";
@@ -132,6 +132,18 @@ export interface PoseTrackingHandle {
   trackingReportRef: React.RefObject<TrackingReport | null>;
   /** Latest unsmoothed pose, for side-by-side debug comparison only. */
   rawPoseRef: React.RefObject<PoseFrame | null>;
+  /**
+   * Delivers every pose sample meant for strike resolution, as it arrives.
+   *
+   * Two differences from `poseRef`, both about hits. It is filtered by a
+   * fixed, low-lag filter (STRIKE_SMOOTHING) instead of the display one,
+   * which lags a fast punch badly and is auto-tuned - and nothing that decides
+   * whether a punch landed may be auto-tuned. And it is pushed rather than
+   * polled: a consumer reading a ref once per animation frame misses every
+   * sample that arrives while a frame is late, and a late frame is exactly
+   * what a busy exchange produces. Returns an unsubscribe.
+   */
+  subscribeStrikePose: (cb: (pose: PoseFrame) => void) => () => void;
   /** Interval between completed inferences (ms) - the effective pose sample rate. */
   frameIntervalStats: RollingStats;
   /** Wall-clock cost of a single detectForVideo call (ms). */
@@ -171,6 +183,11 @@ export function usePoseTracking(
   // Held across both inference paths so the render loop can sample it at 60 Hz
   // independently of whichever path is producing poses.
   const predictorRef = useRef(new PosePredictor());
+  // Never handed to the tracking monitor's setScale - see subscribeStrikePose.
+  const strikeSmootherRef = useRef(
+    new PoseSmoother(STRIKE_SMOOTHING.minCutoff, STRIKE_SMOOTHING.beta, STRIKE_SMOOTHING.dCutoff)
+  );
+  const strikeListeners = useRef(new Set<(pose: PoseFrame) => void>()).current;
 
   const frameIntervalStats = useRef(
     new RollingStats(DEBUG_CONFIG.perfWindowSize)
@@ -216,12 +233,16 @@ export function usePoseTracking(
     // anatomically valid skeletons, and the projection step's own small
     // discontinuities get smoothed out for free.
     let processed: PoseFrame | null = null;
+    let forStrikes: PoseFrame | null = null;
     if (raw) {
       const constrained =
         solver && POSE_CONFIG.useConstraints ? solver.update(raw) : raw;
       processed = smoother.smooth(constrained);
+      forStrikes = strikeSmootherRef.current.smooth(constrained);
     }
     poseRef.current = processed;
+    // After poseRef is set, so a listener that also reads it sees this sample.
+    if (forStrikes) for (const cb of strikeListeners) cb(forStrikes);
 
     if (processed) predictorRef.current.ingest(processed);
 
@@ -285,6 +306,7 @@ export function usePoseTracking(
     const roi = new RoiTracker();
     const cropper = POSE_CONFIG.useRoi ? new CropCanvas() : null;
     predictorRef.current.reset();
+    strikeSmootherRef.current.reset();
 
     async function createLandmarker(
       resolver: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>,
@@ -467,6 +489,7 @@ export function usePoseTracking(
     let inFlight = false;
     const lastEnd = { current: 0 };
     const smoother = new PoseSmoother();
+    strikeSmootherRef.current.reset();
 
     // Vite's `?worker` import respects the `worker.format: "iife"` config, so
     // this is a classic worker - required for MediaPipe's importScripts-based
@@ -560,6 +583,17 @@ export function usePoseTracking(
     };
   }, [videoRef, enabled]);
 
+  // Stable identity, so a consumer's effect does not re-subscribe every render.
+  const subscribeStrikePose = useCallback(
+    (cb: (pose: PoseFrame) => void) => {
+      strikeListeners.add(cb);
+      return () => {
+        strikeListeners.delete(cb);
+      };
+    },
+    [strikeListeners]
+  );
+
   const resetStats = () => {
     frameIntervalStats.reset();
     inferenceStats.reset();
@@ -586,6 +620,7 @@ export function usePoseTracking(
   return {
     poseRef,
     rawPoseRef,
+    subscribeStrikePose,
     predictedPoseRef,
     samplePredicted,
     pipelineDebugRef,

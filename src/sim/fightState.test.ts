@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  DefenceHistory,
   FightSim,
+  guardCovers,
   evasionFromBody,
   guardFromBody,
   type FightEvent,
@@ -571,5 +573,73 @@ describe("the player's guard", () => {
     low.applyStrike("o", hit(0, 0.6, 1));
     // Hands at the chin do nothing about a dig to the body; forearms do.
     expect(100 - low.fighters.p.health).toBeLessThan(100 - high.fighters.p.health);
+  });
+});
+
+describe("lag compensation", () => {
+  // A head-height straight. A duck gets under it, so whether it lands depends
+  // only on whether the target was ducking - the case lag compensation is for.
+  const jab = () => ({ ...hit(0, 1.35), timestamp: 1000 });
+  const events = (s: FightSim) => {
+    const seen: FightEvent["type"][] = [];
+    s.on((e) => seen.push(e.type));
+    return seen;
+  };
+
+  it("judges a strike against the defence when it was thrown, not now", () => {
+    const history = new DefenceHistory();
+    const s = sim();
+    const seen = events(s);
+    // Open at the throw; ducking by the time the strike reaches the loop.
+    s.fighters.o.guard = "none";
+    history.record(990, s.fighters.o);
+    s.setEvasion("o", "duck");
+    history.record(1060, s.fighters.o);
+
+    s.applyStrike("p", jab(), history.at(1000, 1080) ?? undefined);
+    expect(seen).toContain("land");
+    expect(seen).not.toContain("miss");
+  });
+
+  it("still credits a defence that was already up when the punch was thrown", () => {
+    const history = new DefenceHistory();
+    const s = sim();
+    const seen = events(s);
+    s.fighters.o.guard = "none";
+    s.setEvasion("o", "duck");
+    history.record(990, s.fighters.o);
+    // Came out of the duck after the punch was thrown - too late to matter.
+    s.setEvasion("o", "none");
+    history.record(1060, s.fighters.o);
+
+    s.applyStrike("p", jab(), history.at(1000, 1080) ?? undefined);
+    expect(seen).toContain("miss");
+  });
+
+  it("never rewinds further than the cap", () => {
+    const history = new DefenceHistory();
+    const open = { guard: "none" as const, evasion: "none" as const, stunned: 0 };
+    const ducked = { ...open, evasion: "duck" as const };
+    history.record(0, open);
+    history.record(1000 - FIGHT_CONFIG.maxRewindMs - 10, ducked);
+    // A strike stamped long ago - a stalled pipeline - is judged at the cap,
+    // not against the defence from back when it claims to have been thrown.
+    expect(history.at(0, 1000)?.evasion).toBe("duck");
+  });
+
+  it("returns nothing when no defence that old was recorded", () => {
+    const history = new DefenceHistory();
+    history.record(1000, { guard: "high", evasion: "none", stunned: 0 });
+    expect(history.at(990, 1000)).toBeNull();
+  });
+
+  it("shares one definition of a covering guard with the sim", () => {
+    const head = hit(0, 1.35);
+    const body = hit(0, 0.5);
+    expect(guardCovers({ guard: "high", evasion: "none", stunned: 0 }, head)).toBe(true);
+    expect(guardCovers({ guard: "high", evasion: "none", stunned: 0 }, body)).toBe(false);
+    expect(guardCovers({ guard: "low", evasion: "none", stunned: 0 }, body)).toBe(true);
+    // A stunned fighter's guard is down whatever their hands say.
+    expect(guardCovers({ guard: "high", evasion: "none", stunned: 1 }, head)).toBe(false);
   });
 });

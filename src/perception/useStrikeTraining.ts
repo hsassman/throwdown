@@ -6,13 +6,16 @@ import {
   type StrikeEvent,
 } from "./strikeResolver";
 
-// Runs the training-mode strike resolver off the pose stream.
+// Runs the strike resolver off the pose stream.
 //
-// Structured like usePunchDetection: its own rAF loop reading poseRef, so
-// perception stays decoupled from inference and nothing here depends on where
-// the pose came from. Landed strikes go into a queue the render layer drains,
-// rather than through React state - at pose rate a state update per strike
-// would re-render the tree in the middle of a combination.
+// Subscribed to the pose layer's strike stream rather than polling a ref once
+// per animation frame. Polling dropped every sample that arrived while a
+// frame was late - under load, in the middle of an exchange - and a punch is
+// only two or three samples long at 19 FPS, so one dropped sample could be the
+// whole strike. Nothing here depends on where the pose came from. Landed
+// strikes go into a queue the render layer drains, rather than through React
+// state - at pose rate a state update per strike would re-render the tree in
+// the middle of a combination.
 
 export interface StrikeTrainingHandle {
   /** Queue of strikes the renderer has not yet played. Drained by the caller. */
@@ -37,7 +40,8 @@ export interface StrikeTrainingHandle {
 }
 
 export function useStrikeTraining(
-  poseRef: React.RefObject<PoseFrame | null>,
+  /** Usually `usePoseTracking().subscribeStrikePose`. Must be stable. */
+  subscribePose: (cb: (pose: PoseFrame) => void) => () => void,
   enabled: boolean
 ): StrikeTrainingHandle {
   const resolverRef = useRef<StrikeResolver | null>(null);
@@ -54,17 +58,12 @@ export function useStrikeTraining(
     // object is stable, but reading through it at teardown is the pattern that
     // silently breaks when a ref is ever reassigned.
     const queue = strikeQueueRef.current;
-    let rafId = 0;
     let lastTimestamp = -1;
 
-    const tick = () => {
-      rafId = requestAnimationFrame(tick);
-      const pose = poseRef.current;
-      // Only act on genuinely new samples. The pose stream updates at ~15 FPS
-      // while this loop runs at ~60, and re-feeding the same frame would let
-      // one extension cross the threshold on four consecutive iterations with
-      // a stale speed reading.
-      if (!pose || pose.timestamp === lastTimestamp) return;
+    const unsubscribe = subscribePose((pose) => {
+      // The pose layer delivers each sample once; this guards only against a
+      // non-monotonic clock, which would fabricate negative-time motion.
+      if (pose.timestamp <= lastTimestamp) return;
       lastTimestamp = pose.timestamp;
 
       const strikes = resolver.update(pose);
@@ -73,17 +72,16 @@ export function useStrikeTraining(
         queue.push(...strikes);
         setLastStrike(strikes[strikes.length - 1]);
       }
-    };
-    tick();
+    });
 
     return () => {
-      cancelAnimationFrame(rafId);
+      unsubscribe();
       // Leaving training mode must not leave a half-extended arm latched, or
       // re-entering would register a strike the player never threw.
       resolver.reset();
       queue.length = 0;
     };
-  }, [poseRef, enabled]);
+  }, [subscribePose, enabled]);
 
   // Stable identity, so a consumer's effect does not re-subscribe every render.
   const subscribe = useCallback(
