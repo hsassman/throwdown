@@ -72,6 +72,67 @@ export function shakeFor(impact: Pick<Impact, "kind" | "power">): { amplitude: n
 }
 
 /**
+ * Hit-stop: how long the struck figure freezes when a punch lands, seconds.
+ *
+ * The standard trick fighting games use to make contact read as contact - a
+ * few frames where the struck figure holds still sell the weight of the blow
+ * better than any amount of recoil. Scaled with power, and zero for anything
+ * that did not land: a frozen frame on a blocked jab would read as lag.
+ */
+export function hitStopFor(impact: Pick<Impact, "kind" | "power">): number {
+  if (impact.kind !== "landed" && impact.kind !== "taken") return 0;
+  if (impact.power < 0.45) return 0;
+  return 0.03 + 0.06 * impact.power;
+}
+
+/**
+ * A playback rate for the fight's figures, for hit-stop and the slow-motion
+ * knockdown.
+ *
+ * Render time only. The simulation, the round clock and hit detection all
+ * keep running in real time - this changes how fast the bodies are drawn
+ * moving, never what happened. The player's own figure is not slowed either:
+ * it follows the player's real body, and freezing it would feel exactly like
+ * input lag.
+ */
+export class TimeWarp {
+  private stopUntil = -Infinity;
+  private slowFrom = -Infinity;
+  private slowUntil = -Infinity;
+  private slowRate = 1;
+
+  /** Freezes the figures for `seconds` from `now` (ms). A longer stop
+   *  already running is not cut short. */
+  hitStop(now: number, seconds: number): void {
+    if (seconds <= 0) return;
+    this.stopUntil = Math.max(this.stopUntil, now + seconds * 1000);
+  }
+
+  /** Plays the figures at `rate` for `seconds`, easing back to full speed
+   *  over the last third so the return is not a jolt. */
+  slowMotion(now: number, seconds: number, rate: number): void {
+    this.slowFrom = now;
+    this.slowUntil = now + seconds * 1000;
+    this.slowRate = Math.min(1, Math.max(0.05, rate));
+  }
+
+  /** The playback rate at `now` (ms): 0 frozen, 1 real time. */
+  rate(now: number): number {
+    if (now < this.stopUntil) return 0;
+    if (now >= this.slowUntil) return 1;
+    const span = this.slowUntil - this.slowFrom;
+    const easeStart = this.slowUntil - span / 3;
+    if (now < easeStart) return this.slowRate;
+    const u = (now - easeStart) / (this.slowUntil - easeStart);
+    return this.slowRate + (1 - this.slowRate) * u;
+  }
+
+  reset(): void {
+    this.stopUntil = this.slowFrom = this.slowUntil = -Infinity;
+  }
+}
+
+/**
  * The camera offset at time `t` seconds into a shake. A decaying wobble on
  * two axes, deterministic for a given seed so it is testable and two shakes in
  * a row don't look identical.
@@ -121,6 +182,27 @@ export function popupFor(impact: Pick<Impact, "kind" | "power">): Popup | null {
 /** Keeps the most recent impacts for any number of readers. Readers keep
  *  the last `seq` they handled and ask for anything newer, so the camera and
  *  the HUD can both see every impact without draining each other's queue. */
+/**
+ * Rows, top offsets in % of the view, nearest the fighters first. 14% apart:
+ * the largest word is up to 80px tall, and at 9% apart a "HARD!" still
+ * clipped the "BLOCKED" under it on a 540px-high view. All below the fight
+ * HUD - a row at 22% put words over the round clock.
+ */
+export const POPUP_LANES = [38, 52, 66];
+
+/**
+ * The first row no live word is using.
+ *
+ * Words used to be spread by a hash of their sequence number alone, which put
+ * consecutive words a few vw apart - and "BLOCKED" followed 80ms later by
+ * "HIT" printed as one unreadable "HITCKED", in nearly every exchange. A row
+ * per live word cannot collide, however close together they arrive.
+ */
+export function freeLane(taken: number[]): number {
+  for (let i = 0; i < POPUP_LANES.length; i++) if (!taken.includes(i)) return i;
+  return 0;
+}
+
 export class ImpactLog {
   private items: Impact[] = [];
   private next = 1;

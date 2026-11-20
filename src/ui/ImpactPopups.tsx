@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { popupFor, type ImpactLog, type Popup } from "../sim/impactFeedback";
+import { POPUP_LANES as LANES, freeLane, popupFor, type ImpactLog, type Popup } from "../sim/impactFeedback";
 import "./impactPopups.css";
 
 // Words over the fight when a punch lands, is blocked or is slipped, and a
@@ -12,9 +12,12 @@ import "./impactPopups.css";
 
 interface Shown extends Popup {
   id: number;
-  /** Slight horizontal spread so quick combinations don't stack exactly. */
+  /** Slight horizontal spread, so a combination reads as several words. */
   x: number;
+  /** Which row the word sits in - see `freeLane`. */
+  lane: number;
 }
+
 
 const LIFETIME_MS = 700;
 
@@ -26,6 +29,9 @@ export function ImpactPopups({ logRef }: { logRef: React.RefObject<ImpactLog> })
   useEffect(() => {
     let raf = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    /** The words on screen, kept here so lanes are assigned outside React's
+     *  state updaters, which must stay free of side effects. */
+    let live: Shown[] = [];
     const tick = () => {
       const fresh = logRef.current?.since(lastSeq.current) ?? [];
       for (const imp of fresh) {
@@ -37,9 +43,22 @@ export function ImpactPopups({ logRef }: { logRef: React.RefObject<ImpactLog> })
         }
         const p = popupFor(imp);
         if (!p) continue;
-        const item: Shown = { ...p, id: imp.seq, x: ((imp.seq * 37) % 21) - 10 };
-        setShown((s) => [...s.slice(-3), item]);
-        timers.push(setTimeout(() => setShown((s) => s.filter((x) => x.id !== item.id)), LIFETIME_MS));
+        // At most one word per lane is alive; the oldest gives way.
+        if (live.length >= LANES.length) live.shift();
+        const item: Shown = {
+          ...p,
+          id: imp.seq,
+          x: ((imp.seq * 37) % 13) - 6,
+          lane: freeLane(live.map((w) => w.lane)),
+        };
+        live.push(item);
+        setShown([...live]);
+        timers.push(
+          setTimeout(() => {
+            live = live.filter((w) => w.id !== item.id);
+            setShown([...live]);
+          }, LIFETIME_MS)
+        );
       }
       raf = requestAnimationFrame(tick);
     };
@@ -57,7 +76,7 @@ export function ImpactPopups({ logRef }: { logRef: React.RefObject<ImpactLog> })
         <span
           key={p.id}
           className={`impact-word impact-${p.tone} impact-size-${p.size}`}
-          style={{ left: `calc(50% + ${p.x}vw)` }}
+          style={{ left: `calc(50% + ${p.x}vw)`, top: `${LANES[p.lane]}%` }}
         >
           {p.text}
         </span>

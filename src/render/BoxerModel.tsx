@@ -1,4 +1,4 @@
-import { ImpactLog, shakeFor, shakeOffset } from "../sim/impactFeedback";
+import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -30,10 +30,12 @@ import {
   KIT_ROUGHNESS,
   RENDER_CONFIG,
   TARGET_CONFIG,
+  KNOCKDOWN_ANIM,
 } from "../config/tuning";
 import { findBodyMesh } from "./findBodyMesh";
 import { buildArenaLighting, buildOctagon } from "./arena/Octagon";
 import { buildRing } from "./arena/Ring";
+import { buildCrowd, type Crowd } from "./arena/crowd";
 import { RING, platformHalfSpan } from "./arena/ringSpec";
 import { OCTAGON } from "./arena/octagonSpec";
 import type { StageId } from "./ArenaView";
@@ -400,6 +402,9 @@ export function BoxerModel({
     // Camera kick state (see the hit-feedback block in tick()).
     let lastImpactSeq = impactHolder.current?.current?.since(0).at(-1)?.seq ?? 0;
     let shake: { amplitude: number; duration: number; start: number; seed: number } | null = null;
+    /** Hit-stop and the slow-motion knockdown. See TimeWarp: render time
+     *  only, and never applied to the player's own figure. */
+    const warp = new TimeWarp();
     const reduceMotion =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -457,6 +462,7 @@ export function BoxerModel({
     let arenaRadius = FALLBACK_ARENA_RADIUS;
     let arenaLighting: { group: THREE.Group; dispose(): void } | null = null;
     let hallFloor: THREE.Mesh | null = null;
+    let crowd: Crowd | null = null;
     if (venue) {
       arenaRadius = "radius" in venue ? venue.radius : platformHalfSpan();
       venue.group.position.z = TARGET_CONFIG.distance / 2;
@@ -483,6 +489,11 @@ export function BoxerModel({
       hallFloor.position.set(0, -(stage === "ring" ? RING.platformHeight : OCTAGON.platformHeight), TARGET_CONFIG.distance / 2);
       hallFloor.receiveShadow = true;
       scene.add(hallFloor);
+
+      // The people in the dark around it.
+      crowd = buildCrowd(arenaRadius, hallFloor.position.y, !reduceMotion);
+      crowd.group.position.z = TARGET_CONFIG.distance / 2;
+      scene.add(crowd.group);
 
       // Everything past the far fence falls away into black, so the cage reads
       // as standing in a dark hall rather than floating.
@@ -1076,6 +1087,12 @@ export function BoxerModel({
 
       if (events && events.length > 0) {
         for (const e of events.splice(0, events.length)) {
+          // A knockdown plays out in slow motion while the director cuts to
+          // it - the moment the fight turns, given time to land.
+          if (e.type === "knockdown") crowd?.burst();
+          if (e.type === "knockdown" && !reduceMotion) {
+            warp.slowMotion(performance.now(), KNOCKDOWN_ANIM.slowMotionSeconds, KNOCKDOWN_ANIM.slowMotionRate);
+          }
           const shot = shotFor(e);
           if (!shot) continue;
           director.cut(shot, true);
@@ -1157,6 +1174,25 @@ export function BoxerModel({
       // Nothing to show while hidden, and every frame skipped here is GPU time
       // handed back to inference.
       if (document.hidden) return;
+
+      // Hit feedback is read first, before anything moves, so a hit-stop
+      // freezes the very frame the blow lands on rather than one frame after
+      // the recoil has already started.
+      const log = impactHolder.current?.current;
+      if (log) {
+        for (const imp of log.since(lastImpactSeq)) {
+          lastImpactSeq = imp.seq;
+          const s = shakeFor(imp);
+          if (s.amplitude > 0 && !reduceMotion) {
+            shake = { ...s, start: imp.at, seed: imp.seq };
+          }
+          warp.hitStop(imp.at, hitStopFor(imp));
+        }
+      }
+      /** Time step for the opponent and the hit reaction: frozen during a
+       *  hit-stop, slowed through a knockdown, real time otherwise. */
+      const figureDt = dt * warp.rate(now);
+      crowd?.update(dt);
 
       // Adaptive resolution. Only reacts to sustained pressure, so a one-off
       // hitch (a GC pause, the model finishing its load) can't permanently
@@ -1323,7 +1359,7 @@ export function BoxerModel({
           }
         }
         if (opponentRoot?.visible) {
-          target.update(dt);
+          target.update(figureDt);
           targetSkin?.update(dt);
           faces.get(opponentRoot)?.update(dt);
         }
@@ -1399,7 +1435,7 @@ export function BoxerModel({
             driverRef.current?.flinch(strike);
           }
         }
-        opponentAnim.update(dt, opponentHolder.current?.current ?? IDLE_OPPONENT);
+        opponentAnim.update(figureDt, opponentHolder.current?.current ?? IDLE_OPPONENT);
       }
 
       // The player's own condition. Until this line a clean right hand put the
@@ -1426,16 +1462,6 @@ export function BoxerModel({
       // offset is added just for this frame's render and taken off again, so
       // it never accumulates into the camera's real placement or fights the
       // orbit controls and the director.
-      const log = impactHolder.current?.current;
-      if (log) {
-        for (const imp of log.since(lastImpactSeq)) {
-          lastImpactSeq = imp.seq;
-          const s = shakeFor(imp);
-          if (s.amplitude > 0 && !reduceMotion) {
-            shake = { ...s, start: imp.at, seed: imp.seq };
-          }
-        }
-      }
       let kick: { x: number; y: number } | null = null;
       if (shake) {
         kick = shakeOffset(
@@ -1481,6 +1507,7 @@ export function BoxerModel({
       // times over. The builders track each resource once.
       venue?.dispose();
       arenaLighting?.dispose();
+      crowd?.dispose();
       if (hallFloor) {
         hallFloor.geometry.dispose();
         (hallFloor.material as THREE.Material).dispose();

@@ -29,12 +29,13 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (742). |
+| `npm test` | Web unit tests (755). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
 | `node tools/fake-player.mjs` | Renders the game's boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
+| `node tools/fight-burst.mjs` | Screenshots a live CPU fight with the fake player as the camera, for reviewing how it looks. |
 | `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight with the fake player as the camera: pose rate, render fps, main-thread long tasks. No person needed. |
 
 The smoke run needs `npm run preview` in another terminal.
@@ -115,12 +116,27 @@ It is **not rollback netcode** and does not pretend to be: no prediction, no
 reconciliation, so the guest sees the fight about one round trip late. Fine on
 a LAN, unmeasured over anything slower.
 
+### Feel
+
+A landed power shot freezes the struck figure for 30-90 ms (hit-stop), and a
+knockdown plays out in slow motion while the camera cuts to it. Both are render
+time only: the round clock, the simulation and hit detection never slow down,
+and the player's own figure is never frozen, because it follows their real body
+and freezing it would feel like input lag. Words over the fight each get their
+own row, so a fast exchange stays readable.
+
+The fighters can no longer stand closer than their guards allow. The minimum
+gap is set from the rig itself (glove front plus face front, in a high guard)
+and a test re-measures it against the shipped model.
+
 ### Stages
 
 A regulation **octagon** (30 feet across the flats, derived from the 750 sq ft
 floor figure rather than guessed) and a championship **boxing ring** (20 feet
 inside the ropes, four ropes, corner posts). Both are procedural - no asset to
-licence, and both rescale from a single number.
+licence, and both rescale from a single number. A seated crowd fills the dark
+around them: silhouettes in one instanced draw, with camera flashes that burst
+on a knockdown (off under reduced motion).
 
 ---
 

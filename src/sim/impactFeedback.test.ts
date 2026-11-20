@@ -6,6 +6,10 @@ import {
   popupFor,
   shakeFor,
   shakeOffset,
+  freeLane,
+  hitStopFor,
+  TimeWarp,
+  POPUP_LANES,
 } from "./impactFeedback";
 import type { FightEvent } from "./fightState";
 
@@ -89,5 +93,60 @@ describe("ImpactLog", () => {
     const log = new ImpactLog();
     for (let i = 0; i < 100; i++) log.push("landed", 0.5, i);
     expect(log.since(0)).toHaveLength(16);
+  });
+});
+
+describe("popup lanes", () => {
+  it("never puts two live words in the same row", () => {
+    const taken: number[] = [];
+    for (let i = 0; i < POPUP_LANES.length; i++) taken.push(freeLane(taken));
+    expect(new Set(taken).size).toBe(POPUP_LANES.length);
+  });
+
+  it("reuses a row once its word has gone", () => {
+    expect(freeLane([1, 2])).toBe(0);
+    expect(freeLane([0, 2])).toBe(1);
+  });
+});
+
+describe("hit-stop and slow motion", () => {
+  it("freezes only on punches that landed with some weight", () => {
+    expect(hitStopFor({ kind: "landed", power: 0.9 })).toBeGreaterThan(0);
+    expect(hitStopFor({ kind: "taken", power: 0.9 })).toBeGreaterThan(0);
+    expect(hitStopFor({ kind: "landed", power: 0.2 })).toBe(0);
+    expect(hitStopFor({ kind: "blocked", power: 1 })).toBe(0);
+    expect(hitStopFor({ kind: "evaded", power: 1 })).toBe(0);
+  });
+
+  it("freezes harder the harder the punch, and never for long", () => {
+    const big = hitStopFor({ kind: "landed", power: 1 });
+    expect(big).toBeGreaterThan(hitStopFor({ kind: "landed", power: 0.5 }));
+    // Past ~100ms a freeze stops reading as impact and starts reading as lag.
+    expect(big).toBeLessThanOrEqual(0.1);
+  });
+
+  it("holds the figures still for the stop, then lets them go", () => {
+    const w = new TimeWarp();
+    w.hitStop(1000, 0.08);
+    expect(w.rate(1000)).toBe(0);
+    expect(w.rate(1079)).toBe(0);
+    expect(w.rate(1081)).toBe(1);
+  });
+
+  it("does not let a small stop cut a big one short", () => {
+    const w = new TimeWarp();
+    w.hitStop(1000, 0.09);
+    w.hitStop(1010, 0.03);
+    expect(w.rate(1080)).toBe(0);
+  });
+
+  it("slows down, then eases back to full speed rather than snapping", () => {
+    const w = new TimeWarp();
+    w.slowMotion(0, 0.9, 0.3);
+    expect(w.rate(100)).toBeCloseTo(0.3);
+    const easing = w.rate(800);
+    expect(easing).toBeGreaterThan(0.3);
+    expect(easing).toBeLessThan(1);
+    expect(w.rate(900)).toBe(1);
   });
 });

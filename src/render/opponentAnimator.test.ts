@@ -5,7 +5,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { OpponentAnimator, type OpponentVisualState } from "./opponentAnimator";
 import { TrainingTarget } from "./TrainingTarget";
-import { OPPONENT_ANIM } from "../config/tuning";
+import { FIGHT_GEOMETRY, OPPONENT_ANIM, RENDER_CONFIG, STRIKE_CONFIG } from "../config/tuning";
 import type { CpuStance } from "../sim/cpuOpponent";
 
 // Asserted against the real exported asset, not a mock.
@@ -672,5 +672,24 @@ describe("knockdowns and being hurt, in world space", () => {
       worst,
       `${(worst * 60).toFixed(2)} m/s against a free-fall ceiling of ${(terminal * 60).toFixed(2)}`
     ).toBeLessThan(terminal);
+  });
+});
+
+describe("contact", () => {
+  it("keeps the fighters far enough apart that a guard glove cannot enter a face", () => {
+    // The CPU's body may not come closer than clinchRange. At that gap, one
+    // fighter's high guard must stop short of the other's face - otherwise the
+    // closest legal position shows gloves through heads.
+    run(visual(), 1.5);
+    const root = figure.getWorldPosition(new THREE.Vector3());
+    // Turned to face the player at the origin, so forward is -Z.
+    const ahead = (p: THREE.Vector3) => root.z - p.z;
+    const gloveNose = STRIKE_CONFIG.gloveNoseReach * RENDER_CONFIG.rigTorsoWorldLength;
+    const gloveFront =
+      Math.max(ahead(anim.handWorld("left")), ahead(anim.handWorld("right"))) + gloveNose;
+    // The face sits about a head-radius in front of the head bone.
+    const faceFront = ahead(anim.headWorld()) + 0.09;
+    const closest = FIGHT_GEOMETRY.clinchRange * RENDER_CONFIG.rigTorsoWorldLength;
+    expect(gloveFront + faceFront).toBeLessThanOrEqual(closest);
   });
 });

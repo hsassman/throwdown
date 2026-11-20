@@ -781,6 +781,34 @@ export const ROI_CONFIG = {
 } as const;
 
 /**
+ * The crowd around the venue - see render/arena/crowd.ts. Silhouettes only:
+ * unlit, no shadows, one instanced draw, fading into the hall's fog.
+ */
+export const CROWD_CONFIG = {
+  rows: 7,
+  /** Gap between the venue's edge and the first row, world units. */
+  firstRowGap: 2.2,
+  /** Row-to-row spacing outward, and the rise of each row. */
+  rowDepth: 0.95,
+  rowRise: 0.42,
+  seatSpacing: 0.62,
+  emptySeatChance: 0.12,
+  /**
+   * Brightness range of the silhouettes, linear 0-1, before fog. Linear is
+   * the catch: through sRGB output and the arena's tone mapping, 0.16 came
+   * out as a pale grey crowd of ghosts. These read as people in the dark.
+   */
+  shadeMin: 0.012,
+  shadeMax: 0.045,
+  flashPool: 24,
+  flashSeconds: 0.18,
+  /** Ambient camera flashes per second across the whole crowd. */
+  flashesPerSecond: 2.2,
+  /** Flashes fired at once on a knockdown. */
+  burstFlashes: 14,
+} as const;
+
+/**
  * Monocular depth: Depth Anything V2 Small (Apache-2.0), run in the browser
  * with ONNX Runtime Web. See src/depth/.
  *
@@ -1142,6 +1170,14 @@ export const KNOCKDOWN_ANIM = {
    * rather than silently breaking it.
    */
   fallSeconds: 0.48,
+  /**
+   * The knockdown plays in slow motion for this long, seconds, at this
+   * playback rate, while the director cuts to it. Long enough to see the
+   * punch land and the legs go; short enough to be back at full speed before
+   * the count matters. Render time only - see TimeWarp.
+   */
+  slowMotionSeconds: 1.1,
+  slowMotionRate: 0.3,
   /** Seconds to get back up. Much slower than going down, which is the whole
    *  difference between being knocked down and lying down. */
   riseSeconds: 0.95,
@@ -1514,9 +1550,21 @@ export const FIGHT_GEOMETRY = {
    */
   preferredRange: NEUTRAL_RANGE * 1.22,
 
-  /** Inside this the fighters are on top of each other. Nobody fights from
-   *  inside their own guard, so the CPU backs out. */
-  clinchRange: NEUTRAL_RANGE * 0.55,
+  /**
+   * Inside this the fighters are on top of each other. Nobody fights from
+   * inside their own guard, so the CPU backs out - and the CPU's body may not
+   * come closer than this at all (see the ceiling in cpuOpponent.ts).
+   *
+   * Set by what the figures actually occupy, not by feel. Measured off the
+   * rig in a high guard: the wrist sits 0.31 world units in front of the body,
+   * the glove's nose 0.18 beyond it, and the face ~0.21 in front of the body.
+   * So the gap at which one fighter's guard glove reaches the other's face is
+   * ~0.70 world units, 1.48 torso units, 0.89 of neutral. This was 0.55 -
+   * 0.43 world units, where each glove sat behind the other fighter's face,
+   * and in play the gloves visibly went through heads whenever the CPU closed
+   * in. opponentAnimator.test.ts re-measures it against the shipped rig.
+   */
+  clinchRange: NEUTRAL_RANGE * 0.9,
 } as const;
 
 /**
