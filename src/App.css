@@ -752,6 +752,11 @@ summary:focus-visible,
   /* Portrait phone: give the character most of the screen height, and shrink
      the webcam inset so it doesn't cover the character's hands. */
   .app-boxer .stage {
+    /* Explicit, not auto: in this column layout an auto width shrinks to the
+       content, and everything in the stage is absolutely positioned - so it
+       collapsed to 0px, with the character and the webcam inset invisible on
+       every phone screen that has a panel (dummy, career, connecting). */
+    width: 100%;
     height: min(62vh, 560px);
     flex: 1 1 auto;
   }
@@ -762,7 +767,35 @@ summary:focus-visible,
     bottom: 8px;
   }
 
+  /* Connecting (Same Network, Online): the codes, the "Find a match" button
+     and the leaderboard come first, with the Menu button at the top. The
+     stage drops below as a short strip - still there, so a player can see
+     their tracking is alive while they wait, but no longer two thirds of the
+     screen of empty arena that pushed every control below the fold. */
+  .app-connect .panel {
+    order: -1;
+  }
+
+  .app-connect .stage {
+    height: min(34vh, 300px);
+    flex: 0 0 auto;
+  }
+
+  .app-connect .cam-inset {
+    width: 26%;
+  }
+
+  /* The live body readout is for checking tracking with the character in
+     view; here it only stood between the controls and the preview strip. */
+  .app-connect .bchan {
+    display: none;
+  }
+
+  /* .app-boxer listed too: its desktop basis (330px, meant as a width
+     beside the stage) became a fixed height once the layout is a column,
+     leaving a gap under short panels. */
   .app-wide .panel,
+  .app-boxer .panel,
   .panel {
     flex-basis: auto;
     width: 100%;

@@ -392,6 +392,9 @@ export default function App() {
     !!camError ||
     !!errorMsg;
   const immersive = !inMenu && !panelExtras;
+  // Same Network or Online, not yet connected: the panel is the screen, and
+  // the stage behind it has nobody to show yet. See .app-connect in App.css.
+  const connecting = (onLan || onInternet) && !netOpen;
 
   /* The header is identical either way; only where it sits changes. Rendering
      it twice would be two things to keep in step, and the back button is the
@@ -434,7 +437,7 @@ export default function App() {
     <div
       className={`app ${
         inMenu ? "app-menu" : stage3d ? "app-boxer" : "app-wide"
-      }${immersive ? " app-immersive" : ""}`}
+      }${immersive ? " app-immersive" : ""}${connecting ? " app-connect" : ""}`}
     >
       <div className="stage">
         {inMenu && (
