@@ -785,9 +785,11 @@ summary:focus-visible,
     width: 26%;
   }
 
-  /* The live body readout is for checking tracking with the character in
-     view; here it only stood between the controls and the preview strip. */
-  .app-connect .bchan {
+  /* The live body readout is a desk-side diagnostic: on a phone it pushes
+     the controls further down every screen it appears on, and nobody reads
+     eight bars from two metres away. Doubled class to beat .tpanel's own
+     display regardless of stylesheet order. */
+  .tpanel.bchan {
     display: none;
   }
 
