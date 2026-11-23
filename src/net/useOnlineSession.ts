@@ -3,6 +3,7 @@ import { MatchmakingClient, type MatchmakingStatus } from "./matchmakingClient";
 import { PeerLink, type LinkStatus } from "./peerLink";
 import { fetchIceServers } from "./iceServers";
 import { NET_CONFIG } from "../config/tuning";
+import { NO_SERVER_MESSAGE } from "./leaderboard";
 import type { NetFightState, NetMessage } from "./protocol";
 import type { PoseFrame } from "../pose/poseTypes";
 import type { StrikeEvent } from "../perception/strikeResolver";
@@ -94,6 +95,11 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
   }, []);
 
   const findMatch = useCallback(async () => {
+    const serverUrl = NET_CONFIG.matchmakingUrl;
+    if (!serverUrl) {
+      setMatchStatus({ state: "failed", detail: NO_SERVER_MESSAGE });
+      return;
+    }
     setBusy(true);
     // No automatic reconnect: a reconnect gets a new ConnectionId, which the
     // server's matchmaking queue has no way to re-associate with this
@@ -108,13 +114,13 @@ export function useOnlineSession({ enabled, poseRef, subscribe }: OnlineSessionO
     // match", and every other player would otherwise download it up front.
     const { HubConnectionBuilder } = await import("@microsoft/signalr");
     const connection = new HubConnectionBuilder()
-      .withUrl(NET_CONFIG.matchmakingUrl, { withCredentials: false })
+      .withUrl(serverUrl, { withCredentials: false })
       .build();
     const client = new MatchmakingClient(connection);
     clientRef.current = client;
     // Fetched while queueing, so it is ready by the time a match arrives.
     // Falls back to the built-in STUN list on any failure.
-    const iceServersPromise = fetchIceServers(NET_CONFIG.matchmakingUrl, NET_CONFIG.iceServers);
+    const iceServersPromise = fetchIceServers(serverUrl, NET_CONFIG.iceServers);
     client.onStatus(setMatchStatus);
 
     // Resolves to the link once onMatched has built it. onOffer awaits this,

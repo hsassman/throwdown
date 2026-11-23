@@ -22,9 +22,14 @@ export function StagePage() {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
+    const serverUrl = NET_CONFIG.matchmakingUrl;
+    if (!serverUrl) {
+      setOffline(true);
+      return;
+    }
     let cancelled = false;
     const load = () =>
-      fetchTop(NET_CONFIG.matchmakingUrl, 10)
+      fetchTop(serverUrl, 10)
         .then((r) => {
           if (cancelled) return;
           setRows(r);

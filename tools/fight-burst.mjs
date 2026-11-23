@@ -19,7 +19,7 @@ const b = await chromium.launch({ channel: "chrome", headless: true, args: [
 const c = await b.newContext({ permissions: ["camera"], viewport: { width: 960, height: 540 } });
 const p = await c.newPage();
 p.on("pageerror", (e) => console.log("[pageerror]", e.message));
-await p.goto((process.env.BASE_URL ?? "http://localhost:4173") + "/", { waitUntil: "networkidle" });
+await p.goto((process.env.BASE_URL ?? "http://localhost:4173") + "/?firstrun=0", { waitUntil: "networkidle" });
 await p.locator(".gate-btn").click();
 await p.waitForFunction(() => !!window.__shadowboxPose?.(), null, { timeout: 90000 });
 await p.locator(".shell-row").filter({ hasText: process.argv[2] ?? "Fight the CPU" }).first().click();

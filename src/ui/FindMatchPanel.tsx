@@ -1,3 +1,5 @@
+import { NET_CONFIG } from "../config/tuning";
+import { NO_SERVER_MESSAGE } from "../net/leaderboard";
 import type { MatchmakingStatus } from "../net/matchmakingClient";
 import type { LinkStatus } from "../net/peerLink";
 import "./versusPanel.css";
@@ -36,6 +38,19 @@ const DOT_CLASS: Record<MatchmakingStatus["state"], string> = {
 };
 
 export function FindMatchPanel({ matchStatus, linkStatus, onFindMatch, onLeave }: Props) {
+  // Said up front, rather than offering a button that can only fail.
+  if (!NET_CONFIG.matchmakingUrl) {
+    return (
+      <section className="vs" aria-label="Online fight">
+        <header className="vs-head">
+          <span className="vs-dot vs-idle" aria-hidden="true" />
+          <strong>No game server</strong>
+        </header>
+        <p className="vs-detail">{NO_SERVER_MESSAGE}</p>
+      </section>
+    );
+  }
+
   const connected = linkStatus.state === "open";
   const linkFailed = linkStatus.state === "failed" || linkStatus.state === "closed";
   const searching =

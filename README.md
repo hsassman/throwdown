@@ -29,13 +29,14 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (755). |
+| `npm test` | Web unit tests (764). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
 | `node tools/fake-player.mjs` | Renders the game's boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
 | `node tools/fight-burst.mjs` | Screenshots a live CPU fight with the fake player as the camera, for reviewing how it looks. |
+| `node tools/first-run-shots.mjs` | Screenshots each step of the first-run walkthrough at laptop and phone size (needs the high-guard fake player; see the file). |
 | `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight with the fake player as the camera: pose rate, render fps, main-thread long tasks. No person needed. |
 
 The smoke run needs `npm run preview` in another terminal.
@@ -51,6 +52,13 @@ a row fills a ring and confirms. **Four independent defences** stop an
 accidental press: a dwell time, a movement tolerance, a re-arm after each press,
 and a dead zone on first hover. Escape always returns to the menu, because a
 camera-driven UI needs one way out that does not depend on the camera.
+
+**First run.** A new browser gets a three-step walkthrough over the menu:
+step back until head to hips are in view, put your guard up, throw one punch
+with each hand. The camera confirms each step; there is no Next button. It uses
+the fight's own guard rule and strike resolver, so what it accepts is what a
+fight counts. Skip with the button or Escape; `?firstrun=1` shows it again,
+`?firstrun=0` hides it.
 
 ### Training: the punching dummy
 
@@ -307,8 +315,9 @@ itself stays in the browser.
 | `Ice:Servers` | STUN/TURN servers. |
 | `Telemetry:Console` / `Telemetry:OtlpEndpoint` | OpenTelemetry traces to the console or a collector. |
 
-The browser finds the server through `VITE_MATCHMAKING_URL` (default
-`http://localhost:5160/hubs/matchmaking`). `server/Dockerfile` builds a
+The browser finds the server through `VITE_MATCHMAKING_URL`. A dev build
+falls back to `http://localhost:5160/hubs/matchmaking`; a production build
+without it has no server, and the Online screen and leaderboard say so. `server/Dockerfile` builds a
 container that listens on port 8080.
 
 **Limits, stated plainly:** scores are reported by the browser, so the

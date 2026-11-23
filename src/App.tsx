@@ -28,6 +28,9 @@ import { FramingPrompt } from "./ui/FramingPrompt";
 import { useFramingCoach } from "./perception/useFramingCoach";
 import { useDepthMap } from "./depth/useDepthMap";
 import { DepthPanel } from "./ui/DepthPanel";
+import { FirstRunCard } from "./ui/FirstRunCard";
+import { markFirstRunDone, shouldShowFirstRun } from "./onboarding/firstRun";
+import { useFirstRun } from "./onboarding/useFirstRun";
 import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
@@ -119,6 +122,12 @@ export default function App() {
   const onInternet = screen === "internet";
   const inFight = screen === "cpu" || inCareer || onLan || onInternet;
 
+  // The first-run walkthrough, over the menu, once the camera is tracking.
+  const [firstRunPending, setFirstRunPending] = useState(() =>
+    shouldShowFirstRun(window.location.search, safeStorage())
+  );
+  const coaching = firstRunPending && screen === null && poseStatus === "ready";
+
   const [careerProfile, setCareerProfile] = useState(() => loadCareerProfile().profile);
   const [careerOutcome, setCareerOutcome] = useState<FightOutcome | null>(null);
   // Guards against folding the same fight result into the record twice - the
@@ -136,7 +145,8 @@ export default function App() {
   // Strike resolution. One resolver, shared by the dummy drill, the fight
   // simulation and the renderer - see useDummyTraining on why a second one
   // would drift.
-  const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight);
+  // The walkthrough runs it too: its punch step counts what a fight would.
+  const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight || coaching);
 
   // Monocular depth, off unless asked for (?depth=1, or D in game): a second
   // network on the GPU pose needs. See DEPTH_CONFIG.
@@ -156,6 +166,23 @@ export default function App() {
     videoRef,
     poseRef,
     camStatus === "ready" && poseStatus === "ready" && (screen === null || onDummy || inFight)
+  );
+
+  const firstRun = useFirstRun(poseRef, framingIssue, strike.subscribe, coaching);
+  const { reset: resetStrikes } = strike;
+  const finishFirstRun = useCallback(() => {
+    markFirstRunDone(safeStorage());
+    setFirstRunPending(false);
+    // The walkthrough's punches must not replay on the dummy.
+    resetStrikes();
+  }, [resetStrikes]);
+  const launch = useCallback(
+    (id: string) => {
+      // Choosing a mode is as good as finishing: they found the menu.
+      if (firstRunPending) finishFirstRun();
+      setScreen(id);
+    },
+    [firstRunPending, finishFirstRun]
   );
 
   const training = useDummyTraining({
@@ -394,8 +421,11 @@ export default function App() {
   // died the moment you entered a mode - live camera, green light, frozen
   // picture, no error. So the camera block below is rendered once, at a stable
   // position in the tree, and only its class changes between screens.
+  // The walkthrough shows the player themselves: half of it is framing.
   const camClass = stage3d
     ? "cam-inset"
+    : coaching
+      ? "cam-inset cam-coach"
     : inMenu || screen === "stages"
       ? "cam-hidden"
       : "cam-full";
@@ -417,10 +447,12 @@ export default function App() {
                   ? "permission denied. Allow camera access and reload."
                   : camError
               }
-              onLaunch={setScreen}
+              pointerPaused={coaching && firstRun.step !== "ready"}
+              onLaunch={launch}
             />
           </Suspense>
         )}
+        {coaching && <FirstRunCard state={firstRun} onDone={finishFirstRun} />}
         {stage3d && (
           <Suspense fallback={null}>
             <BoxerModel
@@ -623,6 +655,15 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** localStorage, or null where reading it throws (blocked site data). */
+function safeStorage(): Storage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -100,6 +100,11 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, rest: THREE.Quaternion
  * 1.2s. Each segment is aimed at a world-space direction, so the result does
  * not depend on how the rig's local axes happen to be oriented.
  */
+// ?guard=high: gloves at the chin, a high guard by the fight's rule
+// (FIGHT_CONFIG.guardHighEnter). The default is a chest-height guard, which
+// the fight reads as low - kept, because every earlier measurement used it.
+const highGuard = new URLSearchParams(location.search).get("guard") === "high";
+
 function pose(t: number) {
   if (!arms) return;
   const cycle = t % 1.2;
@@ -118,8 +123,14 @@ function pose(t: number) {
     const e = amount[side];
     const mix = (g: THREE.Vector3, pch: THREE.Vector3) => g.clone().lerp(pch, e).normalize();
     // Guard: elbow down and slightly out, forearm up to the chin.
-    const upper = mix(new THREE.Vector3(out * 0.3, -0.85, f * 0.45), new THREE.Vector3(-out * 0.15, 0.05, f));
-    const fore = mix(new THREE.Vector3(-out * 0.35, 0.85, f * 0.4), new THREE.Vector3(-out * 0.1, 0.05, f));
+    const guardUpper = highGuard
+      ? new THREE.Vector3(out * 0.25, -0.55, f * 0.8)
+      : new THREE.Vector3(out * 0.3, -0.85, f * 0.45);
+    const guardFore = highGuard
+      ? new THREE.Vector3(-out * 0.3, 0.95, f * 0.15)
+      : new THREE.Vector3(-out * 0.35, 0.85, f * 0.4);
+    const upper = mix(guardUpper, new THREE.Vector3(-out * 0.15, 0.05, f));
+    const fore = mix(guardFore, new THREE.Vector3(-out * 0.1, 0.05, f));
     aim(a.up, a.low, a.upRest, upper);
     aim(a.low, a.hand, a.lowRest, fore);
   }

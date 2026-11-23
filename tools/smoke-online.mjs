@@ -95,7 +95,8 @@ async function openPlayer(label) {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(`${label} console: ${m.text()}`);
   });
-  await page.goto(BASE + "/" + QUERY, { waitUntil: "networkidle" });
+  // firstrun=0: the walkthrough card would sit over the rows this clicks.
+  await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0", { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
   await page.waitForSelector(".shell", { timeout: TIMEOUT });
   await page.locator(".shell-row").filter({ hasText: "Fight a stranger" }).first().click();

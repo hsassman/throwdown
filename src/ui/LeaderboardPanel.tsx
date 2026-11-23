@@ -51,14 +51,17 @@ export function LeaderboardPanel({ result, landed }: Props) {
   const submittedFor = useRef<FightResult | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const serverUrl = NET_CONFIG.matchmakingUrl;
+
   const refresh = useCallback(() => {
-    fetchTop(NET_CONFIG.matchmakingUrl)
+    if (!serverUrl) return;
+    fetchTop(serverUrl)
       .then((r) => {
         setRows(r);
         setLoadError(null);
       })
       .catch(() => setLoadError("Leaderboard is offline."));
-  }, []);
+  }, [serverUrl]);
 
   useEffect(refresh, [refresh]);
 
@@ -74,7 +77,7 @@ export function LeaderboardPanel({ result, landed }: Props) {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!result || submittedFor.current === result) return;
+    if (!serverUrl || !result || submittedFor.current === result) return;
     const clean = cleanName(name);
     if (!clean) {
       setSendError(`Enter a name, up to ${MAX_NAME_LENGTH} characters.`);
@@ -82,7 +85,7 @@ export function LeaderboardPanel({ result, landed }: Props) {
     }
     setSending(true);
     try {
-      await submitScore(NET_CONFIG.matchmakingUrl, clean, score);
+      await submitScore(serverUrl, clean, score);
       submittedFor.current = result;
       setSubmitted(true);
       setSendError(null);
@@ -94,6 +97,18 @@ export function LeaderboardPanel({ result, landed }: Props) {
       setSending(false);
     }
   };
+
+  // No server in this build: one line, not a form that cannot save.
+  if (!serverUrl) {
+    return (
+      <section className="vs" aria-label="Leaderboard">
+        <header className="vs-head">
+          <strong>Leaderboard</strong>
+        </header>
+        <p className="vs-detail">Scores are saved once the game server is deployed.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="vs" aria-label="Leaderboard">

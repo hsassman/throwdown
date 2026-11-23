@@ -4,6 +4,13 @@ Three pieces: the game on **Vercel**, the .NET server on **Fly.io**, and the
 leaderboard database on **Supabase**. Do them in this order, because each one
 needs a URL from the one before.
 
+**Quickest route to working online play:** only step 2 is required. Without
+a database connection string the server keeps scores in memory (they reset
+when it restarts), so Supabase can come later. Then set
+`VITE_MATCHMAKING_URL` in Vercel (step 3) and redeploy. Until that variable is
+set, the deployed game says "No game server" on the Online screen and hides
+the score form, rather than trying to reach localhost.
+
 Fly.io is the default because it keeps WebSocket (SignalR) connections open
 and deploys straight from `server/Dockerfile`. Azure Container Apps or Railway
 work too: they need the same Dockerfile, port 8080 and the same environment
@@ -40,9 +47,15 @@ Actions tab. It only runs when started by hand.
 Keep **one machine**. Matchmaking is in memory, so two machines would each
 have their own queue. `fly.toml` already sets this.
 
-### TURN (when a provider is chosen)
+### TURN
 
-Add the provider's servers as secrets, for example:
+Without TURN, two players on mobile data or strict corporate or conference
+networks often cannot connect at all (the game reports "Could not reach the
+other fighter" after 20 s). Use a hosted TURN service that gives **static**
+username/password credentials, because `/ice-servers` hands out what is in
+configuration and does not mint short-lived ones. Compare current free tiers
+and pricing before choosing; relay traffic here is small (pose landmarks, not
+video). Add the provider's servers as secrets, for example:
 
 ```bash
 fly secrets set Ice__Servers__0__Urls__0="stun:stun.l.google.com:19302"

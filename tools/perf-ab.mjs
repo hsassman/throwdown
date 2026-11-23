@@ -65,7 +65,7 @@ async function measure(query) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`${BASE}/?${query}`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/?firstrun=0&${query}`, { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
   // A tracked pose, not just a loaded model: the fake player has to be found.
   await page.waitForFunction(() => !!window.__shadowboxPose?.(), null, { timeout: 90_000 });

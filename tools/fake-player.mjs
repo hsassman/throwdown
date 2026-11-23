@@ -14,6 +14,8 @@
 //   node tools/fake-player.mjs [seconds=4] [fps=30]
 //   node tools/fake-player.mjs --shots 0,21   # preview frames as PNGs only
 // Output: tools/out/fake-player.y4m (git-ignored), and PNGs for --shots.
+//   FAKE_QUERY=guard=high  gloves at the chin instead of the chest
+//   FAKE_NAME=fake-high    writes tools/out/fake-high.y4m instead
 
 import { chromium } from "playwright-core";
 import { mkdirSync, rmSync } from "node:fs";
@@ -24,6 +26,7 @@ const args = process.argv.slice(2);
 const shotsArg = args.indexOf("--shots");
 const shots = shotsArg >= 0 ? args[shotsArg + 1].split(",").map(Number) : null;
 const query = process.env.FAKE_QUERY ?? "";
+const NAME = process.env.FAKE_NAME ?? "fake-player";
 const [seconds = 4, fps = 30] = args
   .filter((a, i) => !a.startsWith("--") && (shotsArg < 0 || i !== shotsArg + 1))
   .map(Number);
@@ -59,9 +62,9 @@ if (shots) {
     "-framerate", String(fps),
     "-i", `${FRAMES}/%05d.png`,
     "-pix_fmt", "yuv420p",
-    `${OUT}/fake-player.y4m`,
+    `${OUT}/${NAME}.y4m`,
   ]);
   rmSync(FRAMES, { recursive: true, force: true });
-  console.log(`wrote ${OUT}/fake-player.y4m (${n} frames @ ${fps} fps)`);
+  console.log(`wrote ${OUT}/${NAME}.y4m (${n} frames @ ${fps} fps)`);
 }
 await browser.close();

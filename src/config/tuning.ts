@@ -91,10 +91,17 @@ export const POSE_CONFIG = {
 };
 
 export const NET_CONFIG = {
-  /** The MatchmakingHub this build talks to for "Find a match". Override with
-   *  VITE_MATCHMAKING_URL for anything other than a local dotnet run. */
-  matchmakingUrl:
-    import.meta.env.VITE_MATCHMAKING_URL ?? "http://localhost:5160/hubs/matchmaking",
+  /**
+   * The MatchmakingHub this build talks to for "Find a match" and the
+   * leaderboard, or null when this build has no server.
+   *
+   * Set VITE_MATCHMAKING_URL at build time. A dev build falls back to a local
+   * `dotnet run`; a production build does not, because a deployed page calling
+   * localhost reaches nothing, and every online screen then failed with a CORS
+   * error instead of saying the site has no server.
+   */
+  matchmakingUrl: (import.meta.env.VITE_MATCHMAKING_URL ||
+    (import.meta.env.DEV ? "http://localhost:5160/hubs/matchmaking" : null)) as string | null,
   /**
    * Fallback only. "Find a match" asks the server's /ice-servers endpoint
    * first (see net/iceServers.ts), which is where TURN gets configured. This
@@ -907,6 +914,23 @@ export const FRAMING_CONFIG = {
   hideAfterMs: 700,
   /** How often the frame's brightness is sampled, ms. */
   lumaIntervalMs: 500,
+} as const;
+
+/**
+ * The first-run walkthrough: stand where the camera can see you, put your
+ * guard up, throw one with each hand. See onboarding/firstRun.ts.
+ *
+ * It uses the game's own guard rule and strike resolver, unchanged - the point
+ * is to show a new player what the game will count, so it must count exactly
+ * the same way. These are only how long each pose must be held.
+ */
+export const FIRST_RUN_CONFIG = {
+  /** Well framed, head to hips and both hands in view, for this long, ms. */
+  frameHoldMs: 800,
+  /** A high guard (FIGHT_CONFIG.guardHighEnter) held this long, ms. */
+  guardHoldMs: 600,
+  /** localStorage key recording that the walkthrough was finished or skipped. */
+  storageKey: "shadowbox.firstRun.v1",
 } as const;
 
 /**

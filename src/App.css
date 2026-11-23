@@ -973,3 +973,11 @@ summary:focus-visible,
     width: calc(100% - 32px);
   }
 }
+
+/* Keyboard hints mean nothing on a touchscreen: the Menu button is the way
+   out there. */
+@media (hover: none) {
+  .screen-keys {
+    display: none;
+  }
+}

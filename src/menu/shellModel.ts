@@ -113,9 +113,9 @@ export const SHELL_ITEMS: ShellItem[] = [
   {
     id: "internet",
     title: "Online",
-    blurb: "Fight a stranger over the internet. Rough: STUN only, no relay yet.",
+    blurb: "Fight a stranger over the internet. Needs the game server; rough.",
     detail:
-      "The matchmaking server (not the fight itself) pairs you with whoever else is looking, over a SignalR hub - see docs/PLAN.md. Everything that makes Same Network work still applies: the camera and pose landmarks go to your opponent's machine and nowhere else, the host runs the clock and the scoring, and this is not rollback netcode. The one real difference is STUN: without it two strangers' browsers could not find each other's address at all, but STUN cannot get through every kind of NAT. A TURN relay for the ones it cannot (docs/PLAN.md step 4) is not built, so some pairings will simply fail to connect rather than silently play badly.",
+      "The matchmaking server (not the fight itself) pairs you with whoever else is looking, over a SignalR hub - see docs/PLAN.md. Everything that makes Same Network work still applies: the camera and pose landmarks go to your opponent's machine and nowhere else, the host runs the clock and the scoring, and this is not rollback netcode. The one real difference is STUN: without it two strangers' browsers could not find each other's address at all, but STUN cannot get through every kind of NAT. The server can hand out a TURN relay for the networks STUN cannot cross (docs/DEPLOY.md); where none is configured, some pairings will simply fail to connect rather than silently play badly. A copy of the game deployed without the server says so on this screen.",
     availability: "preview",
     category: "online",
   },

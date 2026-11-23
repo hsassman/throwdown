@@ -71,6 +71,26 @@ try {
 
   // --- Menu shell ---
   await page.waitForSelector(".shell", { timeout: 15000 });
+
+  // --- First-run walkthrough ---
+  // Shown over the menu once tracking is up, on a browser that has not seen
+  // it. Escape must dismiss it, and it must stay dismissed - every check
+  // below drives the menu it sits over. The fake camera's test pattern has no
+  // body in it, so this cannot get past the first step on its own.
+  const card = page.locator(".firstrun");
+  await card.waitFor({ timeout: 60000 }).catch(() => {});
+  check("first-run walkthrough appears on a fresh browser", (await card.count()) === 1);
+  check(
+    "walkthrough starts at framing",
+    ((await page.locator(".firstrun-title").textContent()) ?? "").includes("Step back")
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  check("Escape skips the walkthrough", (await card.count()) === 0);
+  check(
+    "skipping is remembered",
+    (await page.evaluate(() => localStorage.getItem("shadowbox.firstRun.v1"))) === "done"
+  );
   const rows = page.locator(".shell-row");
   const rowCount = await rows.count();
   check("menu shell renders rows", rowCount >= 8, `${rowCount} rows`);

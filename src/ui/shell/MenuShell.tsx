@@ -36,6 +36,10 @@ interface Props {
   /** Why the camera is not running, if known (permission denied, needs
    *  https, unsupported browser). Shown instead of the generic hint. */
   cameraProblem?: string | null;
+  /** Stops the camera pointer without calling the camera broken - while the
+   *  first-run walkthrough has the player holding a guard, which would
+   *  otherwise dwell on a row and launch it. */
+  pointerPaused?: boolean;
   onLaunch: (id: string) => void;
 }
 
@@ -43,7 +47,7 @@ const GROUPS = grouped();
 const FLAT: ShellItem[] = GROUPS.flatMap((g) => g.items);
 const LOCKED = SHELL_ITEMS.filter((i) => !isPlayable(i)).map((i) => i.id);
 
-export function MenuShell({ poseRef, cameraReady, cameraProblem, onLaunch }: Props) {
+export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused = false, onLaunch }: Props) {
   const [focusId, setFocusId] = useState<string>(FLAT[0].id);
   const [rejected, setRejected] = useState<string | null>(null);
   const rowEls = useRef(new Map<string, HTMLElement>());
@@ -68,7 +72,7 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, onLaunch }: Pro
 
   const camera = useCameraMenu({
     poseRef,
-    enabled: cameraReady,
+    enabled: cameraReady && !pointerPaused,
     onConfirm: launch,
     disabledIds: LOCKED,
   });
