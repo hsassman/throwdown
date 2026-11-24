@@ -1,3 +1,4 @@
+import { DEMO_PRESET, isDemoMode } from "./config/demoMode";
 import { useEffect, useRef, useState, useDeferredValue, Suspense, lazy, useCallback } from "react";
 import { useWebcam } from "./capture/useWebcam";
 import { usePoseTracking } from "./pose/usePoseTracking";
@@ -130,8 +131,10 @@ export default function App() {
   const inFight = screen === "cpu" || inCareer || onLan || onInternet;
 
   // The first-run walkthrough, over the menu, once the camera is tracking.
-  const [firstRunPending, setFirstRunPending] = useState(() =>
-    shouldShowFirstRun(window.location.search, safeStorage())
+  const [firstRunPending, setFirstRunPending] = useState(
+    () =>
+      !(isDemoMode() && DEMO_PRESET.skipFirstRun) &&
+      shouldShowFirstRun(window.location.search, safeStorage())
   );
   const coaching = firstRunPending && screen === null && poseStatus === "ready";
 

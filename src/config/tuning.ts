@@ -1,6 +1,8 @@
 // Every tunable constant in the game. Thresholds and game feel are adjusted
 // here, never at a call site.
 
+import { DEMO_PRESET, isDemoMode } from "./demoMode";
+
 export const POSE_CONFIG = {
   /**
    * Served from public/, not a CDN: a version mismatch between the npm package
@@ -159,10 +161,10 @@ export const CAMERA_CONFIG = {
    * Overridable via ?camW / ?camH.
    */
   get width() {
-    return queryNumber("camW", 640);
+    return queryNumber("camW", isDemoMode() ? DEMO_PRESET.camWidth : 640);
   },
   get height() {
-    return queryNumber("camH", 480);
+    return queryNumber("camH", isDemoMode() ? DEMO_PRESET.camHeight : 480);
   },
 
   /**
