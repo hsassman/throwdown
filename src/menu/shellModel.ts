@@ -44,7 +44,7 @@ export const CATEGORY_LABEL: Record<ShellCategory, string> = {
   train: "Train",
   fight: "Fight",
   online: "Online",
-  tools: "Diagnostics",
+  tools: "Camera tools",
 };
 
 /**
@@ -58,91 +58,89 @@ export const SHELL_ITEMS: ShellItem[] = [
   {
     id: "dummy",
     title: "Dummy Work",
-    blurb: "Lit targets on a free-standing dummy. Scored on accuracy, power and timing.",
-    detail:
-      "A punching dummy lights one target at a time. Land on it before the window closes. Every punch is scored on how close to the mark it landed, how committed it was, and how fast you answered - and the results are kept, so the drill learns which targets you are weakest on and shows them more often.",
+    blurb: "Hit the lit targets before time runs out.",
+    detail: "Your score combines accuracy, power and timing. Later rounds give you more practice on the targets you miss.",
     availability: "ready",
     category: "train",
   },
   {
     id: "freeplay",
     title: "Free Work",
-    blurb: "The dummy, no targets, no clock. Warm up and find your range.",
-    detail:
-      "The same dummy with nothing lit and nothing scored. Useful for checking your framing, finding the distance the game expects you to punch from, and warming up before a scored round.",
+    blurb: "Warm up on the dummy at your own pace.",
+    detail: "Use the dummy to find your range. There are no timed targets or scores.",
     availability: "ready",
     category: "train",
   },
   {
+    id: "fighter",
+    title: "Your Fighter",
+    blurb: "Change your fighter’s appearance and kit.",
+    detail: "Choose a skin tone, hairstyle, kit colour and material. Save your choices for the next fight or training session.",
+    availability: "ready",
+    category: "fight",
+  },
+  {
     id: "cpu",
     title: "Fight the CPU",
-    blurb: "An opponent that circles, steps in, throws and slips.",
-    detail:
-      "A full fight against a computer opponent, scored on the ten-point must. It manages range, telegraphs every punch before it can hurt you, and slips or covers up when you throw. It cannot read your intent - it defends the side you have been going to, which is the same information a person in front of you would have.",
+    blurb: "Box against a computer opponent.",
+    detail: "Fight a scored bout. Watch for the opponent to draw back before they punch.",
     availability: "preview",
     category: "fight",
   },
   {
     id: "stages",
     title: "Stages",
-    blurb: "Choose where you fight. Ring or octagon.",
-    detail:
-      "The venue. A roped boxing ring or a regulation octagon, both built to real measured dimensions rather than eyeballed proportions.",
+    blurb: "Choose the ring or the cage.",
+    detail: "Drag to look around. Your selected venue is used for the next bout.",
     availability: "preview",
     category: "fight",
   },
   {
     id: "local",
     title: "Two Players, One Room",
-    blurb: "Share a screen. Not built.",
-    detail:
-      "Two fighters on one machine. This needs a second tracked skeleton from a single camera, which is a different perception problem from the one this project has solved, not an extension of it.",
+    blurb: "Box with a friend using one camera.",
+    detail: "To box with a friend on two devices, choose Same Network.",
     availability: "locked",
-    lockedReason: "Needs two-person tracking from one camera - not started.",
     category: "fight",
+    lockedReason: "Same-screen play is unavailable.",
   },
   {
     id: "lan",
     title: "Same Network",
-    blurb: "Fight a person over WebRTC. Rough: no lag compensation.",
-    detail:
-      "Peer-to-peer with no server in the middle: one of you hosts and sends a code, the other joins and sends a reply back. The other fighter is drawn from their own live pose through the same retargeting your character uses, so they duck, step and throw exactly as they did rather than playing back a summary of it. The host owns the round clock and the scoring, because evasion is measured from each player's own camera and neither end can see the other's body - two independent simulations would disagree about which punches missed within seconds. Your pose landmarks go to your opponent's machine and nowhere else; the camera picture never leaves yours. This is NOT rollback netcode: there is no prediction and no reconciliation, so the guest sees the fight about one round trip late. That is fine on a local network and has not been measured over anything slower. The earlier plan gated this behind the punch classifier, which was a mistake - the classifier NAMES a punch (jab, cross, hook, uppercut) and nothing in the game depends on it; hit detection is a separate path and it works.",
+    blurb: "Box with a friend on the same network.",
+    detail: "Send a host code and paste your friend’s reply to start. The guest may see a slight delay. Your friend receives your fighter’s movements.",
     availability: "preview",
     category: "online",
   },
   {
     id: "internet",
     title: "Online",
-    blurb: "Fight a stranger over the internet. Needs the game server; rough.",
-    detail:
-      "The matchmaking server (not the fight itself) pairs you with whoever else is looking, over a SignalR hub - see docs/PLAN.md. Everything that makes Same Network work still applies: the camera and pose landmarks go to your opponent's machine and nowhere else, the host runs the clock and the scoring, and this is not rollback netcode. The one real difference is STUN: without it two strangers' browsers could not find each other's address at all, but STUN cannot get through every kind of NAT. The server can hand out a TURN relay for the networks STUN cannot cross (docs/DEPLOY.md); where none is configured, some pairings will simply fail to connect rather than silently play badly. A copy of the game deployed without the server says so on this screen.",
+    blurb: "Find an opponent over the internet.",
+    detail: "Matchmaking needs a game server. Some networks may prevent the fight from connecting. Your opponent receives your fighter’s movements.",
     availability: "preview",
     category: "online",
   },
   {
     id: "career",
     title: "Career",
-    blurb: "Four opponents, one ladder. Win to move up.",
-    detail:
-      "A fixed run of four CPU opponents, from a tune-up to the champion. A win advances you to the next rung; a loss or a draw means facing the same opponent again. The record persists between sessions. Short and honest about it - this is the CPU fight with a reason to keep playing, not a full campaign.",
+    blurb: "Face four opponents in order.",
+    detail: "Win to advance. A draw or loss means a rematch. Your record is saved on this device.",
     availability: "preview",
     category: "fight",
   },
   {
     id: "tracking",
     title: "Tracking",
-    blurb: "What the camera sees, and how well. Live diagnosis.",
-    detail:
-      "The skeleton the camera is reading, the rate it is arriving at, and a continuous assessment of the signal - dropout, jitter, and which landmark is worst. Below it, one aggregate view of the whole pipeline: pose, frame delivery, strike resolution and the drill together. Open this first if anything feels unresponsive.",
+    blurb: "Check what the camera can see.",
+    detail: "See which parts of your body the camera is losing and get tips to fix your setup.",
     availability: "ready",
     category: "tools",
   },
   {
     id: "punchlab",
     title: "Punch Lab",
-    blurb: "Four-way punch classification. Measured at 19% - genuinely unreliable.",
-    detail:
-      "The experimental classifier that tries to name a punch (jab, cross, hook, uppercut) from a single camera. Its measured detection rate is about 19%, which is why nothing in the game depends on it and why training scores where you landed rather than what you threw. Here so the number stays honest and visible.",
+    blurb: "Try the experimental punch reader.",
+    detail: "It identifies jabs, crosses, hooks and uppercuts. It recognised 19% in testing. Fight scoring is separate.",
     availability: "preview",
     category: "tools",
   },

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { artTexture } from "./arena/artTextures";
+import { buildCrowd } from "./arena/crowd";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { buildArenaLighting, buildOctagon } from "./arena/Octagon";
 import { OCTAGON } from "./arena/octagonSpec";
@@ -65,7 +67,7 @@ export function ArenaView({
     // Sized off whichever venue is being shown, so the haze sits at the same
     // distance relative to the structure in both.
     const span = stage === "ring" ? platformHalfSpan() * 2 : OCTAGON.acrossFlats;
-    scene.fog = new THREE.Fog(0x05070a, span * 0.8, span * 3.2);
+    scene.fog = new THREE.Fog(0x05070a, span * 1.05, span * 4.8);
 
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
@@ -83,8 +85,10 @@ export function ArenaView({
     // enough to catch the truss spots - without it the platform legs end in
     // nothing.
     const floorGeo = new THREE.PlaneGeometry(120, 120);
+    const floorMap = artTexture("concrete", 30);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0c10,
+      color: 0x555963,
+      map: floorMap,
       roughness: 0.82,
       metalness: 0.15,
     });
@@ -94,6 +98,9 @@ export function ArenaView({
       -(stage === "ring" ? RING.platformHeight : OCTAGON.platformHeight);
     floor.receiveShadow = true;
     scene.add(floor);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const crowd = buildCrowd(arenaRadius, floor.position.y);
+    scene.add(crowd.group);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -119,6 +126,9 @@ export function ArenaView({
       const h = container.clientHeight || 1;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
+      // Preserve room around the venue on portrait displays.
+      const portraitFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(15)) / camera.aspect);
+      camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(portraitFov), 42, 74);
       camera.updateProjectionMatrix();
     };
     resize();
@@ -128,7 +138,8 @@ export function ArenaView({
     const tick = () => {
       if (disposed) return;
       const dt = clock.getDelta();
-      if (autoRotateRef.current) {
+      crowd.update(Math.min(dt, 0.05), !reducedMotion.matches);
+      if (autoRotateRef.current && !reducedMotion.matches) {
         // Orbit by rotating the camera about the target rather than spinning
         // the arena: spinning the arena would carry the lighting rig with it,
         // and the whole point of a fixed truss is that the highlights stay put
@@ -156,6 +167,8 @@ export function ArenaView({
       venue.dispose();
       lighting.dispose();
       floorGeo.dispose();
+      floorMap?.dispose();
+      crowd.dispose();
       floorMat.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === container) {

@@ -25,6 +25,7 @@ export interface Bruise {
 
 export interface BodyTextureOptions {
   skin: string;
+  hair?: string;
 }
 
 export interface BodyTexture {
@@ -131,6 +132,21 @@ export function buildBodyTexture(
   let overlay: ((ctx: CanvasRenderingContext2D, size: number) => void) | null = null;
   let dirty = false;
   let sinceRepaint = 0;
+  const grain = new Image();
+  grain.onload = () => {
+    const pattern = baseCtx.createPattern(grain, "repeat");
+    if (!pattern) return;
+    baseCtx.save();
+    baseCtx.fillStyle = options.skin;
+    baseCtx.fillRect(0, 0, size, size);
+    baseCtx.globalAlpha = 0.55;
+    baseCtx.globalCompositeOperation = "soft-light";
+    baseCtx.fillStyle = pattern;
+    baseCtx.fillRect(0, 0, size, size);
+    baseCtx.restore();
+    dirty = true;
+  };
+  grain.src = "/art/skin-grain.webp";
 
   const repaint = () => {
     mapCtx.clearRect(0, 0, size, size);
@@ -213,6 +229,7 @@ export function buildBodyTexture(
       repaint();
     },
     dispose() {
+      grain.onload = null;
       texture.dispose();
     },
   };

@@ -117,8 +117,12 @@
   top: 44%;
   transform: translate(-50%, -50%);
   text-align: center;
-  background: rgba(5, 7, 10, 0.9);
-  border: 1px solid #d8332f;
+  box-sizing: border-box;
+  width: min(28rem, calc(100% - 32px));
+  background: linear-gradient(#080d15b8, #080d15f5), url('/art/results-art.webp') center / cover;
+  border: 1px solid #d3a76d;
+  border-radius: 6px;
+  box-shadow: 0 18px 60px #0008;
   padding: 1rem 1.6rem;
   font-size: clamp(1rem, 2.6vw, 1.5rem);
 }
@@ -218,3 +222,36 @@
     animation: none;
   }
 }
+
+/* Broadcast plates retain a solid dark backing over the arena lighting. */
+.fh-top {
+  background: #0c0d10f5;
+  border-top: 2px solid #c79556;
+}
+.fh-name { color: #e2caa6; font-weight: 700; }
+.fh-fighter-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+.fh-right .fh-fighter-label { flex-direction: row-reverse; }
+.fh-health-value {
+  color: #e7edf6;
+  font-size: .72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.fh-centre {
+  padding: .2rem .5rem .4rem;
+  border: 1px solid #b88d5555;
+  border-radius: 4px;
+  background: #0b111c;
+}
+.fh-fighter { min-width: 0; }
+.fh-health, .fh-stamina { box-sizing: border-box; border-radius: 3px; }
+.fh-cards { flex-wrap: wrap; }
+.fh-health { height: 14px; border: 1px solid #ffffff24; }
+.fh-health > span { background: #dc6e52; }
+.fh-right .fh-health > span { background: #67aed2; }

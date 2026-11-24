@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isMeasured, type TrackingReport } from "../pose/trackingMonitor";
 import type { BodyMotion } from "../perception/bodyMotion";
-import { MONITOR_CONFIG } from "../config/tuning";
 import "./trackingPanel.css";
 
 // The standing assessment of the camera signal, made visible.
@@ -81,9 +80,7 @@ export function TrackingPanel({ reportRef }: Props) {
           </div>
         </div>
         <p className="tpanel-note">
-          Step into frame so your head, shoulders and hips are visible. The
-          assessment needs {MONITOR_CONFIG.minSamples} samples and has{" "}
-          {report.samples}.
+          Step into frame so your head, shoulders and hips are visible.
         </p>
       </div>
     );
@@ -102,8 +99,8 @@ export function TrackingPanel({ reportRef }: Props) {
             {grade === "good"
               ? "Good signal"
               : grade === "fair"
-                ? "Usable, not great"
-                : "Poor - see below"}
+                ? "Some movement missed"
+                : "Camera is losing track"}
           </span>
         </div>
       </div>
@@ -125,15 +122,15 @@ export function TrackingPanel({ reportRef }: Props) {
 
       <dl className="tpanel-facts">
         <div>
-          <dt>Pose rate</dt>
+          <dt>Tracking updates</dt>
           <dd>{report.hz.toFixed(1)} Hz</dd>
         </div>
         <div>
-          <dt>Dropout</dt>
+          <dt>Missed frames</dt>
           <dd>{(report.dropout * 100).toFixed(1)}%</dd>
         </div>
         <div>
-          <dt>Jitter</dt>
+          <dt>Image shake</dt>
           <dd>{report.jitter.toFixed(4)}</dd>
         </div>
         <div>
@@ -146,7 +143,7 @@ export function TrackingPanel({ reportRef }: Props) {
         // Named, not aggregated. "12% dropout" hides "the right wrist is
         // invisible half the time", and only the second is actionable.
         <p className="tpanel-worst">
-          Weakest landmark: <strong>{report.worstLandmark.key}</strong>, missing{" "}
+          Hardest to see: <strong>{report.worstLandmark.key.replaceAll("_", " ")}</strong>, missing{" "}
           {(report.worstLandmark.dropout * 100).toFixed(0)}% of frames.
         </p>
       )}
@@ -158,14 +155,9 @@ export function TrackingPanel({ reportRef }: Props) {
           ))}
         </ul>
       ) : (
-        <p className="tpanel-ok">Nothing to fix. The signal is healthy.</p>
+        <p className="tpanel-ok">The camera can see you clearly.</p>
       )}
 
-      <p className="tpanel-note">
-        Measured over the last {report.samples} samples. Smoothing and
-        prediction are adjusted automatically from this; nothing that decides
-        whether a punch landed is.
-      </p>
     </div>
   );
 }

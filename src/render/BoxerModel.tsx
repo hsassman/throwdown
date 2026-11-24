@@ -36,6 +36,11 @@ import { findBodyMesh } from "./findBodyMesh";
 import { buildArenaLighting, buildOctagon } from "./arena/Octagon";
 import { buildRing } from "./arena/Ring";
 import { buildCrowd, type Crowd } from "./arena/crowd";
+import { artTexture } from "./arena/artTextures";
+import { DEFAULT_APPEARANCE, FIGHTER_OPTIONS, type FighterAppearance } from "../menu/fighterAppearance";
+import { applyScalp } from "./texturing/scalp";
+import { buildBloodDecals } from "./arena/bloodDecals";
+import { buildTrainingRoom } from "./arena/trainingRoom";
 import { RING, platformHalfSpan } from "./arena/ringSpec";
 import { OCTAGON } from "./arena/octagonSpec";
 import type { StageId } from "./ArenaView";
@@ -173,6 +178,8 @@ const FAST_FRAME_SEC = 0.014;
 export type LoadStatus = "loading" | "ready" | "error";
 
 interface Props {
+  appearance?: FighterAppearance;
+  wardrobe?: boolean;
   poseRef: React.RefObject<PoseFrame | null>;
   /**
    * Optional: returns the pose to draw at the calling instant, extrapolated
@@ -305,6 +312,8 @@ interface Props {
 }
 
 export function BoxerModel({
+  appearance = DEFAULT_APPEARANCE,
+  wardrobe = false,
   poseRef,
   samplePose,
   view = "behind",
@@ -328,6 +337,7 @@ export function BoxerModel({
   remotePoseRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const wardrobeCamera = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -411,10 +421,10 @@ export function BoxerModel({
     let rafId = 0;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(stage ? 0x05070a : 0x0b0f14);
+    if (!wardrobe) scene.background = new THREE.Color(stage ? 0x05070a : 0x0b0f14);
 
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: wardrobe });
     // Required for the punching dummy: the character figure used as its body
     // is clipped off below the belt by a per-material plane. Without this the
     // plane is simply ignored and the dummy grows a full pair of legs inside
@@ -480,7 +490,8 @@ export function BoxerModel({
       // something rather than in nothing.
       const floorGeo = new THREE.PlaneGeometry(120, 120);
       const floorMat = new THREE.MeshStandardMaterial({
-        color: 0x0a0c10,
+        map: artTexture("concrete", 30),
+        color: 0x555963,
         roughness: 0.82,
         metalness: 0.15,
       });
@@ -498,19 +509,24 @@ export function BoxerModel({
       // Everything past the far fence falls away into black, so the cage reads
       // as standing in a dark hall rather than floating.
       const span = stage === "ring" ? platformHalfSpan() * 2 : OCTAGON.acrossFlats;
-      scene.fog = new THREE.Fog(0x05070a, span * 0.8, span * 3.2);
+      scene.fog = new THREE.Fog(0x05070a, span * 1.05, span * 4.8);
     }
+
+    const bloodDecals = venue ? buildBloodDecals() : null;
+    if (bloodDecals) scene.add(bloodDecals.group);
+    const trainingRoom = !venue && dummy ? buildTrainingRoom(TARGET_CONFIG.distance / 2) : null;
+    if (trainingRoom) scene.add(trainingRoom.group);
 
     // The figure lighting. Dimmed hard under a venue, because the arena brings
     // its own truss and doubling the two gives a flat, evenly lit fighter with
     // none of the shape a fight camera sees. Kept rather than removed: `key`
     // and `rim` follow the camera in placeCamera(), and without something
     // doing that a fighter in the rear view is a silhouette.
-    const figureLight = venue ? 0.22 : 1;
+    const figureLight = venue ? 0.22 : wardrobe ? 1.26 : 1;
     scene.add(
       new THREE.HemisphereLight(0xcfe3ff, 0x1a1d24, 2.0 * figureLight)
     );
-    const key = new THREE.DirectionalLight(0xffffff, 2.2 * figureLight);
+    const key = new THREE.DirectionalLight(wardrobe ? 0xffe8cf : 0xffffff, 2.2 * figureLight);
     key.position.set(1.5, 2.5, 2.0);
     scene.add(key);
     const rim = new THREE.DirectionalLight(0x8ab4ff, 0.8 * figureLight);
@@ -600,7 +616,7 @@ export function BoxerModel({
         frameTarget.z + (duel ? TARGET_CONFIG.distance * OVER_SHOULDER.aim : 0)
       );
       camera.position.set(
-        frameTarget.x + (duel ? overShoulder * side : 0),
+        frameTarget.x + (duel ? overShoulder * side : wardrobe ? 0.42 : 0),
         frameTarget.y + (duel ? OVER_SHOULDER.rise : 0),
         frameTarget.z + side
       );
@@ -671,10 +687,34 @@ export function BoxerModel({
      * it builds. Anything unrecognised is left alone, so the eyeballs keep
      * their sclera material.
      */
+    const gloveGrain = artTexture("glove-grain", 3);
+    const trunksGrain = artTexture("shorts-weave", 4);
+    const hairGrain = artTexture("hair-grain");
+    const matteGlove = appearance.finish === "matte" ? artTexture("kit-matte", 3) : null;
+    const ribbedTrunks = appearance.finish === "matte" ? artTexture("kit-ribbed", 4) : null;
+    const croppedHair = appearance.hair === "crop" ? artTexture("hair-crop") : null;
+    for (const grain of [gloveGrain, trunksGrain, matteGlove, ribbedTrunks]) {
+      if (grain) {
+        grain.colorSpace = THREE.NoColorSpace;
+        grain.flipY = false;
+      }
+    }
+    const selectedColour = FIGHTER_OPTIONS.colour.find(option => option.id === appearance.colour)?.colour ?? KIT.player.glove;
+    const playerKit = {
+      skin: FIGHTER_OPTIONS.skin.find(option => option.id === appearance.skin)?.colour ?? KIT.player.skin,
+      hair: appearance.hair === "shaved" ? undefined : KIT.player.hair,
+      glove: selectedColour,
+      trunks: appearance.colour === "red" ? KIT.player.trunks : `#${new THREE.Color(selectedColour).multiplyScalar(0.67).getHexString()}`,
+      boots: appearance.colour === "red" ? KIT.player.boots : `#${new THREE.Color(selectedColour).multiplyScalar(0.42).getHexString()}`,
+    };
+    const opponentKit = appearance.colour === "blue"
+      ? { ...KIT.target, glove: KIT.player.glove, trunks: KIT.player.trunks, boots: KIT.player.boots }
+      : KIT.target;
     const tintKit = (
       figure: THREE.Object3D,
-      kit: (typeof KIT)["player"] | (typeof KIT)["target"],
-      retired: Set<THREE.Material>
+      kit: Record<"glove" | "trunks" | "boots", string>,
+      retired: Set<THREE.Material>,
+      matte = false,
     ) => {
       figure.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
@@ -683,9 +723,12 @@ export function BoxerModel({
         if (!slot) return;
         const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const m of old) if (m) retired.add(m);
+        const detail = slot === "trunks" ? (matte ? ribbedTrunks : trunksGrain) : (matte ? matteGlove : gloveGrain);
         mesh.material = new THREE.MeshStandardMaterial({
           color: new THREE.Color(kit[slot]),
-          roughness: KIT_ROUGHNESS[slot],
+          bumpMap: mesh.geometry.hasAttribute("uv") ? detail : null,
+          bumpScale: slot === "trunks" ? 0.005 : 0.006,
+          roughness: matte ? Math.min(0.95, KIT_ROUGHNESS[slot] + 0.22) : KIT_ROUGHNESS[slot],
           metalness: 0,
         });
       });
@@ -698,7 +741,9 @@ export function BoxerModel({
        * the spot: the clone shares the original material by reference, so
        * disposing it while texturing the first figure would pull it out from
        * under the second, which still points at it. */
-      retired: Set<THREE.Material>
+      retired: Set<THREE.Material>,
+      hair = hairGrain,
+      cropped = false,
     ): BodyTexture | null => {
       // The body, not whichever skinned mesh traversal happens to end on.
       // The figure now carries eyeballs too, and texturing one of those would
@@ -720,6 +765,7 @@ export function BoxerModel({
         roughness: 0.78,
         metalness: 0.0,
       });
+      if (hair && kit.hair) applyScalp(material, mesh.geometry, dominant, boneNames, hair, kit.hair, cropped);
       const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of old) if (m) retired.add(m);
       mesh.material = material;
@@ -810,10 +856,10 @@ export function BoxerModel({
           // would share one map, so bruises on the target would appear on the
           // player as well.
           const retired = new Set<THREE.Material>();
-          playerSkin = textureFigure(model, KIT.player, retired);
-          targetSkin = textureFigure(opponent, KIT.target, retired);
-          tintKit(model, KIT.player, retired);
-          tintKit(opponent, KIT.target, retired);
+          playerSkin = textureFigure(model, playerKit, retired, croppedHair ?? hairGrain, appearance.hair === "crop");
+          targetSkin = textureFigure(opponent, opponentKit, retired);
+          tintKit(model, playerKit, retired, appearance.finish === "matte");
+          tintKit(opponent, opponentKit, retired);
           for (const m of retired) m.dispose();
 
           // Note: gloves, trunks and generated eyeballs were built here and
@@ -948,11 +994,19 @@ export function BoxerModel({
         const center = new THREE.Vector3();
         box.getSize(size);
         box.getCenter(center);
+        if (wardrobe) {
+          const stand = new THREE.Mesh(
+            new THREE.CylinderGeometry(size.y * 0.29, size.y * 0.31, 0.06, 48),
+            new THREE.MeshStandardMaterial({ color: 0x242c36, roughness: 0.88 })
+          );
+          stand.position.set(center.x, box.min.y - 0.037, center.z);
+          scene.add(stand);
+        }
 
-        frameHeight = size.y * FRAME_FROM_HEIGHT;
+        frameHeight = size.y * (wardrobe ? 1.1 : FRAME_FROM_HEIGHT);
         // Allow for arms thrown wide - the bind-pose bounding box is measured
         // with the arms down, so its width understates the real silhouette.
-        frameWidth = size.x * 1.25;
+        frameWidth = size.x * (wardrobe ? 1.05 : 1.25);
         frameTarget = new THREE.Vector3(
           center.x,
           box.max.y - frameHeight / 2,
@@ -990,6 +1044,12 @@ export function BoxerModel({
 
         // Start square-on to the character; the viewer can orbit from there.
         placeCamera();
+        if (wardrobe && wardrobeCamera.current) {
+          camera.position.copy(wardrobeCamera.current.position);
+          controls.target.copy(wardrobeCamera.current.target);
+          userAdjusted = true;
+          controls.update();
+        }
 
         setStatus("ready");
         statusCbRef.current?.("ready");
@@ -1182,6 +1242,11 @@ export function BoxerModel({
       if (log) {
         for (const imp of log.since(lastImpactSeq)) {
           lastImpactSeq = imp.seq;
+          if ((imp.kind === "landed" || imp.kind === "taken") && imp.power > 0.65) {
+            // The impact log carries no world coordinates; keep small marks
+            // in the central fighting area, within both venue boundaries.
+            bloodDecals?.add(imp.seq, TARGET_CONFIG.distance / 2);
+          }
           const s = shakeFor(imp);
           if (s.amplitude > 0 && !reduceMotion) {
             shake = { ...s, start: imp.at, seed: imp.seq };
@@ -1486,13 +1551,30 @@ export function BoxerModel({
 
     return () => {
       cancelled = true;
+      if (wardrobe && frameTarget) {
+        wardrobeCamera.current = { position: camera.position.clone(), target: controls.target.clone() };
+      }
       cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
       controls.dispose();
       driverRef.current = null;
       playerSkin?.dispose();
       targetSkin?.dispose();
+      gloveGrain?.dispose();
+      trunksGrain?.dispose();
+      hairGrain?.dispose();
+      matteGlove?.dispose();
+      ribbedTrunks?.dispose();
+      croppedHair?.dispose();
+      const builderOwned = new Set<THREE.Object3D | undefined | null>([
+        venue?.group, crowd?.group, bloodDecals?.group, trainingRoom?.group,
+        hallFloor,
+      ]);
       scene.traverse((obj) => {
+        // Builders share materials among meshes and release them once below.
+        for (let ancestor: THREE.Object3D | null = obj; ancestor; ancestor = ancestor.parent) {
+          if (builderOwned.has(ancestor)) return;
+        }
         const mesh = obj as THREE.Mesh;
         if (mesh.isMesh) {
           mesh.geometry?.dispose();
@@ -1508,8 +1590,11 @@ export function BoxerModel({
       venue?.dispose();
       arenaLighting?.dispose();
       crowd?.dispose();
+      bloodDecals?.dispose();
+      trainingRoom?.dispose();
       if (hallFloor) {
         hallFloor.geometry.dispose();
+        (hallFloor.material as THREE.MeshStandardMaterial).map?.dispose();
         (hallFloor.material as THREE.Material).dispose();
       }
       renderer.dispose();
@@ -1521,7 +1606,7 @@ export function BoxerModel({
     // mirrored into refs to avoid rebuilding the scene. This one genuinely
     // changes what is in the scene - a different object standing at the target
     // position - so it has to tear down and rebuild rather than being toggled.
-  }, [poseRef, dummy, stage]);
+  }, [poseRef, dummy, stage, appearance, wardrobe]);
 
   return (
     <div
@@ -1530,7 +1615,7 @@ export function BoxerModel({
       role="img"
       aria-label={
         status === "ready"
-          ? "3D boxer character, animated live from your tracked pose. Drag to orbit the camera."
+          ? wardrobe ? "3D fighter preview. Drag to orbit the camera." : "3D boxer character, animated live from your tracked pose. Drag to orbit the camera."
           : status === "error"
             ? `3D boxer character failed to load${errorMsg ? `: ${errorMsg}` : ""}`
             : "3D boxer character loading"

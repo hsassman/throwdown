@@ -7,8 +7,9 @@
   gap: 10px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  background: rgba(8, 10, 16, 0.82);
+  border-radius: 6px;
+  border-top-color: #ba976452;
+  background: #111214;
   color: #e8eef7;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -21,13 +22,6 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   opacity: 0.7;
-}
-
-.spanel-badge {
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.75rem;
 }
 
 .spanel-sections {

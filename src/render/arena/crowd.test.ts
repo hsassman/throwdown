@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { Points } from "three";
 import { buildCrowd, seatPositions } from "./crowd";
 import { CROWD_CONFIG } from "../../config/tuning";
 
@@ -38,5 +39,18 @@ describe("crowd", () => {
     calm.burst();
     calm.update(1);
     calm.dispose();
+  });
+
+  it("places a visible burst in the stands and fades it out", () => {
+    const crowd = buildCrowd(inner, 0);
+    const flashes = crowd.group.children.find(child => (child as Points).isPoints) as Points;
+    crowd.burst();
+    crowd.update(0);
+    const { position, color } = flashes.geometry.attributes;
+    expect(color.getX(0)).toBeGreaterThan(0.8);
+    expect(Math.hypot(position.getX(0), position.getZ(0))).toBeGreaterThan(inner);
+    crowd.update(CROWD_CONFIG.flashSeconds);
+    expect(color.getX(0)).toBeCloseTo(0, 6);
+    crowd.dispose();
   });
 });

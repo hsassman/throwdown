@@ -69,3 +69,20 @@
   font-size: 0.82rem;
   opacity: 0.75;
 }
+
+.cpanel {
+  border-radius: 6px;
+  border-color: #d8ae6e4d;
+  border-top: 2px solid #d8ae6e;
+  background: #111214;
+}
+
+.cpanel-art {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 9vw, 120px);
+  object-fit: cover;
+  object-position: 75% 65%;
+  border-radius: 3px;
+  border-bottom: 1px solid #d8ae6e70;
+}

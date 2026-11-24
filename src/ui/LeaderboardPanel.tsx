@@ -105,7 +105,7 @@ export function LeaderboardPanel({ result, landed }: Props) {
         <header className="vs-head">
           <strong>Leaderboard</strong>
         </header>
-        <p className="vs-detail">Scores are saved once the game server is deployed.</p>
+        <p className="vs-detail">Leaderboard unavailable.</p>
       </section>
     );
   }
@@ -119,7 +119,7 @@ export function LeaderboardPanel({ result, landed }: Props) {
       {result && !submitted && (
         <form onSubmit={onSubmit}>
           <p className="vs-detail">
-            You scored <strong>{score}</strong>. Save it?
+            Your score: <strong>{score}</strong>
           </p>
           <input
             type="text"
@@ -138,7 +138,7 @@ export function LeaderboardPanel({ result, landed }: Props) {
       {sendError && <p className="vs-detail">{sendError}</p>}
 
       {loadError && <p className="vs-detail">{loadError}</p>}
-      {rows && rows.length === 0 && <p className="vs-detail">No scores yet. Be the first.</p>}
+      {rows && rows.length === 0 && <p className="vs-detail">No scores yet.</p>}
       {rows && rows.length > 0 && (
         <ol className="lb-list">
           {rows.map((r, i) => (

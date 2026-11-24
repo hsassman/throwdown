@@ -9,7 +9,6 @@ import {
   type ShellItem,
 } from "../../menu/shellModel";
 import { useCameraMenu } from "./useCameraMenu";
-import { POINTER_CONFIG } from "../../config/tuning";
 import "./shell.css";
 
 // The menu.
@@ -133,24 +132,19 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused =
       ? `Camera not running: ${cameraProblem}`
       : "Camera not running."
     : !camera.tracked
-      ? "Raise a hand into frame to point."
+      ? "Raise a hand to point at the menu."
       : camera.reason === "moving"
         ? "Hold still to select."
         : camera.reason === "rearm"
           ? "Move away, then back, to choose again."
-          : "Hold your hand over a row to choose it.";
+        : "Hold your hand over a row to open it.";
 
   return (
     <div className="shell">
-      <div className="shell-bg" aria-hidden="true">
-        <div className="shell-glow" />
-        <div className="shell-grid" />
-      </div>
+      <div className="shell-bg" aria-hidden="true" />
 
       <header className="shell-head">
-        <h1 className="shell-title">
-          Shadow<span>Box</span>
-        </h1>
+        <h1 className="shell-title">ShadowBox</h1>
         <p className="shell-hint" role="status">
           {hint}
         </p>
@@ -162,13 +156,13 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused =
         <ul className="shell-inputs" aria-label="How to navigate">
           <li>
             <kbd>&uarr;</kbd>
-            <kbd>&darr;</kbd> move
+            <kbd>&darr;</kbd> Move
           </li>
           <li>
-            <kbd>Enter</kbd> select
+            <kbd>Enter</kbd> Open
           </li>
-          <li>Mouse: hover and click</li>
-          <li>Camera: hold a hand over a row</li>
+          <li>Click or tap to open</li>
+          <li>Webcam: point and hold</li>
         </ul>
       </header>
 
@@ -197,7 +191,7 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused =
                              disabled would promise assistive technology that
                              pressing it does nothing, which is false, and it
                              also makes the row unreachable to automation.
-                             The "Not built" badge is inside the button, so it
+                             The "Unavailable" label is inside the button, so it
                              is part of the accessible name already. */
                           ref={(el) => {
                             camera.registerRow(item.id)(el);
@@ -224,7 +218,7 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused =
                             <span className="shell-row-title">{item.title}</span>
                             <span className="shell-row-blurb">{item.blurb}</span>
                           </span>
-                          <Badge availability={item.availability} />
+                          {!playable && <span className="shell-unavailable">Unavailable</span>}
                         </button>
                       </li>
                     );
@@ -244,32 +238,24 @@ export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused =
         </div>
 
         <aside className="shell-detail" aria-live="polite">
+          <img className="shell-detail-art" src={`/art/${detailArtwork(focused)}.webp`} alt="" />
           <h2 className="shell-detail-title">{focused.title}</h2>
-          <Badge availability={focused.availability} />
           <p className="shell-detail-body">{focused.detail}</p>
-          {focused.lockedReason && (
-            <p className="shell-detail-locked">{focused.lockedReason}</p>
-          )}
-          {rejected === focused.id && (
-            <p className="shell-detail-reject" role="alert">
-              Not available yet - {focused.lockedReason}
-            </p>
-          )}
-          <p className="shell-detail-dwell">
-            Hold for {(POINTER_CONFIG.dwellMs / 1000).toFixed(1)}s to confirm.
-          </p>
+          {rejected === focused.id && <p className="shell-detail-reject" role="alert">{focused.lockedReason}</p>}
         </aside>
       </div>
     </div>
   );
 }
 
-function Badge({ availability }: { availability: ShellItem["availability"] }) {
-  const label =
-    availability === "ready" ? "Ready" : availability === "preview" ? "Rough" : "Not built";
-  return (
-    <span className="shell-badge" data-availability={availability}>
-      {label}
-    </span>
-  );
+function detailArtwork(item: ShellItem): string {
+  if (item.id === "fighter") return "kit-room";
+  if (item.id === "career") return "locker-room";
+  if (item.id === "stages") return "cage-preview";
+  if (item.id === "dummy") return "training-banner";
+  if (item.id === "punchlab") return "wraps-art";
+  if (item.category === "train") return "gym";
+  if (item.id === "tracking") return "tracking-art";
+  if (item.category === "online") return item.id === "internet" ? "crowd-lower" : "audience";
+  return "arena-night";
 }

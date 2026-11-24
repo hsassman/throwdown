@@ -19,6 +19,7 @@ export function CareerPanel({ profile, lastOutcome }: Props) {
 
   return (
     <div className="cpanel">
+      <img className="cpanel-art" src="/art/locker-room.webp" alt="" />
       <div className="cpanel-record">
         <span className="cpanel-w">{wins}W</span>
         <span className="cpanel-l">{losses}L</span>

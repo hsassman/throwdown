@@ -30,11 +30,11 @@ export const FIRST_RUN_TEXT: Record<FirstRunStep, { title: string; body: string 
   },
   guard: {
     title: "Guard up",
-    body: "Raise both gloves to your chin and hold them there.",
+    body: "Raise both hands to your chin and hold them there.",
   },
   punch: {
     title: "Throw a punch with each hand",
-    body: "Straight at the screen, arm fully out. One left, one right.",
+    body: "Throw one straight punch with your left hand, then one with your right.",
   },
   ready: {
     title: "You're set",

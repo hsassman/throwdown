@@ -32,29 +32,15 @@
 }
 .vs-open {
   background: #4ade80;
-  box-shadow: 0 0 10px rgba(74, 222, 128, 0.75);
 }
 .vs-offering,
 .vs-answering,
 .vs-connecting {
   background: #facc15;
-  animation: vs-pulse 1.1s ease-in-out infinite;
 }
 .vs-failed,
 .vs-closed {
   background: #f87171;
-}
-@keyframes vs-pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .vs-offering,
-  .vs-answering,
-  .vs-connecting {
-    animation: none;
-  }
 }
 
 .vs-ping {
@@ -178,9 +164,8 @@
   gap: 9px;
   padding: 6px 8px 6px 11px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
+  border-radius: 2px;
   background: rgba(8, 10, 16, 0.72);
-  backdrop-filter: blur(6px);
   color: #e8eef7;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 0.76rem;
@@ -196,7 +181,7 @@
 .vs-chip-leave {
   padding: 3px 9px;
   border: 1px solid rgba(248, 113, 113, 0.35);
-  border-radius: 999px;
+  border-radius: 2px;
   background: transparent;
   color: #fca5a5;
   font: inherit;
@@ -234,3 +219,11 @@
   justify-content: space-between;
   gap: 0.5rem;
 }
+
+.vs {
+  border-radius: 6px;
+  border-color: #d8ae6e4d;
+  border-top: 2px solid #d8ae6e;
+  background: #111214;
+}
+.vs-head { color: #f4d5a7; font-weight: 700; }

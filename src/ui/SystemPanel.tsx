@@ -34,18 +34,11 @@ export function SystemPanel({ reportRef }: Props) {
 
   return (
     <div className="spanel">
-      <div className="spanel-title">
-        System
-        {report.score !== null && (
-          <span className={`spanel-badge spanel-${grade(report.score)}`}>
-            {Math.round(report.score * 100)}
-          </span>
-        )}
-      </div>
+      <div className="spanel-title">System</div>
 
       <ul className="spanel-sections">
         <li>
-          <span className="spanel-name">Pose</span>
+          <span className="spanel-name">Body tracking</span>
           {report.tracking && isMeasured(report.tracking) ? (
             <span className={`spanel-value spanel-${grade(report.tracking.score)}`}>
               {Math.round(report.tracking.score * 100)} · {report.tracking.hz.toFixed(1)} Hz
@@ -56,10 +49,10 @@ export function SystemPanel({ reportRef }: Props) {
         </li>
 
         <li>
-          <span className="spanel-name">Frame</span>
+          <span className="spanel-name">Camera updates</span>
           {report.frame ? (
             <span className={`spanel-value spanel-${grade(report.frame.score)}`}>
-              {report.frame.hz.toFixed(1)} Hz · {report.frame.inferenceMs.toFixed(0)}ms infer
+              {report.frame.hz.toFixed(1)} Hz ({report.frame.inferenceMs.toFixed(0)} ms to read each frame)
             </span>
           ) : (
             <span className="spanel-value spanel-idle">not measured yet</span>

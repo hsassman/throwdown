@@ -794,25 +794,26 @@ export const ROI_CONFIG = {
 export const CROWD_CONFIG = {
   rows: 7,
   /** Gap between the venue's edge and the first row, world units. */
-  firstRowGap: 2.2,
+  firstRowGap: 7.2,
   /** Row-to-row spacing outward, and the rise of each row. */
-  rowDepth: 0.95,
-  rowRise: 0.42,
-  seatSpacing: 0.62,
-  emptySeatChance: 0.12,
+  rowDepth: 1.05,
+  rowRise: 0.46,
+  seatBase: 0.85,
+  seatSpacing: 0.88,
+  emptySeatChance: 0.16,
   /**
    * Brightness range of the silhouettes, linear 0-1, before fog. Linear is
    * the catch: through sRGB output and the arena's tone mapping, 0.16 came
    * out as a pale grey crowd of ghosts. These read as people in the dark.
    */
-  shadeMin: 0.012,
-  shadeMax: 0.045,
+  shadeMin: 0.006,
+  shadeMax: 0.024,
   flashPool: 24,
   flashSeconds: 0.18,
   /** Ambient camera flashes per second across the whole crowd. */
-  flashesPerSecond: 2.2,
+  flashesPerSecond: 2.6,
   /** Flashes fired at once on a knockdown. */
-  burstFlashes: 14,
+  burstFlashes: 5,
 } as const;
 
 /**
@@ -1687,12 +1688,14 @@ export const KIT = {
    */
   player: {
     skin: "#b98a6a",
+    hair: "#30211e",
     glove: "#9d1f24",
     trunks: "#8c1520",
     boots: "#6f1119",
   },
   target: {
     skin: "#a97a5c",
+    hair: "#211c1b",
     glove: "#1e3a6b",
     trunks: "#172b52",
     boots: "#121c3f",

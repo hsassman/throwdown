@@ -40,6 +40,7 @@ const context = await browser.newContext({
   permissions: ["camera"],
   viewport: { width: 1440, height: 900 },
 });
+context.setDefaultTimeout(60000);
 const page = await context.newPage();
 
 // Waits are generous on purpose. Everything here runs under SwiftShader with
@@ -95,15 +96,8 @@ try {
   const rowCount = await rows.count();
   check("menu shell renders rows", rowCount >= 8, `${rowCount} rows`);
 
-  const badges = await page.locator(".shell-badge").allTextContents();
-  check(
-    "menu states availability honestly",
-    badges.includes("Ready") && badges.includes("Not built"),
-    badges.join(", ")
-  );
-
   const locked = page.locator('.shell-row[data-locked="true"]');
-  check("locked rows are marked", (await locked.count()) > 0);
+  check("locked rows are marked", (await locked.getByText("Unavailable").count()) > 0);
 
   // The focused row and the detail panel must never disagree. This is the
   // classic two-sources-of-truth bug (a hoverIndex for the mouse, a focusIndex
@@ -169,7 +163,7 @@ try {
   );
   check(
     "the menu names keyboard, mouse and camera",
-    /move/.test(inputs) && /Mouse/.test(inputs) && /Camera/.test(inputs),
+    /Move/.test(inputs) && /Click or tap/.test(inputs) && /Webcam/.test(inputs),
     inputs.slice(0, 120)
   );
 
@@ -305,7 +299,7 @@ try {
 
   // --- Back out ---
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
   check("back returns to the menu", true);
 
   const camBack = await camState();
@@ -373,7 +367,7 @@ try {
   await page.screenshot({ path: `${OUT}/shell-tracking.png` });
   step(`saved ${OUT}/shell-tracking.png`);
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Free work ---
   await rows.filter({ hasText: "Free Work" }).first().click();
@@ -392,7 +386,7 @@ try {
   await page.screenshot({ path: `${OUT}/shell-freework.png` });
   step(`saved ${OUT}/shell-freework.png`);
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Player vs CPU ---
   //
@@ -530,12 +524,12 @@ try {
   step(`saved ${OUT}/shell-fight-orbit.png`);
 
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Career ---
   await rows.filter({ hasText: "Career" }).first().click();
   await page.waitForSelector(".fight-hud", { timeout: 45000 });
-  await page.waitForSelector(".cpanel", { timeout: 10000 });
+  await page.waitForSelector(".cpanel", { timeout: 45000 });
   const careerText = await page.locator(".cpanel").textContent();
   check(
     "career panel shows a clean record and the first rung",
@@ -545,7 +539,7 @@ try {
   await page.screenshot({ path: `${OUT}/shell-career.png` });
   step(`saved ${OUT}/shell-career.png`);
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Same Network: two real browsers, one fight ------------------------
   //
@@ -699,7 +693,7 @@ try {
     await guest.close();
   }
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Stages ---
   await rows.filter({ hasText: "Stages" }).first().click();
@@ -721,7 +715,7 @@ try {
   await page.screenshot({ path: `${OUT}/stage-ring.png` });
   step(`saved ${OUT}/stage-ring.png`);
   await page.locator(".back-btn").click();
-  await page.waitForSelector(".shell", { timeout: 10000 });
+  await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Every screen can be entered and left, by keyboard and by mouse ------
   //

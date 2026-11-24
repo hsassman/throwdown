@@ -7,8 +7,9 @@
   gap: 14px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  background: rgba(8, 10, 16, 0.82);
+  border-radius: 6px;
+  border-top-color: #ba97645c;
+  background: #0b1018;
   color: #e8eef7;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -19,6 +20,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  padding: 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #080c13ed, #080c13b8), url('/art/tracking-art.webp') 68% center / cover;
 }
 
 .tpanel-score-value {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Suspense, lazy, useCallback } from "react";
+import { useEffect, useRef, useState, useDeferredValue, Suspense, lazy, useCallback } from "react";
 import { useWebcam } from "./capture/useWebcam";
 import { usePoseTracking } from "./pose/usePoseTracking";
 import { PoseOverlay } from "./ui/PoseOverlay";
@@ -36,6 +36,9 @@ import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
 import { loadCareerProfile, saveCareerProfile } from "./training/careerStore";
 import { CareerPanel } from "./ui/CareerPanel";
+import { FighterPanel } from "./ui/FighterPanel";
+import { loadFighterAppearance, saveFighterAppearance, type FighterAppearance } from "./menu/fighterAppearance";
+import type { PoseFrame } from "./pose/poseTypes";
 import { useSession } from "./net/useSession";
 import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
@@ -91,6 +94,10 @@ export default function App() {
    */
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [screen, setScreen] = useState<Screen>(null);
+  const [appearance, setAppearance] = useState(loadFighterAppearance);
+  const [draftAppearance, setDraftAppearance] = useState<FighterAppearance | null>(null);
+  const previewAppearance = useDeferredValue(draftAppearance ?? appearance);
+  const previewPoseRef = useRef<PoseFrame | null>(null);
 
   const [boxerStatus, setBoxerStatus] = useState<LoadStatus>("loading");
   const [boxerError, setBoxerError] = useState<string | null>(null);
@@ -301,7 +308,10 @@ export default function App() {
     else stopDrill();
   }, [screen, startDrill, stopDrill]);
 
-  const goMenu = useCallback(() => setScreen(null), []);
+  const goMenu = useCallback(() => {
+    setDraftAppearance(null);
+    setScreen(null);
+  }, []);
 
   // Escape always returns to the menu. A camera-driven UI needs a guaranteed
   // way out that does not depend on the camera working - if tracking fails
@@ -342,28 +352,30 @@ export default function App() {
   if (!started) {
     return (
       <div className="gate">
-        <h1>Shadow Box</h1>
-        <p className="gate-sub">Webcam boxing - everything runs on this machine</p>
-        <p className="gate-body">
-          Grants camera access and runs pose tracking locally. No video and no
-          body data ever leaves the browser.
-        </p>
-        <button
-          className="gate-btn"
-          onClick={() => {
-            // The only real tap before the camera-driven menu takes over, so
-            // audio is unlocked here. See audio/sharedContext.ts.
-            unlockAudio();
-            setStarted(true);
-          }}
-        >
-          Enable camera
-        </button>
+        <div className="gate-content">
+          <h1>Shadow Box</h1>
+          <p className="gate-body">
+            Use your webcam to control your boxer. The game processes your camera
+            feed in your browser.
+          </p>
+          <button
+            className="gate-btn"
+            onClick={() => {
+              // The only real tap before the camera-driven menu takes over, so
+              // audio is unlocked here. See audio/sharedContext.ts.
+              unlockAudio();
+              setStarted(true);
+            }}
+          >
+            Enable camera
+          </button>
+        </div>
       </div>
     );
   }
 
   const item = screen === null ? null : ITEM_BY_ID.get(screen);
+  const wardrobe = screen === "fighter";
   const stage3d = onDummy || inFight;
   const inMenu = screen === null;
 
@@ -378,6 +390,7 @@ export default function App() {
    * fight.
    */
   const panelExtras =
+    wardrobe ||
     onDummy ||
     // The connection panel is the screen until the two ends are connected.
     // Once they are, the codes have done their job and the fight takes the
@@ -402,7 +415,7 @@ export default function App() {
   const screenHead = (
     <div className={`screen-head${immersive ? " screen-head-float" : ""}`}>
       <button className="back-btn" onClick={goMenu}>
-        ← Menu
+        Main menu
       </button>
       <h2 className="screen-title">{item?.title ?? screen}</h2>
       {/* The two keys that work on every screen. Escape especially: a
@@ -429,14 +442,14 @@ export default function App() {
     ? "cam-inset"
     : coaching
       ? "cam-inset cam-coach"
-    : inMenu || screen === "stages"
+    : inMenu || screen === "stages" || wardrobe
       ? "cam-hidden"
       : "cam-full";
 
   return (
     <div
       className={`app ${
-        inMenu ? "app-menu" : stage3d ? "app-boxer" : "app-wide"
+        inMenu ? "app-menu" : wardrobe ? "app-boxer app-wardrobe" : stage3d ? "app-boxer" : "app-wide"
       }${immersive ? " app-immersive" : ""}${connecting ? " app-connect" : ""}`}
     >
       <div className="stage">
@@ -456,10 +469,26 @@ export default function App() {
           </Suspense>
         )}
         {coaching && <FirstRunCard state={firstRun} onDone={finishFirstRun} />}
+        {wardrobe && (
+          <Suspense fallback={<p className="wardrobe-preview-hint">Loading preview…</p>}>
+            <BoxerModel
+              wardrobe
+              appearance={previewAppearance}
+              poseRef={previewPoseRef}
+              view="facing"
+              onStatusChange={(status, detail) => {
+                setBoxerStatus(status);
+                setBoxerError(detail ?? null);
+              }}
+            />
+            <p className="wardrobe-preview-hint">Drag to rotate the fighter</p>
+          </Suspense>
+        )}
         {stage3d && (
           <Suspense fallback={null}>
             <BoxerModel
               poseRef={poseRef}
+              appearance={appearance}
               samplePose={samplePredicted}
               view="behind"
               showTarget={inFight}
@@ -509,8 +538,14 @@ export default function App() {
                     aria-pressed={stage === v.id}
                     onClick={() => setStage(v.id as StageId)}
                   >
-                    <strong>{v.title}</strong>
-                    <span>{v.blurb}</span>
+                    <img
+                      src={v.id === "ring" ? "/art/arena-night.webp" : "/art/cage-preview.webp"}
+                      alt=""
+                    />
+                    <span className="stage-btn-copy">
+                      <strong>{v.title}</strong>
+                      <span>{v.blurb}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -557,6 +592,17 @@ export default function App() {
       {!inMenu && panelExtras && (
         <div className="panel">
           {screenHead}
+          {wardrobe && (
+            <FighterPanel
+              appearance={draftAppearance ?? appearance}
+              onChange={setDraftAppearance}
+              onSave={() => {
+                const chosen = draftAppearance ?? appearance;
+                setAppearance(chosen);
+                return saveFighterAppearance(chosen);
+              }}
+            />
+          )}
 
           {onLan && (
             <VersusPanel
@@ -599,7 +645,7 @@ export default function App() {
             <PunchHarness poseRef={poseRef} enabled={poseStatus === "ready"} />
           )}
 
-          {stage3d && boxerStatus === "error" && (
+          {(stage3d || wardrobe) && boxerStatus === "error" && (
             <p className="err">Model failed to load: {boxerError}</p>
           )}
           {stage3d && boxerStatus === "loading" && (

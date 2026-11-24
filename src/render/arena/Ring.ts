@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { artTexture } from "./artTextures";
 import {
   RING,
   platformHalfSpan,
@@ -47,8 +48,14 @@ export function buildRing(options: RingOptions = {}): Ring {
   const platform = platformHalfSpan(insideRopes);
 
   // --- Canvas -------------------------------------------------------------
+  const canvasMap = artTexture("canvas", 2);
+  const leatherMap = artTexture("corner-vinyl", 2);
+  if (canvasMap) track(canvasMap);
+  if (leatherMap) track(leatherMap);
+  const steelMap = artTexture("steel", 2);
+  if (steelMap) track(steelMap);
   const canvasMat = track(
-    new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.92 })
+    new THREE.MeshStandardMaterial({ color: 0x748ba3, map: canvasMap, roughness: 0.92 })
   );
   const canvasGeo = track(new THREE.BoxGeometry(platform * 2, 0.06, platform * 2));
   const canvas = new THREE.Mesh(canvasGeo, canvasMat);
@@ -61,7 +68,7 @@ export function buildRing(options: RingOptions = {}): Ring {
   // usually a lighter band outside the ropes. One inset quad rather than a
   // second slab, so there is no z-fighting between two coplanar faces.
   const apronMat = track(
-    new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.9 })
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: canvasMap, roughness: 0.9 })
   );
   const insideGeo = track(new THREE.PlaneGeometry(half * 2, half * 2));
   const inside = new THREE.Mesh(insideGeo, apronMat);
@@ -73,11 +80,13 @@ export function buildRing(options: RingOptions = {}): Ring {
 
   // --- Corner posts and turnbuckle pads -----------------------------------
   const postMat = track(
-    new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.4, metalness: 0.8 })
+    new THREE.MeshStandardMaterial({ color: 0x9aa3ad, map: steelMap, roughness: 0.4, metalness: 0.8 })
   );
   const padMat = track(
-    new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.75 })
+    new THREE.MeshStandardMaterial({ color: 0xf56a57, map: leatherMap, roughness: 0.75 })
   );
+  const bluePadMat = track(padMat.clone());
+  bluePadMat.color.set(0x599bd9);
   const postGeo = track(
     new THREE.CylinderGeometry(RING.postRadius, RING.postRadius, RING.postHeight, 12)
   );
@@ -94,7 +103,7 @@ export function buildRing(options: RingOptions = {}): Ring {
     post.name = `post-${i}`;
     group.add(post);
 
-    const pad = new THREE.Mesh(padGeo, padMat);
+    const pad = new THREE.Mesh(padGeo, i % 2 === 0 ? padMat : bluePadMat);
     pad.position.set(c.x, RING.padHeight / 2, c.z);
     pad.castShadow = true;
     pad.name = `pad-${i}`;
@@ -135,9 +144,12 @@ export function buildRing(options: RingOptions = {}): Ring {
 
   // --- Skirt --------------------------------------------------------------
   if (understructure) {
+    const skirtMap = artTexture("oxblood", 3);
+    if (skirtMap) track(skirtMap);
     const skirtMat = track(
       new THREE.MeshStandardMaterial({
-        color: 0x111827,
+        color: 0xb2a29e,
+        map: skirtMap,
         roughness: 0.95,
         side: THREE.DoubleSide,
       })

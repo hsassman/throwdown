@@ -39,7 +39,10 @@ function Bars({
 }) {
   return (
     <div className={`fh-fighter fh-${side}`}>
-      <div className="fh-name">{name}</div>
+      <div className="fh-fighter-label">
+        <span className="fh-name">{name}</span>
+        <span className="fh-health-value" aria-hidden="true">{Math.round(health)}%</span>
+      </div>
       <div
         className="fh-health"
         role="meter"
@@ -77,7 +80,7 @@ export function FightHud({ hud, showWindup = true }: Props) {
           stamina={hud.player.stamina}
         />
         <div className="fh-centre">
-          <div className="fh-round">R{hud.round}</div>
+          <div className="fh-round">Round {hud.round}</div>
           <div className={`fh-clock ${hud.clock < 10 ? "is-low" : ""}`}>
             {clock(hud.clock)}
           </div>

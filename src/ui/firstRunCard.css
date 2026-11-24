@@ -11,43 +11,16 @@
   border: 1px solid rgba(255, 216, 74, 0.45);
   /* The second shadow dims the menu behind without catching clicks, so the
      menu stays usable with a mouse or keyboard throughout. */
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.55),
-    0 0 0 100vmax rgba(4, 6, 10, 0.6);
+  box-shadow: 0 0 0 100vmax #09090bc9;
   color: #e8edf4;
   text-align: center;
   z-index: 9;
-  animation: firstrun-in 240ms ease-out;
 }
 
 /* The camera picture, above the dim: half of the walkthrough is framing.
    Doubled class: App.css loads after this file and sets .cam-inset's own. */
 .cam-inset.cam-coach {
   z-index: 10;
-}
-
-.firstrun-steps {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 0;
-  list-style: none;
-}
-
-.firstrun-steps li {
-  width: 34px;
-  height: 5px;
-  border-radius: 3px;
-  background: #2f3a4d;
-}
-
-.firstrun-steps li[data-state="done"] {
-  background: #5fd08a;
-}
-
-.firstrun-steps li[data-state="now"] {
-  background: #ffd84a;
 }
 
 .firstrun-title {
@@ -119,11 +92,9 @@
   .firstrun-btn kbd { display: none; }
 }
 
-@keyframes firstrun-in {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 10px)); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .firstrun { animation: none; }
+.firstrun {
+  border-radius: 6px;
+  border-color: #d8ae6e80;
+  background: #141416;
 }

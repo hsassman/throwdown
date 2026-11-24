@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { artTexture } from "./artTextures";
 import { chainLinkTexture } from "./chainLink";
 import {
   OCTAGON,
@@ -133,7 +134,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
   // the apron beyond the fence can be a different material - on a real
   // octagon the apron is the same mat, but it takes far less light and reading
   // them as one uniform sheet flattens the whole platform.
-  const matTex = canvasTexture();
+  const matTex = artTexture("cage-mat") ?? canvasTexture();
   if (matTex) {
     matTex.repeat.set(acrossFlats / 2, acrossFlats / 2);
     track(matTex);
@@ -156,13 +157,16 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
 
   // --- Platform edge and understructure -----------------------------------
   if (showUnder) {
+    const skirtMap = artTexture("oxblood", 2);
+    if (skirtMap) track(skirtMap);
     // The vinyl skirt: the red band wrapping the platform edge in both
     // reference images. Built as a slab rather than a ring of quads because
     // an eight-sided extrusion already has exactly the side faces needed.
     const skirtGeo = track(octagonSlab(outerRadius * 1.004, OCTAGON.skirtHeight));
     const skirtMat = track(
       new THREE.MeshStandardMaterial({
-        color: 0x8c1d1d,
+        color: 0xc6b4aa,
+        map: skirtMap,
         roughness: 0.45,
         metalness: 0.05,
       })
@@ -210,6 +214,8 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
   const postSteelMat = track(
     new THREE.MeshStandardMaterial({ color: 0x0e1013, roughness: 0.5, metalness: 0.6 })
   );
+  const steelMap = artTexture("steel", 2);
+  if (steelMap) { track(steelMap); postSteelMat.map = steelMap; }
   const padGeo = track(
     new THREE.CylinderGeometry(
       OCTAGON.postPadRadius,
@@ -219,8 +225,10 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
     )
   );
   const padMat = track(
-    new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.92, metalness: 0 })
+    new THREE.MeshStandardMaterial({ color: 0x747980, roughness: 0.92, metalness: 0 })
   );
+  const leatherMap = artTexture("corner-vinyl", 2);
+  if (leatherMap) { track(leatherMap); padMat.map = leatherMap; }
 
   const cornerPts: Corner[] = corners(radius);
   for (let i = 0; i < cornerPts.length; i++) {

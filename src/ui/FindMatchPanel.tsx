@@ -44,7 +44,7 @@ export function FindMatchPanel({ matchStatus, linkStatus, onFindMatch, onLeave }
       <section className="vs" aria-label="Online fight">
         <header className="vs-head">
           <span className="vs-dot vs-idle" aria-hidden="true" />
-          <strong>No game server</strong>
+          <strong>Online play unavailable</strong>
         </header>
         <p className="vs-detail">{NO_SERVER_MESSAGE}</p>
       </section>

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { artTexture } from "./arena/artTextures";
 import {
   DUMMY,
   halfDepthAt,
@@ -315,10 +316,12 @@ export class PunchingDummy {
 
     const columnMat = new THREE.MeshStandardMaterial({
       color: COLOURS.column,
+      map: artTexture("steel", 2),
       roughness: 0.62,
       metalness: 0.1,
     });
     this.disposables.push(columnMat);
+    if (columnMat.map) this.disposables.push(columnMat.map);
 
     // The collar: a socket the body plugs into.
     //
@@ -368,6 +371,7 @@ export class PunchingDummy {
     const baseHeight = (top - floor) * 0.22;
     const baseMat = new THREE.MeshStandardMaterial({
       color: COLOURS.base,
+      map: artTexture("rubber", 2),
       roughness: 0.75,
       metalness: 0.12,
     });
@@ -378,6 +382,7 @@ export class PunchingDummy {
     base.position.y = floor + baseHeight / 2;
     g.add(base);
     this.disposables.push(base.geometry, baseMat);
+    if (baseMat.map) this.disposables.push(baseMat.map);
     return g;
   }
 

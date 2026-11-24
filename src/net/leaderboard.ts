@@ -12,7 +12,7 @@ export interface LeaderboardRow {
 
 /** Shown wherever this build has no server to talk to (NET_CONFIG). */
 export const NO_SERVER_MESSAGE =
-  "Online play isn't set up on this site yet: it needs the game server deployed. Same Network works without one.";
+  "Use Same Network to play with a friend on the same network.";
 
 /** Same limits the server enforces (LeaderboardRules.cs). */
 export const MAX_NAME_LENGTH = 20;

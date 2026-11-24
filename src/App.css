@@ -1,30 +1,32 @@
 .gate {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-align: center;
-  padding: 2rem;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: grid;
+  align-content: center;
+  padding: clamp(1.25rem, 6vw, 6rem);
+  background: #090d13 linear-gradient(90deg, #090d13f5, #090d13b8 42%, #090d1338);
+  background-image: linear-gradient(90deg, #090d13fa, #090d13ca 38%, #090d1338), url('/art/fighter-tunnel.webp');
+  background-position: center;
+  background-size: cover;
+}
+
+.gate-content {
+  width: min(100%, 32rem);
 }
 
 .gate h1 {
   margin: 0;
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
+  font-size: clamp(2.75rem, 7vw, 6rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
 }
 
-.gate-sub {
-  margin: 0;
-  color: #7a8699;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-}
 
 .gate-body {
   max-width: 34rem;
-  color: #9aa7ba;
+  color: #c4cdda;
   line-height: 1.6;
 }
 
@@ -32,15 +34,55 @@
   margin-top: 1rem;
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
-  border-radius: 8px;
-  border: 1px solid #2f3a4d;
-  background: #1b2430;
-  color: #e6edf5;
+  border-radius: 5px;
+  border: 1px solid #ffce94;
+  background: #f1ad68;
+  color: #19100b;
+  font-weight: 750;
   cursor: pointer;
 }
 
 .gate-btn:hover {
-  background: #243043;
+  background: #ffcb92;
+}
+
+.app .screen-title { letter-spacing: -0.02em; }
+.app .back-btn { border-color: #aa8e654d; }
+.app .back-btn:hover { border-color: #efb879; color: #fff3df; }
+.panel > :is(.fighter-panel, .harness, .thud, .vs, .tpanel, .spanel, .cpanel) {
+  border: 0;
+  border-top: 1px solid #55504a;
+  border-radius: 0;
+  background-color: #111214;
+}
+.app-wardrobe .stage {
+  background: radial-gradient(ellipse at 50% 40%, #12192245 15%, #070b11e8 96%),
+    linear-gradient(90deg, #0b1018dc, #0b1018a8), url('/art/kit-room.webp') 64% center / cover;
+  min-height: 360px;
+  border: 1px solid #705c3e70;
+  box-sizing: border-box;
+}
+.app-wardrobe .panel { flex-basis: 390px; }
+.wardrobe-preview-hint {
+  position: absolute;
+  bottom: 1rem;
+  inset-inline: 1rem;
+  margin: 0;
+  text-align: center;
+  color: #d6e1ee;
+  pointer-events: none;
+  font-size: .85rem;
+  text-shadow: 0 1px 5px #000;
+}
+@media (max-width: 640px) {
+  .app-wardrobe.app-boxer .stage { height: min(47dvh, 440px); min-height: 270px; }
+  .app-wardrobe .panel { flex-basis: auto; width: 100%; }
+}
+
+.gate-btn:focus-visible,
+.stage-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
 }
 
 .app {
@@ -968,21 +1010,24 @@ summary:focus-visible,
 .stage-picker {
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  bottom: max(16px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(600px, calc(100% - 32px));
   gap: 10px;
   z-index: 3;
 }
 .stage-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 18px;
+  display: grid;
+  grid-template-columns: minmax(64px, 36%) 1fr;
+  align-items: center;
+  padding: 0;
   min-height: 44px;
-  border-radius: 10px;
+  overflow: hidden;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(10, 12, 16, 0.78);
+  background: #0c1119f2;
   color: #e6e9ef;
   text-align: left;
   cursor: pointer;
@@ -992,20 +1037,42 @@ summary:focus-visible,
   border-color: rgba(255, 255, 255, 0.34);
 }
 .stage-btn[aria-pressed="true"] {
-  border-color: #f97316;
-  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.45);
+  border-color: #efb879;
+  box-shadow: 0 0 0 1px #efb87980;
+}
+.stage-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 84px;
+  object-fit: cover;
+}
+.stage-btn-copy {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
 }
 .stage-btn strong {
   font-size: 0.95rem;
 }
-.stage-btn span {
+.stage-btn-copy > span {
   font-size: 0.75rem;
-  opacity: 0.68;
+  color: #c1c9d6;
 }
 @media (max-width: 640px) {
-  .stage-picker {
-    flex-direction: column;
-    width: calc(100% - 32px);
+  .app-wide.app-immersive {
+    padding: 0;
+  }
+  .app-wide.app-immersive .stage {
+    width: 100%;
+    flex: none;
+  }
+  .stage-btn {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+  .stage-btn img {
+    height: clamp(38px, 13vw, 66px);
   }
 }
 

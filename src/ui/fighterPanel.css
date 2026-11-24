@@ -1,0 +1,36 @@
+.fighter-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #54472f;
+  border-radius: 8px;
+  background: #101821;
+}
+.fighter-notice { margin: 0; font-size: .88rem; }
+.fighter-panel fieldset { padding: 0; margin: 0; min-width: 0; border: 0; }
+.fighter-panel legend { margin-bottom: .4rem; color: #f0cb98; font-weight: 700; font-size: .85rem; }
+.fighter-options { display: flex; flex-wrap: wrap; gap: .4rem; }
+.fighter-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 44px;
+  padding: .15rem .65rem;
+  box-sizing: border-box;
+  border-radius: 5px;
+  border: 1px solid #425168;
+  background: #161f2c;
+  color: #eef4fd;
+  font-size: .84rem;
+  cursor: pointer;
+}
+.fighter-option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.fighter-option:has(input:checked) { border-color: #f0bc73; background: #3c2c22; box-shadow: inset 0 -2px #f0bc73; }
+.fighter-option:has(input:focus-visible) { outline: 2px solid #fff; outline-offset: 2px; }
+.fighter-swatch { width: .95rem; height: .95rem; border: 1px solid #ffffff55; border-radius: 50%; }
+.fighter-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.fighter-actions button { min-height: 44px; padding: .45rem .85rem; border-radius: 5px; font: inherit; cursor: pointer; }
+.fighter-save { border: 1px solid #f8d2a0; background: #f0bc73; color: #20140d; font-weight: 750; }
+.fighter-reset { border: 1px solid #425168; color: #eef4fd; background: #161f2c; }
+.fighter-notice { color: #f0cb98; }

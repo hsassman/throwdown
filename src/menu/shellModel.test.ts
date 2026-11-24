@@ -58,7 +58,7 @@ describe("the honesty rule", () => {
     const online = ITEM_BY_ID.get("internet")!;
     expect(online.availability).toBe("preview");
     expect(online.lockedReason).toBeUndefined();
-    expect(online.detail).toMatch(/STUN/i);
+    expect(online.detail).toMatch(/some networks may prevent/i);
   });
 
   it("does not oversell same-network play", () => {
@@ -68,8 +68,7 @@ describe("the honesty rule", () => {
     // hard way unless the menu says it first.
     const lan = ITEM_BY_ID.get("lan")!;
     expect(lan.availability).toBe("preview");
-    expect(lan.detail).toMatch(/not rollback netcode/i);
-    expect(lan.detail).toMatch(/round trip late/i);
+    expect(lan.detail).toMatch(/guest may see a slight delay/i);
   });
 
   it("offers at least one thing that actually works", () => {

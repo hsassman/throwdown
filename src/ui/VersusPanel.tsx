@@ -131,8 +131,7 @@ export function VersusPanel({
       {connected ? (
         <>
           <p className="vs-detail">
-            You are the {role === "host" ? "host" : "guest"}. The host runs the
-            round clock and the scoring; both of you throw your own punches.
+            Playing as {role === "host" ? "host" : "guest"}.
           </p>
           <button type="button" className="vs-btn vs-leave" onClick={onLeave}>
             Leave the fight
@@ -141,9 +140,7 @@ export function VersusPanel({
       ) : !role ? (
         <>
           <p className="vs-detail">
-            One of you hosts and sends a code; the other joins and sends a reply
-            code back. No server is involved — the fight runs directly between
-            the two machines.
+            Host to get a code. If your friend sent you a code, paste it below to join.
           </p>
           <div className="vs-choice">
             <button
@@ -177,10 +174,10 @@ export function VersusPanel({
       ) : role === "host" ? (
         <>
           {outgoingCode && (
-            <CodeBox label="1. Send this code to your opponent" code={outgoingCode} />
+            <CodeBox label="Send this code to your friend" code={outgoingCode} />
           )}
           <label className="vs-field">
-            2. Paste their reply code here
+            Your friend's reply code
             <textarea
               value={theirCode}
               onChange={(e) => setTheirCode(e.target.value)}
@@ -207,7 +204,7 @@ export function VersusPanel({
             <CodeBox label="Send this reply code back to the host" code={outgoingCode} />
           )}
           <p className="vs-detail">
-            The fight starts as soon as they paste it in.
+            Wait for the host to start the fight.
           </p>
           <button type="button" className="vs-btn vs-leave" onClick={onLeave}>
             Cancel

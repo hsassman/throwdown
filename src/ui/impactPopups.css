@@ -44,6 +44,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .impact-flash { display: none; }
   .impact-word {
     animation: impact-fade 700ms linear forwards;
   }

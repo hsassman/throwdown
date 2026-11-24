@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { FIRST_RUN_STEPS, FIRST_RUN_TEXT } from "../onboarding/firstRun";
+import { FIRST_RUN_TEXT } from "../onboarding/firstRun";
 import type { FirstRunState } from "../onboarding/useFirstRun";
 import "./firstRunCard.css";
 
@@ -14,7 +14,6 @@ import "./firstRunCard.css";
 export function FirstRunCard({ state, onDone }: { state: FirstRunState; onDone: () => void }) {
   const { step, hands } = state;
   const text = FIRST_RUN_TEXT[step];
-  const index = FIRST_RUN_STEPS.indexOf(step);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -29,11 +28,6 @@ export function FirstRunCard({ state, onDone }: { state: FirstRunState; onDone: 
 
   return (
     <div className="firstrun" role="dialog" aria-label="Getting started" aria-live="polite">
-      <ol className="firstrun-steps" aria-hidden="true">
-        {FIRST_RUN_STEPS.slice(0, -1).map((s, i) => (
-          <li key={s} data-state={i < index ? "done" : i === index ? "now" : "next"} />
-        ))}
-      </ol>
       <h2 className="firstrun-title">{text.title}</h2>
       <p className="firstrun-body">{text.body}</p>
       {step === "punch" && (

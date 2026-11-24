@@ -159,10 +159,9 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     );
     return (
       <div className="harness">
-        <h2>Calibration</h2>
+        <h2>Set your stance</h2>
         <p className="muted">
-          Stand in your boxing stance with hands up in guard, fully in frame
-          from hips to head. Hold still while this samples your build.
+          Keep your hands up and hold still. Make sure your head, hands and hips are visible.
         </p>
 
         <div className="row">
@@ -177,10 +176,6 @@ export function PunchHarness({ poseRef, enabled }: Props) {
             </select>
           </label>
         </div>
-        <p className="muted small">
-          Stance is asked rather than detected - inferring it needs shoulder
-          depth, and depth is the least reliable axis here.
-        </p>
 
         {phase === "calibrating" && (
           <>
@@ -197,25 +192,18 @@ export function PunchHarness({ poseRef, enabled }: Props) {
 
         {calibration ? (
           <>
-            <p className="ok">
-              Calibrated - torso scale {calibration.torsoScale.toFixed(3)}, guard
-              extension L {calibration.guardExtension.left.toFixed(2)} / R{" "}
-              {calibration.guardExtension.right.toFixed(2)}
-            </p>
-            <p className="muted small">
-              scale reference: {calibration.scaleSource}
-              {calibration.scaleSource === "shoulder-width"
-                ? " - hips weren't visible, so scale is approximated from shoulder width. Step back so your hips are in frame for a more stance-robust reference."
-                : ""}
-            </p>
+            <p className="ok">Stance saved.</p>
+            {calibration.scaleSource === "shoulder-width" && (
+              <p className="muted small">Step back until your hips are visible for a better reading.</p>
+            )}
             <div className="row">
               <button onClick={() => setStep("free")}>Free practice</button>
-              <button onClick={startCollection}>Start measured run</button>
+              <button onClick={startCollection}>Test punch detection</button>
             </div>
           </>
         ) : (
           <button onClick={() => startCalibration(stance)}>
-            {phase === "calibrating" ? "Recalibrate" : "Begin calibration"}
+            {phase === "calibrating" ? "Start again" : "Record stance"}
           </button>
         )}
       </div>
