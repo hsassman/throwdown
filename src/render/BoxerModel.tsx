@@ -1,3 +1,5 @@
+import { ResolutionGovernor } from "./resolutionGovernor";
+import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -176,10 +178,6 @@ const _dirPos = new THREE.Vector3();
  * competes with pose inference for the same GPU. */
 const MAX_PIXEL_RATIO = 1.75;
 const MIN_PIXEL_RATIO = 0.75;
-/** Frame time above which the view is considered to be struggling (~45 FPS). */
-const SLOW_FRAME_SEC = 0.022;
-/** Frame time comfortably inside budget (~70 FPS), where quality can recover. */
-const FAST_FRAME_SEC = 0.014;
 
 export type LoadStatus = "loading" | "ready" | "error";
 
@@ -315,6 +313,15 @@ interface Props {
    * in step, and the one that drifted would be the one nobody could see.
    */
   remotePoseRef?: React.RefObject<PoseFrame | null>;
+  /**
+   * Gaps between pose samples, from usePoseTracking. When pose tracking is
+   * being starved the view gives up render resolution to it, because the pose
+   * rate decides how closely the character follows the player.
+   */
+  poseIntervalStats?: RollingStats;
+  /** Pose inference times, from usePoseTracking. Used with the above to tell
+   *  a GPU-starved pose stream from a camera-limited one. */
+  poseInferenceStats?: RollingStats;
 }
 
 export function BoxerModel({
@@ -340,6 +347,8 @@ export function BoxerModel({
   phaseRef,
   conditionRef,
   impactLogRef,
+  poseIntervalStats,
+  poseInferenceStats,
   remotePoseRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -390,6 +399,10 @@ export function BoxerModel({
   conditionHolder.current = conditionRef;
   const impactHolder = useRef(impactLogRef);
   impactHolder.current = impactLogRef;
+  const poseIntervalHolder = useRef(poseIntervalStats);
+  poseIntervalHolder.current = poseIntervalStats;
+  const inferenceHolder = useRef(poseInferenceStats);
+  inferenceHolder.current = poseInferenceStats;
   const remotePoseHolder = useRef(remotePoseRef);
   remotePoseHolder.current = remotePoseRef;
   // Read inside the setup effect, like `dummy`: it decides what drives the
@@ -1274,11 +1287,10 @@ export function BoxerModel({
     let lastFrame = performance.now();
     let lastPoseTs = 0;
     let lastDebugPush = 0;
-    let slowFrames = 0;
-    let fastFrames = 0;
+    let lastPoseCheck = 0;
     let lastViewSeen = viewDirtyRef.current;
     let lastTargetShown = showTargetRef.current;
-    const maxPixelRatio = pixelRatio;
+    const governor = new ResolutionGovernor(MIN_PIXEL_RATIO, pixelRatio);
 
     function tick() {
       if (cancelled) return;
@@ -1322,24 +1334,21 @@ export function BoxerModel({
       // Adaptive resolution. Only reacts to sustained pressure, so a one-off
       // hitch (a GC pause, the model finishing its load) can't permanently
       // degrade the view, and recovery is slower than degradation to avoid
-      // oscillating between two levels.
-      if (rawDt > SLOW_FRAME_SEC) {
-        slowFrames++;
-        fastFrames = 0;
-      } else if (rawDt < FAST_FRAME_SEC) {
-        fastFrames++;
-        slowFrames = 0;
+      // oscillating between two levels. Also gives resolution up when pose
+      // tracking is starved - see resolutionGovernor.ts.
+      let nextRatio = governor.frame(rawDt);
+      if (now - lastPoseCheck > 500) {
+        lastPoseCheck = now;
+        const gaps = poseIntervalHolder.current;
+        const infer = inferenceHolder.current;
+        const mean = gaps && gaps.size >= 10 ? gaps.compute().mean : null;
+        const inferMean = infer && infer.size >= 10 ? infer.compute().mean : null;
+        nextRatio = governor.poseInterval(mean, inferMean) ?? nextRatio;
       }
-      if (slowFrames > 90 && pixelRatio > MIN_PIXEL_RATIO) {
-        pixelRatio = Math.max(MIN_PIXEL_RATIO, pixelRatio - 0.25);
+      if (nextRatio !== null && nextRatio !== pixelRatio) {
+        pixelRatio = nextRatio;
         renderer.setPixelRatio(pixelRatio);
         resize();
-        slowFrames = 0;
-      } else if (fastFrames > 300 && pixelRatio < maxPixelRatio) {
-        pixelRatio = Math.min(maxPixelRatio, pixelRatio + 0.25);
-        renderer.setPixelRatio(pixelRatio);
-        resize();
-        fastFrames = 0;
       }
 
       if (viewDirtyRef.current !== lastViewSeen) {

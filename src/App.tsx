@@ -488,6 +488,8 @@ export default function App() {
           <Suspense fallback={null}>
             <BoxerModel
               poseRef={poseRef}
+              poseIntervalStats={frameIntervalStats}
+              poseInferenceStats={inferenceStats}
               appearance={appearance}
               samplePose={samplePredicted}
               view="behind"
