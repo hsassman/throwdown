@@ -34,7 +34,10 @@ const TIMEOUT = 45000;
 // the fight both work without a camera, so the browsers get none.
 // SMOKE_CAMERA=1 brings back a small fake camera for a manual run.
 const WITH_CAMERA = process.env.SMOKE_CAMERA === "1";
-const QUERY = process.env.SMOKE_QUERY ?? (WITH_CAMERA ? "?camW=160&camH=120&camFps=10&delegate=cpu" : "");
+// ?firstrun=0: no first-run walkthrough over the menu, as the other tools do.
+const QUERY =
+  process.env.SMOKE_QUERY ??
+  (WITH_CAMERA ? "?firstrun=0&camW=160&camH=120&camFps=10&delegate=cpu" : "?firstrun=0");
 
 await mkdir(OUT, { recursive: true });
 
@@ -99,7 +102,13 @@ async function openPlayer(label) {
   await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0", { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
   await page.waitForSelector(".shell", { timeout: TIMEOUT });
-  await page.locator(".shell-row").filter({ hasText: "Fight a stranger" }).first().click();
+  // By the row's title, not its description: the description is copy and
+  // changes (the UI pass turned "Fight a stranger..." into "Find an opponent
+  // over the internet."), which broke this test without breaking the game.
+  await page
+    .locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: /^Online$/ }) })
+    .first()
+    .click();
   await page.waitForSelector(".vs", { timeout: TIMEOUT });
   return { page, context };
 }
