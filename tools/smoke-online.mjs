@@ -35,9 +35,17 @@ const TIMEOUT = 45000;
 // SMOKE_CAMERA=1 brings back a small fake camera for a manual run.
 const WITH_CAMERA = process.env.SMOKE_CAMERA === "1";
 // ?firstrun=0: no first-run walkthrough over the menu, as the other tools do.
+// ?demo: the stage preset's lighter rendering (no anti-aliasing, shadows or
+// crowd, 1x resolution). Since the art pass, two full-quality scenes under
+// software rendering on one CI runner starved both pages' main threads: the
+// answer was created but reached the other page after the 20 s connect
+// timeout (CI log: A stable, candidate gathering never finished, B never
+// applied the answer). This also exercises ?demo on every run.
 const QUERY =
   process.env.SMOKE_QUERY ??
-  (WITH_CAMERA ? "?firstrun=0&camW=160&camH=120&camFps=10&delegate=cpu" : "?firstrun=0");
+  (WITH_CAMERA
+    ? "?demo&firstrun=0&camW=160&camH=120&camFps=10&delegate=cpu"
+    : "?demo&firstrun=0");
 
 await mkdir(OUT, { recursive: true });
 
