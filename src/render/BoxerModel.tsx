@@ -53,7 +53,7 @@ import {
 import type { FightEvent, FightPhase } from "../sim/fightState";
 import type { FightCondition } from "../sim/useFight";
 import { FaceDamage } from "./damage/faceDamage";
-import { createFacePainter, locateFaceFeatures } from "./damage/facePainter";
+import { createFacePainter, headIslandMask, locateFaceFeatures } from "./damage/facePainter";
 import type { StrikeEvent } from "../perception/strikeResolver";
 
 // Track B, Milestone B2/B3: loads the MHR-exported boxer mesh and drives the
@@ -132,6 +132,12 @@ const OVER_SHOULDER = {
  * different scale, re-frames the shot instead of quietly occluding half of it.
  */
 const FINITE_BACK = 0.85;
+
+/** See followOpponent. A bound on the turn, radians, so a stray reading
+ *  cannot swing the camera round to the side of the ring, and the ease rate,
+ *  per second: slow enough that circling reads as the camera settling, not
+ *  as it being tugged. */
+const FOLLOW_CAM = { maxYaw: 0.7, ease: 2.5 };
 
 /** Marks every mesh under a figure as a shadow caster. Skinned meshes need
  *  the flag on the mesh, not on the root the loader returns. */
@@ -590,7 +596,15 @@ export function BoxerModel({
     let userAdjusted = false;
     controls.addEventListener("start", () => {
       userAdjusted = true;
+      dragging = true;
     });
+    controls.addEventListener("end", () => {
+      dragging = false;
+    });
+    /** Yaw the camera rig has been turned by to follow the opponent. See
+     *  followOpponent. Zeroed whenever placeCamera re-places from scratch. */
+    let followYaw = 0;
+    let dragging = false;
 
     /**
      * Places the camera square-on to the character, on the side the current
@@ -625,6 +639,7 @@ export function BoxerModel({
       key.position.set(1.5, 2.5, 2.0 * VIEW_MODES[viewRef.current].cameraSide);
       rim.position.set(-2, 1.5, -1.5 * VIEW_MODES[viewRef.current].cameraSide);
       userAdjusted = false;
+      followYaw = 0;
       fitCamera();
     };
 
@@ -802,6 +817,7 @@ export function BoxerModel({
         const painter = createFacePainter({
           features,
           canvas: body.canvas,
+          mask: headIslandMask(mesh.geometry, boneNames, dominant, body.canvas.width),
         });
         if (painter) {
           const damage = new FaceDamage({
@@ -1211,6 +1227,50 @@ export function BoxerModel({
       }
     };
 
+    /**
+     * Turns the camera rig about the player so it stays behind them on the
+     * line to the opponent.
+     *
+     * The over-shoulder offset is derived for an opponent standing straight
+     * ahead. The CPU circles up to CPU_CONFIG.lateralLimit off that line and
+     * steps into the pocket, and at 0.79 m apart a few tenths of a metre to
+     * one side is enough to put it squarely behind the player's head: a burst
+     * of a live fight showed the opponent fully hidden, gloves only, within
+     * twenty seconds of the bell. Turning with the fight, as every fighting
+     * game camera does, keeps the geometry the offset was derived for.
+     *
+     * Applied as a delta, so an orbit the player made is turned along with it
+     * rather than undone, and held off while they drag or the director has
+     * the camera.
+     */
+    const followOpponent = (dt: number) => {
+      const duel = showTargetRef.current || dummyRef.current;
+      if (!duel || directorOwns || dragging || !playerRoot || !opponentRoot?.visible) return;
+      playerRoot.getWorldPosition(_dirPos);
+      const px = _dirPos.x;
+      const pz = _dirPos.z;
+      opponentRoot.getWorldPosition(_dirPos);
+      const dz = _dirPos.z - pz;
+      if (dz < 0.05) return;
+      const want = THREE.MathUtils.clamp(
+        Math.atan2(_dirPos.x - px, dz),
+        -FOLLOW_CAM.maxYaw,
+        FOLLOW_CAM.maxYaw
+      );
+      const next = followYaw + (want - followYaw) * (1 - Math.exp(-FOLLOW_CAM.ease * dt));
+      const d = next - followYaw;
+      followYaw = next;
+      if (Math.abs(d) < 1e-6) return;
+      const c = Math.cos(d);
+      const s = Math.sin(d);
+      for (const v of [camera.position, controls.target]) {
+        const x = v.x - px;
+        const z = v.z - pz;
+        v.x = px + x * c + z * s;
+        v.z = pz - x * s + z * c;
+      }
+    };
+
     let lastFrame = performance.now();
     let lastPoseTs = 0;
     let lastDebugPush = 0;
@@ -1520,6 +1580,7 @@ export function BoxerModel({
       }
 
       stepDirector(dt);
+      followOpponent(dt);
 
       controls.update();
 

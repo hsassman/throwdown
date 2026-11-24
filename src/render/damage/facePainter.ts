@@ -149,11 +149,82 @@ export interface FacePainterOptions {
   features: FaceFeatureUv;
   /** Canvas to draw into - the same one the body texture uses. */
   canvas: HTMLCanvasElement;
+  /** The head's own UV island, painted opaque on a canvas the size of
+   *  `canvas`. See headIslandMask. */
+  mask?: HTMLCanvasElement | null;
+}
+
+/**
+ * The head and jaw skin's footprint in UV space, as an opaque-on-clear mask.
+ *
+ * Everything the painter draws is offset from a feature in UV space - a cut
+ * above the eye, a nosebleed running toward the chin - and UV space is an
+ * atlas, not a face. The eye sites are single vertices that can sit on the
+ * island's edge, and a streak several eye-radii long walks straight off it
+ * onto whatever island the unwrap put next door. On this rig that is back
+ * skin: a burst of a live fight showed two red slashes between the player's
+ * shoulder blades after a shot to the chin. Clipping to the triangles that
+ * are head or jaw skin keeps the damage on the face whatever the layout.
+ *
+ * A mask, rasterised once, rather than a clip path: the path is thousands of
+ * triangles, and clipping to it on every repaint froze the page outright.
+ */
+export function headIslandMask(
+  geometry: THREE.BufferGeometry,
+  boneNames: string[],
+  dominant: Int32Array,
+  size: number
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined" || typeof Path2D === "undefined") return null;
+  const uv = geometry.getAttribute("uv");
+  if (!uv) return null;
+  const head = boneNames.indexOf("c_head");
+  const jaw = boneNames.indexOf("c_jaw");
+  if (head < 0 && jaw < 0) return null;
+  const onHead = (i: number) => dominant[i] === head || dominant[i] === jaw;
+  const index = geometry.getIndex();
+  const count = index ? index.count : uv.count;
+  const at = (k: number) => (index ? index.getX(k) : k);
+  const path = new Path2D();
+  let any = false;
+  for (let k = 0; k + 2 < count; k += 3) {
+    const a = at(k);
+    const b = at(k + 1);
+    const c = at(k + 2);
+    if (!onHead(a) || !onHead(b) || !onHead(c)) continue;
+    path.moveTo(uv.getX(a) * size, uv.getY(a) * size);
+    path.lineTo(uv.getX(b) * size, uv.getY(b) * size);
+    path.lineTo(uv.getX(c) * size, uv.getY(c) * size);
+    path.closePath();
+    any = true;
+  }
+  if (!any) return null;
+  const mask = document.createElement("canvas");
+  mask.width = size;
+  mask.height = size;
+  const mctx = mask.getContext("2d");
+  if (!mctx) return null;
+  mctx.fillStyle = "#fff";
+  mctx.fill(path, "nonzero");
+  // Seams: a triangle's antialiased edge is half transparent, and the damage
+  // should reach the island's border rather than stop a pixel short of it.
+  mctx.lineWidth = 2;
+  mctx.strokeStyle = "#fff";
+  mctx.stroke(path);
+  return mask;
 }
 
 export function createFacePainter(options: FacePainterOptions): FacePainter | null {
-  const ctx = options.canvas.getContext("2d");
-  if (!ctx) return null;
+  const target = options.canvas.getContext("2d");
+  if (!target) return null;
+  // With a mask, damage is drawn on a scratch layer, cut to the head island
+  // and composited; without one, straight onto the texture as before.
+  const layer = options.mask ? document.createElement("canvas") : null;
+  if (layer) {
+    layer.width = options.canvas.width;
+    layer.height = options.canvas.height;
+  }
+  const ctx = layer?.getContext("2d") ?? target;
 
   const size = options.canvas.width;
   const f = options.features;
@@ -276,6 +347,7 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
 
   return {
     render(state: FaceDamageState) {
+      if (layer) ctx.clearRect(0, 0, size, size);
       // Note: the clean skin underneath has already been laid down by
       // BodyTexture, which calls this as an overlay at the end of its own
       // repaint. Damage is cumulative in the state, never on the canvas -
@@ -291,6 +363,14 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
       drawCut(f.eyeRight, state.sites.eyeRight.cut, f.eyeRadius * size * 0.2);
 
       drawNoseBleed(state.sites.nose.bleed);
+
+      if (layer && options.mask) {
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.drawImage(options.mask, 0, 0);
+        ctx.restore();
+        target.drawImage(layer, 0, 0);
+      }
 
     },
   };

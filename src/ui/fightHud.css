@@ -223,9 +223,14 @@
   }
 }
 
-/* Broadcast plates retain a solid dark backing over the arena lighting. */
+/* Broadcast plate. Dark behind the bars, where legibility is needed, and
+   fading out below them: a solid plate here was a 100px opaque band across
+   the top of the stage, and the fighters' heads - the target of half the
+   punches in the game - were drawn underneath it. */
 .fh-top {
-  background: #0c0d10f5;
+  padding-top: clamp(0.35rem, 1.2vw, 0.6rem);
+  padding-bottom: clamp(0.9rem, 3vw, 1.6rem);
+  background: linear-gradient(180deg, rgba(10, 11, 14, 0.9) 0%, rgba(10, 11, 14, 0.62) 60%, rgba(10, 11, 14, 0) 100%);
   border-top: 2px solid #c79556;
 }
 .fh-name { color: #e2caa6; font-weight: 700; }
