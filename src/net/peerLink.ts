@@ -1,3 +1,4 @@
+import { compactSignal, expandSignal, isCompactSignal } from "./compactSignal";
 import { decode, encode, PROTOCOL_VERSION, type NetMessage } from "./protocol";
 
 // The connection between two fighters.
@@ -88,8 +89,17 @@ export class PeerLink {
    */
   private readonly iceServers: RTCIceServer[];
 
-  constructor(iceServers: RTCIceServer[] = []) {
+  /** Produce compact codes (compactSignal.ts) where the description allows
+   *  it - for codes that travel as QR codes rather than as pasted text. */
+  private readonly compact: boolean;
+
+  constructor(iceServers: RTCIceServer[] = [], options: { compact?: boolean } = {}) {
     this.iceServers = iceServers;
+    this.compact = options.compact ?? false;
+  }
+
+  private code(sdp: RTCSessionDescription | null): string {
+    return (this.compact && compactSignal(sdp)) || encodeSignal(sdp);
   }
 
   get state(): LinkState {
@@ -136,7 +146,7 @@ export class PeerLink {
     await pc.setLocalDescription(await pc.createOffer());
     await this.gathered(pc);
     this.set("connecting");
-    return encodeSignal(pc.localDescription);
+    return this.code(pc.localDescription);
   }
 
   /**
@@ -163,7 +173,7 @@ export class PeerLink {
     await pc.setLocalDescription(await pc.createAnswer());
     await this.gathered(pc);
     this.set("connecting");
-    return encodeSignal(pc.localDescription);
+    return this.code(pc.localDescription);
   }
 
   /** The host consumes the guest's reply code, which completes the connection. */
@@ -377,6 +387,9 @@ export function encodeSignal(sdp: RTCSessionDescription | null): string {
 }
 
 export function decodeSignal(code: string): RTCSessionDescriptionInit | null {
+  // Either format is accepted wherever a code is, so a reader never has to
+  // know which kind the other end produced.
+  if (isCompactSignal(code)) return expandSignal(code);
   // Whitespace is stripped rather than rejected. The code is long, it gets
   // pasted out of chat clients that wrap it, and refusing a code because it
   // arrived with a line break in it would be a support burden that buys

@@ -946,6 +946,30 @@ export const FIRST_RUN_CONFIG = {
 } as const;
 
 /**
+ * Phone as a second camera (src/sensor/). Step 1 only streams the phone's
+ * pose to the laptop and measures the link; nothing here touches the fight.
+ */
+export const SENSOR_CONFIG = {
+  /** How often the laptop sends a clock-sync request, ms. */
+  syncIntervalMs: 500,
+  /** Sync samples kept; the offset is taken from the fastest round trip among
+   *  them, which is the one least distorted by queueing on either leg. */
+  syncWindow: 20,
+  /** How often the phone reports its counters, ms. */
+  statsIntervalMs: 1000,
+  /** Arrival ages kept for the percentiles. ~20 s at 15 Hz. */
+  ageWindow: 300,
+  /** Window for the received frame rate, ms. */
+  fpsWindowMs: 2000,
+  /** A gap between frames longer than this counts as a stall, ms. Two
+   *  missed frames at 15 Hz is ~200 ms; past that, a fused pose would be
+   *  leaning on stale data from one of the two views. */
+  stallMs: 250,
+  /** How often the laptop looks at its webcam for the phone's reply QR, ms. */
+  scanIntervalMs: 200,
+} as const;
+
+/**
  * Skeleton solver - the biomechanical constraints applied to raw landmarks.
  * See pose/skeletonSolver.ts for why a temporal filter cannot do this job.
  */

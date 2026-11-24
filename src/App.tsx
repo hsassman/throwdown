@@ -45,6 +45,8 @@ import { FindMatchPanel } from "./ui/FindMatchPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { NetFightState } from "./net/protocol";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
+import { CameraLinkPanel } from "./ui/CameraLinkPanel";
+import { useCameraLink } from "./sensor/useCameraLink";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
 import type { PunchType, Stance } from "./perception/punchTypes";
 import "./App.css";
@@ -221,6 +223,10 @@ export default function App() {
    * streaming the player's tracked body somewhere before they asked for a
    * fight.
    */
+  // The phone as a second camera. Only while its screen is open, for the same
+  // reason as the two sessions below.
+  const onPhoneCam = screen === "phonecam";
+  const cameraLink = useCameraLink({ enabled: onPhoneCam, videoRef, localPoseRef: rawPoseRef });
   const session = useSession({
     enabled: onLan,
     poseRef,
@@ -398,6 +404,7 @@ export default function App() {
     ((onLan || onInternet) && !netOpen) ||
     screen === "punchlab" ||
     screen === "tracking" ||
+    onPhoneCam ||
     inCareer ||
     showDiagnostics ||
     (stage3d && boxerStatus !== "ready") ||
@@ -640,6 +647,18 @@ export default function App() {
               training={training}
               scored={screen === "dummy"}
               onRestart={startDrill}
+            />
+          )}
+
+          {onPhoneCam && (
+            <CameraLinkPanel
+              status={cameraLink.status}
+              offerUrl={cameraLink.offerUrl}
+              summary={cameraLink.summary}
+              scanning={cameraLink.scanning}
+              onStart={cameraLink.start}
+              onStop={cameraLink.stop}
+              onComplete={cameraLink.complete}
             />
           )}
 

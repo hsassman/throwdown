@@ -29,13 +29,14 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (764). |
+| `npm test` | Web unit tests (787). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
 | `node tools/fake-player.mjs` | Renders the game's boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
 | `node tools/fight-burst.mjs` | Screenshots a live CPU fight with the fake player as the camera, for reviewing how it looks. |
+| `node tools/smoke-phonecam.mjs [s]` | Pairs a headless "laptop" and "phone" through both QR codes, streams for `s` seconds and prints the link numbers. |
 | `node tools/first-run-shots.mjs` | Screenshots each step of the first-run walkthrough at laptop and phone size (needs the high-guard fake player; see the file). |
 | `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight with the fake player as the camera: pose rate, render fps, main-thread long tasks. No person needed. |
 
@@ -191,6 +192,24 @@ depth frame are never from quite the same instant.
 (~500 ms per inference, sharing the GPU with pose and the renderer) and costs
 ~20% of the pose rate. A punch lasts ~250 ms, so most would fall between depth
 frames. It is a view and a measured signal for now, not an input.
+
+### Phone as a second camera (step 1)
+
+**Phone Camera** in Camera tools pairs a phone with the laptop, with no
+server and no typing. The laptop shows a QR code; the phone opens it
+(`?sensor#<offer>`), runs its own pose tracking and shows a reply QR code;
+the laptop reads that off its own webcam. Both codes are compact - the six
+fields a data channel needs, ~100-130 characters instead of ~2 KB
+(`src/net/compactSignal.ts`) - so a webcam reads the reply at arm's length.
+
+The phone then streams pose frames, never video, and the laptop measures the
+link: clock offset (NTP-style, from the fastest round trip), frame age, how
+far the phone trails the laptop's own tracking, frame rate, loss and stalls
+(`src/sensor/`). **Nothing is fused into the fight yet.** This step exists
+to find out whether the delay allows it. In a headless run with both ends
+on one machine it streams at ~14 fps with no loss and trails the laptop's own
+tracking by ~50 ms (p95 ~75 ms); real phones on real Wi-Fi are the next
+measurement.
 
 ### The pipeline tunes itself, visibly
 

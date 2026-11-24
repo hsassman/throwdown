@@ -137,6 +137,14 @@ export const SHELL_ITEMS: ShellItem[] = [
     category: "tools",
   },
   {
+    id: "phonecam",
+    title: "Phone Camera",
+    blurb: "Connect your phone as a second camera.",
+    detail: "Scan a code with your phone and place it to your side. For now this measures the connection and does not change the fight. Your phone sends your movements, never video.",
+    availability: "preview",
+    category: "tools",
+  },
+  {
     id: "punchlab",
     title: "Punch Lab",
     blurb: "Try the experimental punch reader.",
