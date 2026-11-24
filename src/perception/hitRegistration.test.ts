@@ -89,7 +89,7 @@ const NOT_PUNCHES: Record<string, Motion> = {
   "still guard": { to: GUARD, outMs: 500, holdMs: 2000 },
 };
 
-type Filter = "strike" | "display";
+type Filter = "strike" | "display" | "laggy";
 
 /**
  * Runs `trials` repetitions of a motion, each at a different phase against
@@ -107,7 +107,12 @@ function trial(
     const smoother =
       opts.filter === "strike"
         ? new PoseSmoother(STRIKE_SMOOTHING.minCutoff, STRIKE_SMOOTHING.beta, STRIKE_SMOOTHING.dCutoff)
-        : new PoseSmoother();
+        : opts.filter === "laggy"
+          ? // The character filter's original Flap-era values: a heavy,
+            // slow-to-open filter, standing in for any laggy or auto-tuned
+            // smoother the strike path must never be routed through.
+            new PoseSmoother(1.2, 0.02, 1.0)
+          : new PoseSmoother();
     const feed = (f: PoseFrame) => out.push(...resolver.update(smoother.smooth(f)));
 
     // Settle at guard so segment lengths are learned.
@@ -162,14 +167,28 @@ describe("hit registration", () => {
     }
   }
 
-  it("keeps the strike filter ahead of the display filter on straights", () => {
-    // The regression this file exists for. If the strike path ever gets
-    // routed back through the display smoother, straights stop registering.
+  it("keeps the strike filter ahead of a laggy filter on straights", () => {
+    // The regression this file exists for. If the strike path were ever routed
+    // through a heavy or auto-tuned smoother, straights would stop registering.
+    // This used to compare against the character (display) filter, back when
+    // that filter was heavy; it has since been retuned to follow the player
+    // (see SMOOTHING_DEFAULTS), so the heavy values are pinned here directly.
+    const opts = { frameMs: 53, sigma: 0.003 };
+    const m = PUNCHES["fast straight"];
+    const viaStrike = trial(m, { ...opts, filter: "strike" }).length;
+    const viaLaggy = trial(m, { ...opts, filter: "laggy" }).length;
+    expect(viaLaggy).toBeLessThan(viaStrike / 2);
+  });
+
+  it("never registers fewer straights than the character filter would", () => {
+    // Hits are resolved through STRIKE_SMOOTHING, not the character filter.
+    // Whatever the character filter is tuned to, the strike path must not be
+    // the slower of the two.
     const opts = { frameMs: 53, sigma: 0.003 };
     const m = PUNCHES["fast straight"];
     const viaStrike = trial(m, { ...opts, filter: "strike" }).length;
     const viaDisplay = trial(m, { ...opts, filter: "display" }).length;
-    expect(viaDisplay).toBeLessThan(viaStrike / 2);
+    expect(viaStrike).toBeGreaterThanOrEqual(viaDisplay);
   });
 
   it("measures the same punch at the same power whatever the frame phase", () => {

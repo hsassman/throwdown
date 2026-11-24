@@ -196,12 +196,23 @@ export const CAMERA_CONFIG = {
 
 export const SMOOTHING_DEFAULTS = {
   /**
-   * One-euro filter parameters. Carried over from Flap's wrist tracking as a
-   * starting point - these were tuned for flap detection, not punches, and
-   * should be re-tuned during Milestone 1 against real punch trajectories.
+   * One-euro filter in front of the CHARACTER (not hit detection - that is
+   * STRIKE_SMOOTHING below).
+   *
+   * The original values (1.2 / 0.02) were carried over from Flap's wrist
+   * tracking and never re-tuned. With beta that low the filter barely opens at
+   * punch speed: simulated at 19 poses/s, a fast straight reached 90% of its
+   * travel on screen +334 ms after the real arm (+810 ms with the tracking
+   * monitor at its old maximum). That was the "my arm moves, but late" feel.
+   *
+   * 1.5 / 10, chosen by sweep against the same punch and a still, noisy wrist:
+   * +15 ms at 50% and +71 ms at 90% of travel, while a still guard keeps about
+   * 48-52% of the webcam's jitter (was 42%) - a little more shake at rest in
+   * exchange for an arm that follows the player. Raise minCutoff to steady a
+   * shaky guard; raise beta to make fast motion snappier.
    */
-  minCutoff: 1.2,
-  beta: 0.02,
+  minCutoff: 1.5,
+  beta: 10,
   dCutoff: 1.0,
 };
 
@@ -1765,7 +1776,10 @@ export const MONITOR_CONFIG = {
    *  unattended, so its worst case must be "slightly soft" or "slightly
    *  laggy", never "broken". */
   minSmoothingScale: 0.7,
-  maxSmoothingScale: 2.5,
+  /** Was 2.5. At 2.5 a noisy home webcam pushed the character filter to the
+   *  point where a punch reached 90% on screen ~0.8 s late. 1.3 still lets a
+   *  noisy signal be calmed, but can't make the arm lag behind the player. */
+  maxSmoothingScale: 1.3,
   minPredictScale: 0.25,
   maxPredictScale: 1.0,
 } as const;
