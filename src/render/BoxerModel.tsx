@@ -1,4 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
+import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
 import { useEffect, useRef, useState } from "react";
@@ -176,7 +177,7 @@ const _dirPos = new THREE.Vector3();
 
 /** Render resolution bounds. Kept under the device pixel ratio because this
  * competes with pose inference for the same GPU. */
-const MAX_PIXEL_RATIO = 1.75;
+const MAX_PIXEL_RATIO = isDemoMode() ? DEMO_PRESET.maxPixelRatio : 1.75;
 const MIN_PIXEL_RATIO = 0.75;
 
 export type LoadStatus = "loading" | "ready" | "error";
@@ -443,7 +444,11 @@ export function BoxerModel({
     if (!wardrobe) scene.background = new THREE.Color(stage ? 0x05070a : 0x0b0f14);
 
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: wardrobe });
+    const demo = isDemoMode();
+    const renderer = new THREE.WebGLRenderer({
+      antialias: demo ? DEMO_PRESET.antialias : true,
+      alpha: wardrobe,
+    });
     // Required for the punching dummy: the character figure used as its body
     // is clipped off below the belt by a per-material plane. Without this the
     // plane is simply ignored and the dummy grows a full pair of legs inside
@@ -461,7 +466,9 @@ export function BoxerModel({
       // see buildArenaLighting. A fighter with no contact shadow reads as
       // hovering above the canvas no matter how well their feet are planted,
       // which would have quietly undone the whole footwork pass.
-      renderer.shadowMap.enabled = true;
+      // ?demo turns shadows off: an extra pass of the fighters every frame,
+      // on the GPU pose inference needs (see config/demoMode.ts).
+      renderer.shadowMap.enabled = !demo || DEMO_PRESET.shadows;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
     // Capped below the device ratio on purpose. This scene shares an
@@ -520,10 +527,12 @@ export function BoxerModel({
       hallFloor.receiveShadow = true;
       scene.add(hallFloor);
 
-      // The people in the dark around it.
-      crowd = buildCrowd(arenaRadius, hallFloor.position.y, !reduceMotion);
-      crowd.group.position.z = TARGET_CONFIG.distance / 2;
-      scene.add(crowd.group);
+      // The people in the dark around it. Left out under ?demo.
+      if (!demo || DEMO_PRESET.crowd) {
+        crowd = buildCrowd(arenaRadius, hallFloor.position.y, !reduceMotion);
+        crowd.group.position.z = TARGET_CONFIG.distance / 2;
+        scene.add(crowd.group);
+      }
 
       // Everything past the far fence falls away into black, so the cage reads
       // as standing in a dark hall rather than floating.
