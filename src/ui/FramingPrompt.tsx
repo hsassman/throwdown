@@ -2,9 +2,9 @@ import { FRAMING_ADVICE, type FramingIssue } from "../perception/framingCheck";
 import "./framingPrompt.css";
 
 /**
- * The framing coach's prompt: one instruction, large, at the top of the view.
- * Read from across a room, by someone mid-punch, so it is short and says what
- * to do rather than what is wrong.
+ * The framing coach's prompt: one short instruction in the bottom-left corner,
+ * small enough not to cover the fight. It says what to do rather than what is
+ * wrong.
  */
 export function FramingPrompt({ issue }: { issue: FramingIssue | null }) {
   if (!issue) return null;
