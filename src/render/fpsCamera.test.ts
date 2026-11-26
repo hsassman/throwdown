@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FPS_CAMERA, approach, fpsCameraPose, isGhostPart } from "./fpsCamera";
+import { FPS_CAMERA, approach, fpsCameraPose, fpsLean, isGhostPart } from "./fpsCamera";
 
 describe("fpsCameraPose", () => {
   const head = { x: 0, y: 1.6, z: 0 };
@@ -63,5 +63,31 @@ describe("isGhostPart", () => {
     expect(isGhostPart(["glove_L"])).toBe(false);
     expect(isGhostPart(["glove_R_mesh", "model"])).toBe(false);
     expect(isGhostPart(["", "glove_R"])).toBe(false);
+  });
+});
+
+describe("dodge lean", () => {
+  const head = { x: 0, y: 1.6, z: 0 };
+  const opp = { x: 0, y: 1.6, z: 1.7 };
+
+  it("slides the camera to screen right for a positive side", () => {
+    // Looking down +z, the camera's right is -x in three.js.
+    const p = fpsCameraPose(head, opp, FPS_CAMERA, 0.2);
+    expect(p.position.x).toBeCloseTo(-0.2, 5);
+    expect(p.target.x).toBeCloseTo(-0.2 * FPS_CAMERA.leanTargetShare, 5);
+    expect(p.position.z).toBeCloseTo(-FPS_CAMERA.back, 5);
+  });
+
+  it("is zero at no slip, and capped for a huge one", () => {
+    expect(fpsLean(0)).toEqual({ side: 0, roll: 0 });
+    const big = fpsLean(10);
+    expect(big.side).toBe(FPS_CAMERA.leanSideMax);
+    expect(big.roll).toBe(FPS_CAMERA.leanRollMax);
+    const left = fpsLean(-10);
+    expect(left.side).toBe(-FPS_CAMERA.leanSideMax);
+  });
+
+  it("ignores a non-finite reading", () => {
+    expect(fpsLean(Number.NaN)).toEqual({ side: 0, roll: 0 });
   });
 });

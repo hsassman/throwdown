@@ -260,3 +260,42 @@
 .fh-health { height: 14px; border: 1px solid #ffffff24; }
 .fh-health > span { background: #dc6e52; }
 .fh-right .fh-health > span { background: #67aed2; }
+
+/* FPS Mode's get-up prompt, under the count. */
+.fh-getup {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.fh-getup em {
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  animation: fh-getup-pulse 700ms ease-in-out infinite alternate;
+}
+.fh-getup i {
+  display: block;
+  width: 180px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.2);
+}
+.fh-getup b {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffcf4a, #ff7a3c);
+  transform-origin: left center;
+  transition: transform 100ms linear;
+}
+@keyframes fh-getup-pulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fh-getup em { animation: none; }
+}

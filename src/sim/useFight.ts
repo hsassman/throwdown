@@ -1,4 +1,5 @@
 import { ImpactLog, impactKind, impactPower } from "./impactFeedback";
+import { GetUpMeter } from "./getUp";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DefenceHistory,
@@ -79,6 +80,9 @@ export interface FightHudState {
    * second does not need more than that.
    */
   count: { who: "player" | "opponent"; at: number } | null;
+  /** 0-1 fill of the get-up meter while the player is down and getting up
+   *  is enabled (see getUp.ts), else null. */
+  getUp: number | null;
 }
 
 const PLAYER = "player";
@@ -162,6 +166,12 @@ export interface UseFightOptions {
   /** Guest only: the host's latest state, which is the fight as far as this
    *  end is concerned. */
   remoteStateRef?: React.RefObject<NetFightState | null>;
+  /**
+   * Lets a knocked-down player get up early by holding their gloves up (see
+   * getUp.ts). Off by default; FPS Mode turns it on. Read through a ref, so
+   * changing it never restarts the fight. CPU fights only.
+   */
+  getUp?: boolean;
 }
 
 export function useFight(options: UseFightOptions) {
@@ -179,7 +189,10 @@ export function useFight(options: UseFightOptions) {
     remoteStrikeRef,
     publishState,
     remoteStateRef,
+    getUp = false,
   } = options;
+  const getUpRef = useRef(getUp);
+  getUpRef.current = getUp;
 
   const simRef = useRef<FightSim | null>(null);
   const cpuRef = useRef<CpuOpponent | null>(null);
@@ -302,6 +315,7 @@ export function useFight(options: UseFightOptions) {
             count: s.count
               ? { who: s.countOn === "guest" ? "player" : "opponent", at: s.count }
               : null,
+            getUp: null,
           });
         }
         raf = requestAnimationFrame(tick);
@@ -330,6 +344,7 @@ export function useFight(options: UseFightOptions) {
     // canvas and what the count reads - not a rule. The rule is the sim's own
     // `stunned`, and these are derived from it.
     const downAt: Record<string, number> = {};
+    const getUpMeter = new GetUpMeter();
 
     if (audio) audioRef.current = createImpactAudio({ master: 0.8 });
 
@@ -345,6 +360,7 @@ export function useFight(options: UseFightOptions) {
       const kind = impactKind(e, PLAYER);
       if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now());
       if (e.type === "knockdown") downAt[e.target] = performance.now();
+      if (e.type === "knockdown" && e.target === PLAYER) getUpMeter.reset();
       if (e.type === "knockdown") audioRef.current?.bell(1);
       if (e.type === "roundEnd") audioRef.current?.bell(1);
       if (e.type === "stoppage") {
@@ -406,6 +422,9 @@ export function useFight(options: UseFightOptions) {
       // Clamped: a backgrounded tab returns one enormous dt, which would
       // otherwise advance the round clock by thirty seconds in a single frame.
       const dt = Math.min(0.1, (now - last) / 1000);
+      // Real elapsed time, for things measured against the wall-clock
+      // knockdown window (the get-up meter) rather than the round clock.
+      const wallDt = Math.min(1, (now - last) / 1000);
       last = now;
 
       // --- Player strikes ------------------------------------------------
@@ -570,6 +589,29 @@ export function useFight(options: UseFightOptions) {
 
       sim.tick(dt);
 
+      // Getting up early, gloves up (FPS Mode). Only shortens the knockdown:
+      // the sim stands the player up and the down timer is moved back so the
+      // figure, the count and the camera director all see them rise now.
+      let getUpShown: number | null = null;
+      const playerDownAt = downAt[PLAYER];
+      if (getUpRef.current && mode === "cpu" && playerDownAt !== undefined && sim.phase === "fighting") {
+        const sinceDown = (now - playerDownAt) / 1000;
+        if (sinceDown < FIGHT_CONFIG.knockdownSeconds) {
+          const rose = getUpMeter.update(wallDt, {
+            sinceDown,
+            tracked: !!body?.tracked,
+            guardHeight: body?.guardHeight ?? 0,
+          });
+          if (rose) {
+            sim.rise(PLAYER);
+            downAt[PLAYER] = now - FIGHT_CONFIG.knockdownSeconds * 1000 - 1;
+            getUpMeter.reset();
+          } else {
+            getUpShown = getUpMeter.progress;
+          }
+        }
+      }
+
       // --- What the render layer reads every frame -------------------------
       //
       // Published after the tick, so the renderer sees the state the rules
@@ -661,6 +703,7 @@ export function useFight(options: UseFightOptions) {
             : conditionRef.current.opponent.count
               ? { who: "opponent", at: conditionRef.current.opponent.count }
               : null,
+          getUp: getUpShown,
         });
       }
 

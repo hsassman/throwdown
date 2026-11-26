@@ -28,6 +28,22 @@ export const FPS_CAMERA = {
   /** Camera smoothing time constant, seconds. The head moves with every
    *  landmark wobble; a camera locked rigidly to it shakes. */
   tau: 0.06,
+  /** Dodge lean: extra sideways camera travel per torso unit of slip, world
+   *  units. On top of the head's own movement, so a slip visibly takes you
+   *  out of the line of the punch. */
+  leanSide: 0.45,
+  /** Cap on that sideways travel, world units. */
+  leanSideMax: 0.32,
+  /** Camera roll into the slip per torso unit, radians. */
+  leanRoll: 0.16,
+  /** Cap on the roll, radians (about 7 degrees). */
+  leanRollMax: 0.12,
+  /** Share of the sideways travel applied to the look target too. Under 1,
+   *  so the view swings a little toward the opponent rather than sliding
+   *  flat past them. */
+  leanTargetShare: 0.5,
+  /** Opponent glove glow at full wind-up, as an emissive colour. */
+  windupGlow: 0xff7a1a,
 } as const;
 
 export interface Vec3 {
@@ -49,7 +65,7 @@ export interface CameraPose {
  * tilt the whole view toward the floor. Falls back to looking down +z when
  * the two heads are on top of each other.
  */
-export function fpsCameraPose(head: Vec3, opponentHead: Vec3, cfg = FPS_CAMERA): CameraPose {
+export function fpsCameraPose(head: Vec3, opponentHead: Vec3, cfg = FPS_CAMERA, side = 0): CameraPose {
   let dx = opponentHead.x - head.x;
   let dz = opponentHead.z - head.z;
   const len = Math.hypot(dx, dz);
@@ -60,17 +76,37 @@ export function fpsCameraPose(head: Vec3, opponentHead: Vec3, cfg = FPS_CAMERA):
     dx /= len;
     dz /= len;
   }
+  // The camera's right, looking along (dx, 0, dz): forward x up.
+  const rx = -dz;
+  const rz = dx;
+  const ts = side * cfg.leanTargetShare;
   return {
     position: {
-      x: head.x - dx * cfg.back,
+      x: head.x - dx * cfg.back + rx * side,
       y: head.y + cfg.up,
-      z: head.z - dz * cfg.back,
+      z: head.z - dz * cfg.back + rz * side,
     },
     target: {
-      x: opponentHead.x,
+      x: opponentHead.x + rx * ts,
       y: opponentHead.y - cfg.lookDown,
-      z: opponentHead.z,
+      z: opponentHead.z + rz * ts,
     },
+  };
+}
+
+/**
+ * The dodge lean for a slip of `lateral` torso units (positive toward the
+ * player's own right, as BodyMotion reports it): how far to slide the camera
+ * sideways (world units, positive is screen right) and how much to roll it
+ * (radians, positive rolls the camera clockwise - the top of the view
+ * toward screen right - which is into a right slip).
+ */
+export function fpsLean(lateral: number, cfg = FPS_CAMERA): { side: number; roll: number } {
+  const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+  const l = Number.isFinite(lateral) ? lateral : 0;
+  return {
+    side: clamp(l * cfg.leanSide, cfg.leanSideMax),
+    roll: clamp(l * cfg.leanRoll, cfg.leanRollMax),
   };
 }
 

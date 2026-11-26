@@ -274,6 +274,7 @@ export default function App() {
     remoteStrikeRef: onInternet ? onlineSession.remoteStrikeQueueRef : session.remoteStrikeQueueRef,
     remoteStateRef: onInternet ? onlineSession.remoteStateRef : session.remoteStateRef,
     publishState,
+    getUp: onFps,
   });
 
   // Re-snapshot the opponent and reset the double-record guard each time the

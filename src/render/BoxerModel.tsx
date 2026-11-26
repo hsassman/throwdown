@@ -1,5 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
-import { FPS_CAMERA, approach, fpsCameraPose, isGhostPart } from "./fpsCamera";
+import { FPS_CAMERA, approach, fpsCameraPose, fpsLean, isGhostPart } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
@@ -1322,6 +1322,51 @@ export function BoxerModel({
     const ghosted = new WeakSet<THREE.Material>();
     const _head = new THREE.Vector3();
     const _oppHead = new THREE.Vector3();
+    /** Smoothed camera roll for the dodge lean, radians. */
+    let fpsRoll = 0;
+    /** The opponent's glove materials, swapped for clones that can glow
+     *  during a wind-up without lighting up the player's gloves too (the two
+     *  fighters share material objects). */
+    const glowOriginals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    const glowing = new WeakSet<THREE.Material>();
+    const glowMats = new Set<THREE.MeshStandardMaterial>();
+    const glowColor = new THREE.Color(FPS_CAMERA.windupGlow);
+
+    /** Lights the opponent's gloves in proportion to their wind-up, 0-1.
+     *  `null` puts the original materials back. Re-checked every frame, like
+     *  syncGhost, because the kit tint swaps the glove materials after load. */
+    const syncGlow = (windup: number | null) => {
+      if (windup === null) {
+        for (const [mesh, orig] of glowOriginals) mesh.material = orig;
+        glowOriginals.clear();
+        glowMats.forEach((m) => m.dispose());
+        glowMats.clear();
+        return;
+      }
+      if (!opponentRoot) return;
+      opponentRoot.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || isGhostPart([mesh.name, mesh.parent?.name ?? ""])) return;
+        const mat = mesh.material;
+        const mats = Array.isArray(mat) ? mat : [mat];
+        if (mats.every((x) => glowing.has(x))) return;
+        const clone = (m: THREE.Material) => {
+          if (glowing.has(m)) return m;
+          const c = m.clone();
+          glowing.add(c);
+          if ((c as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+            glowMats.add(c as THREE.MeshStandardMaterial);
+          }
+          return c;
+        };
+        glowOriginals.set(mesh, mat);
+        mesh.material = Array.isArray(mat) ? mat.map(clone) : clone(mat);
+      });
+      // Eased in so the glow builds through the wind-up and is brightest
+      // just before the punch leaves.
+      const k = Math.max(0, Math.min(1, windup)) ** 1.5 * 1.4;
+      for (const m of glowMats) m.emissive.copy(glowColor).multiplyScalar(k);
+    };
 
     const ghostMaterial = (m: THREE.Material): THREE.Material => {
       if (ghosted.has(m)) return m;
@@ -1369,7 +1414,12 @@ export function BoxerModel({
       if (!playerHead || !opponentHead) return false;
       playerHead.getWorldPosition(_head);
       opponentHead.getWorldPosition(_oppHead);
-      const goal = fpsCameraPose(_head, _oppHead);
+      // Dodge lean: the camera slides and tilts with the player's slip, on
+      // top of the head's own movement, so slipping a punch feels like
+      // getting out of its way.
+      const motion = driverRef.current?.bodyMotion;
+      const lean = fpsLean(motion?.tracked ? motion.lateral : 0);
+      const goal = fpsCameraPose(_head, _oppHead, FPS_CAMERA, lean.side);
       fpsCam = fpsCam
         ? {
             position: approach(fpsCam.position, goal.position, dt, FPS_CAMERA.tau),
@@ -1379,6 +1429,8 @@ export function BoxerModel({
       camera.position.set(fpsCam.position.x, fpsCam.position.y, fpsCam.position.z);
       controls.target.set(fpsCam.target.x, fpsCam.target.y, fpsCam.target.z);
       camera.lookAt(controls.target);
+      fpsRoll += (lean.roll - fpsRoll) * (1 - Math.exp(-dt / FPS_CAMERA.tau));
+      camera.rotateZ(-fpsRoll);
       if (camera.fov !== FPS_CAMERA.fov) {
         camera.fov = FPS_CAMERA.fov;
         camera.updateProjectionMatrix();
@@ -1389,7 +1441,9 @@ export function BoxerModel({
     const leaveFps = () => {
       fpsActive = false;
       fpsCam = null;
+      fpsRoll = 0;
       syncGhost(false);
+      syncGlow(null);
       controls.enabled = true;
       if (camera.fov !== BASE_FOV) {
         camera.fov = BASE_FOV;
@@ -1711,6 +1765,7 @@ export function BoxerModel({
         // the controls when it hands the camera back.
         if (!directorOwns) controls.enabled = false;
         syncGhost(true);
+        syncGlow(opponentHolder.current?.current?.windup ?? 0);
         if (!placeFpsCamera(dt) && !directorOwns) {
           followOpponent(dt);
           controls.update();
