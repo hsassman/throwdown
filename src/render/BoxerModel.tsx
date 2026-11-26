@@ -1,4 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
+import { FPS_CAMERA, approach, fpsCameraPose, isGhostPart } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
@@ -227,6 +228,12 @@ interface Props {
   recentreSignal?: number;
   /** Adds the second humanoid - a training target that reacts to hits. */
   showTarget?: boolean;
+  /**
+   * FPS mode: the camera sits just behind the player's own head looking at
+   * the opponent, and the player's fighter is drawn see-through so it never
+   * blocks the view. Only takes effect in a duel. See fpsCamera.ts.
+   */
+  fps?: boolean;
   /** Strikes to play on the target. The ref is read and drained by the render
    * loop rather than passed as a prop, because hits arrive at pose rate and
    * routing each one through React would re-render the tree mid-combination. */
@@ -335,6 +342,7 @@ export function BoxerModel({
   onDebug,
   recentreSignal = 0,
   showTarget = false,
+  fps = false,
   strikeQueueRef,
   onTargetDebug,
   dummy = false,
@@ -378,6 +386,8 @@ export function BoxerModel({
   targetDebugCbRef.current = onTargetDebug;
   const showTargetRef = useRef(showTarget);
   showTargetRef.current = showTarget;
+  const fpsRef = useRef(fps);
+  fpsRef.current = fps;
   // Mirrored into a ref like every other prop this effect reads, so changing
   // it never tears down and reloads the model.
   const strikeQueueHolder = useRef(strikeQueueRef);
@@ -1293,6 +1303,101 @@ export function BoxerModel({
       }
     };
 
+    // --- FPS mode --------------------------------------------------------
+    //
+    // The camera rides just behind the player's own head, and the player's
+    // fighter is drawn see-through so the opponent is always visible through
+    // them. Everything else - the fight, the arena, both fighters' animation -
+    // is exactly what the third-person view shows.
+    //
+    // The player's materials are cloned before being made transparent: the
+    // opponent is a clone of the same asset and shares material objects with
+    // it, and fading a shared material would fade the opponent too.
+    const BASE_FOV = camera.fov;
+    let fpsActive = false;
+    let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
+    let playerHead: THREE.Object3D | null = null;
+    let opponentHead: THREE.Object3D | null = null;
+    const ghostOriginals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    const ghosted = new WeakSet<THREE.Material>();
+    const _head = new THREE.Vector3();
+    const _oppHead = new THREE.Vector3();
+
+    const ghostMaterial = (m: THREE.Material): THREE.Material => {
+      if (ghosted.has(m)) return m;
+      const g = m.clone();
+      g.transparent = true;
+      g.opacity = FPS_CAMERA.playerOpacity;
+      // Without this the see-through body still writes depth and hides the
+      // far half of itself and anything behind it in odd patches.
+      g.depthWrite = false;
+      ghosted.add(g);
+      return g;
+    };
+
+    /** Keeps the player's meshes see-through while FPS mode is on. Checked
+     *  every frame rather than once, because skins and appearance changes
+     *  swap materials after load. */
+    const syncGhost = (on: boolean) => {
+      if (!playerRoot) return;
+      if (!on) {
+        for (const [mesh, orig] of ghostOriginals) mesh.material = orig;
+        ghostOriginals.clear();
+        return;
+      }
+      playerRoot.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        // The gloves stay solid: where your fists are is the one thing you
+        // must always see. Everything else fades.
+        if (!isGhostPart([mesh.name, mesh.parent?.name ?? ""])) return;
+        const mat = mesh.material;
+        const already = Array.isArray(mat) ? mat.every((x) => ghosted.has(x)) : ghosted.has(mat);
+        if (already) return;
+        ghostOriginals.set(mesh, mat);
+        mesh.material = Array.isArray(mat) ? mat.map(ghostMaterial) : ghostMaterial(mat);
+      });
+    };
+
+    /** Places the camera for FPS mode. Returns false when it can't (no duel,
+     *  the director holds the camera, the model isn't loaded). */
+    const placeFpsCamera = (dt: number): boolean => {
+      const duel = showTargetRef.current || dummyRef.current;
+      if (!duel || directorOwns || !playerRoot || !opponentRoot?.visible) return false;
+      playerHead ??= playerRoot.getObjectByName("c_head") ?? null;
+      opponentHead ??= opponentRoot.getObjectByName("c_head") ?? null;
+      if (!playerHead || !opponentHead) return false;
+      playerHead.getWorldPosition(_head);
+      opponentHead.getWorldPosition(_oppHead);
+      const goal = fpsCameraPose(_head, _oppHead);
+      fpsCam = fpsCam
+        ? {
+            position: approach(fpsCam.position, goal.position, dt, FPS_CAMERA.tau),
+            target: approach(fpsCam.target, goal.target, dt, FPS_CAMERA.tau),
+          }
+        : goal;
+      camera.position.set(fpsCam.position.x, fpsCam.position.y, fpsCam.position.z);
+      controls.target.set(fpsCam.target.x, fpsCam.target.y, fpsCam.target.z);
+      camera.lookAt(controls.target);
+      if (camera.fov !== FPS_CAMERA.fov) {
+        camera.fov = FPS_CAMERA.fov;
+        camera.updateProjectionMatrix();
+      }
+      return true;
+    };
+
+    const leaveFps = () => {
+      fpsActive = false;
+      fpsCam = null;
+      syncGhost(false);
+      controls.enabled = true;
+      if (camera.fov !== BASE_FOV) {
+        camera.fov = BASE_FOV;
+        camera.updateProjectionMatrix();
+      }
+      placeCamera();
+    };
+
     let lastFrame = performance.now();
     let lastPoseTs = 0;
     let lastDebugPush = 0;
@@ -1598,9 +1703,23 @@ export function BoxerModel({
       }
 
       stepDirector(dt);
-      followOpponent(dt);
-
-      controls.update();
+      const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
+      if (wantFps) {
+        fpsActive = true;
+        // The camera is driven every frame; dragging it would fight that.
+        // Re-asserted each frame because the knockdown director re-enables
+        // the controls when it hands the camera back.
+        if (!directorOwns) controls.enabled = false;
+        syncGhost(true);
+        if (!placeFpsCamera(dt) && !directorOwns) {
+          followOpponent(dt);
+          controls.update();
+        }
+      } else {
+        if (fpsActive) leaveFps();
+        followOpponent(dt);
+        controls.update();
+      }
 
       // Hit feedback: a short camera kick when a punch lands either way. The
       // offset is added just for this frame's render and taken off again, so
