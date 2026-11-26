@@ -493,3 +493,38 @@ describe("determinism", () => {
     }
   });
 });
+
+describe("locked position (FPS Mode)", () => {
+  // The locked gap is the neutral one: both depth channels are held at 0.
+  const atLockedGap = see({ range: FIGHT_GEOMETRY.neutralRange, opponentThrowing: true });
+
+  it("never steps in, backs off or circles", () => {
+    for (const seed of [1, 7, 11, 23]) {
+      const ai = new CpuOpponent("champion", seed);
+      ai.locked = true;
+      const dt = 1 / 60;
+      let maxDepth = 0;
+      for (let t = 0; t < 30; t += dt) {
+        ai.update(dt, atLockedGap);
+        expect(ai.footwork).toBe("hold");
+        maxDepth = Math.max(maxDepth, Math.abs(ai.stance.depth));
+        // Sideways only as far as a slip takes the head.
+        expect(Math.abs(ai.stance.lateral)).toBeLessThanOrEqual(CPU_CONFIG.slipTravel + 1e-6);
+      }
+      expect(maxDepth).toBeLessThan(1e-6);
+    }
+  });
+
+  it("still punches from the locked gap", () => {
+    const ai = new CpuOpponent("champion", 3);
+    ai.locked = true;
+    expect(run(ai, 20, see({ range: FIGHT_GEOMETRY.neutralRange })).strikes.length).toBeGreaterThan(3);
+  });
+
+  it("still slips and ducks", () => {
+    const ai = new CpuOpponent("champion", 5);
+    ai.locked = true;
+    const { evasions } = run(ai, 30, atLockedGap);
+    expect(evasions.length).toBeGreaterThan(0);
+  });
+});

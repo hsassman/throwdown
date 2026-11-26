@@ -88,6 +88,15 @@ export const SHELL_ITEMS: ShellItem[] = [
     category: "fight",
   },
   {
+    id: "fps",
+    title: "FPS Mode",
+    blurb: "Fight the CPU from behind your own eyes.",
+    detail:
+      "The same bout as Fight the CPU, seen from just behind your fighter's head. Your fighter is see-through, so the opponent is always in view through your own gloves and body.",
+    availability: "preview",
+    category: "fight",
+  },
+  {
     id: "stages",
     title: "Stages",
     blurb: "Choose the ring or the cage.",

@@ -139,6 +139,9 @@ export class RigDriver {
   private motion: BodyMotion = NEUTRAL_BODY_MOTION;
   /** Step toward/away from the camera, torso units. */
   private rootDepth = 0;
+  /** Locked position (FPS Mode): the figure ignores stepping toward or away
+   *  from the camera and only slips sideways and crouches. */
+  lockDepth = false;
   private shownDepth = 0;
   /** Torso yaw, radians. */
   private torsoTurn = 0;
@@ -854,7 +857,7 @@ export class RigDriver {
       THREE.MathUtils.clamp(body.lateral * (mirrored ? -1 : 1), -clamp, clamp),
       THREE.MathUtils.clamp(body.vertical, -clamp, clamp)
     );
-    this.rootDepth = THREE.MathUtils.clamp(body.depth, -clamp, clamp);
+    this.rootDepth = this.lockDepth ? 0 : THREE.MathUtils.clamp(body.depth, -clamp, clamp);
     // Turn is mirrored with the view, exactly like lateral: in the reflected
     // view the character's near shoulder is the other one, and a turn that did
     // not mirror would rotate the body away from the arm driving it.

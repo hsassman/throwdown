@@ -130,7 +130,9 @@ export default function App() {
   const inCareer = screen === "career";
   const onLan = screen === "lan";
   const onInternet = screen === "internet";
-  const inFight = screen === "cpu" || inCareer || onLan || onInternet;
+  // FPS mode is the CPU bout with a different camera: same fight, same rules.
+  const onFps = screen === "fps";
+  const inFight = screen === "cpu" || onFps || inCareer || onLan || onInternet;
 
   // The first-run walkthrough, over the menu, once the camera is tracking.
   const [firstRunPending, setFirstRunPending] = useState(
@@ -272,6 +274,8 @@ export default function App() {
     remoteStrikeRef: onInternet ? onlineSession.remoteStrikeQueueRef : session.remoteStrikeQueueRef,
     remoteStateRef: onInternet ? onlineSession.remoteStateRef : session.remoteStateRef,
     publishState,
+    getUp: onFps,
+    locked: onFps,
   });
 
   // Re-snapshot the opponent and reset the double-record guard each time the
@@ -504,6 +508,7 @@ export default function App() {
               samplePose={samplePredicted}
               view="behind"
               showTarget={inFight}
+              fps={onFps}
               dummy={onDummy}
               litRef={training.litRef}
               outcomeQueueRef={training.outcomeQueueRef}
@@ -638,7 +643,7 @@ export default function App() {
             />
           )}
 
-          {(screen === "cpu" || onInternet) && (
+          {(screen === "cpu" || onFps || onInternet) && (
             <LeaderboardPanel
               result={fight.hud?.result ?? null}
               landed={fight.hud?.player.landed ?? 0}

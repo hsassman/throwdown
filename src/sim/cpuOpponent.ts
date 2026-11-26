@@ -221,6 +221,14 @@ export class CpuOpponent {
   private evadeTimer = 0;
   private evadeCooldown = 0;
 
+  /**
+   * Locked position (FPS Mode). The feet stay planted at the neutral gap, on
+   * the centre line: no advancing, retreating or circling. Head movement -
+   * slips left and right, and the duck - still works, so the only ways the
+   * body moves are left, right and down.
+   */
+  locked = false;
+
   /** Commanded stance - where the body is being asked to go. */
   private commanded: CpuStance = { lateral: 0, depth: 0, crouch: 0, lean: 0 };
   /** Shown stance - where it actually is. Chases `commanded`, because a body
@@ -306,7 +314,7 @@ export class CpuOpponent {
           // lands blows from across the ring is the most obvious way this
           // reads as fake, so it closes the distance first and reconsiders
           // when it arrives.
-          if (see.range > FIGHT_GEOMETRY.strikingRange) {
+          if (!this.locked && see.range > FIGHT_GEOMETRY.strikingRange) {
             this.setFootwork("advance", CPU_CONFIG.footworkMin);
             this.timer = CPU_CONFIG.footworkMin;
           } else if (see.opponentStunned || this.rand() < this.profile.aggression) {
@@ -416,6 +424,10 @@ export class CpuOpponent {
   }
 
   private updateFootwork(dt: number, see: CpuPerception): void {
+    if (this.locked) {
+      this.footwork = "hold";
+      return;
+    }
     this.footTimer -= dt;
 
     // Mid-combination the feet follow the hands. A fighter that wandered off
@@ -510,6 +522,11 @@ export class CpuOpponent {
     }
     c.lateral = clamp(c.lateral, -CPU_CONFIG.lateralLimit, CPU_CONFIG.lateralLimit);
     c.depth = clamp(c.depth, -CPU_CONFIG.depthLimit, CPU_CONFIG.depthLimit);
+    if (this.locked) {
+      // Feet planted on the centre line at the neutral gap.
+      c.lateral = 0;
+      c.depth = 0;
+    }
 
     // Where the other fighter's side of the gap is, in this fighter's frame.
     //

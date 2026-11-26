@@ -115,6 +115,13 @@ export function FightHud({ hud, showWindup = true }: Props) {
         <div className="fh-count" role="status" aria-live="assertive">
           <strong>{hud.count.at}</strong>
           <span>{hud.count.who === "player" ? "You are down" : "Opponent down"}</span>
+          {hud.count.who === "player" && hud.getUp !== null && (
+            // FPS Mode's get-up: gloves up fills this and stands you up early.
+            <div className="fh-getup" role="meter" aria-label="Get up" aria-valuenow={Math.round(hud.getUp * 100)} aria-valuemin={0} aria-valuemax={100}>
+              <em>Gloves up to get up!</em>
+              <i><b style={{ transform: `scaleX(${hud.getUp})` }} /></i>
+            </div>
+          )}
         </div>
       )}
 

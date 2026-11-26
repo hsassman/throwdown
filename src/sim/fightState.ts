@@ -471,6 +471,18 @@ export class FightSim {
     f.evasion = evasion;
   }
 
+  /**
+   * Stands a stunned fighter back up now rather than at the end of their
+   * stun. Only ever shortens the stun; a fighter who isn't stunned is left
+   * alone. Used by the get-up mechanic (see getUp.ts).
+   */
+  rise(id: string): void {
+    const f = this.fighters[id];
+    if (!f || f.stunned <= 0) return;
+    f.stunned = 0;
+    f.guard = "high";
+  }
+
   /** Advances the clock. `dt` in seconds. */
   tick(dt: number): void {
     if (this.phase === "between") {
