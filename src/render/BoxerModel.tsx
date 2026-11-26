@@ -1419,6 +1419,11 @@ export function BoxerModel({
       // getting out of its way.
       const motion = driverRef.current?.bodyMotion;
       const lean = fpsLean(motion?.tracked ? motion.lateral : 0);
+      // Locked position: the two fighters face each other down one fixed
+      // line, so the camera looks straight down it rather than turning to
+      // follow the opponent's slips. Their slips move them across the frame,
+      // the player's own slips move the camera.
+      _oppHead.x = _head.x;
       const goal = fpsCameraPose(_head, _oppHead, FPS_CAMERA, lean.side);
       fpsCam = fpsCam
         ? {
@@ -1757,6 +1762,7 @@ export function BoxerModel({
       }
 
       stepDirector(dt);
+      if (driver) driver.lockDepth = fpsRef.current;
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
       if (wantFps) {
         fpsActive = true;

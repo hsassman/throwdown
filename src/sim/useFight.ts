@@ -172,6 +172,13 @@ export interface UseFightOptions {
    * changing it never restarts the fight. CPU fights only.
    */
   getUp?: boolean;
+  /**
+   * Locks both fighters' positions (FPS Mode): neither can step in, back off
+   * or circle, so they stay at the neutral gap facing each other and can only
+   * move left or right (slips) or down (ducks). Read through a ref. CPU
+   * fights only.
+   */
+  locked?: boolean;
 }
 
 export function useFight(options: UseFightOptions) {
@@ -190,7 +197,10 @@ export function useFight(options: UseFightOptions) {
     publishState,
     remoteStateRef,
     getUp = false,
+    locked = false,
   } = options;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
   const getUpRef = useRef(getUp);
   getUpRef.current = getUp;
 
@@ -477,7 +487,10 @@ export function useFight(options: UseFightOptions) {
       // camera, the CPU's from its own footwork. An untracked player is treated
       // as standing at neutral rather than as standing on top of the opponent.
       const body = bodyRef?.current;
-      const playerDepth = body?.tracked ? body.depth : 0;
+      const isLocked = lockedRef.current && mode === "cpu";
+      ai.locked = isLocked;
+      // Locked: the player's steps don't change the gap either.
+      const playerDepth = body?.tracked && !isLocked ? body.depth : 0;
 
       // The player's own defence. Until this line the evasion rules ran for
       // the CPU only: a player could duck under a right hand, watch their
