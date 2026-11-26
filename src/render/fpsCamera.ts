@@ -42,6 +42,12 @@ export const FPS_CAMERA = {
    *  so the view swings a little toward the opponent rather than sliding
    *  flat past them. */
   leanTargetShare: 0.5,
+  /** Render resolution cap in FPS Mode on a phone (touch screen). The scene
+   *  shares the phone's GPU with pose tracking, and in FPS Mode any lag shows
+   *  as your own gloves trailing your punches, right in front of you. Same
+   *  value as the ?demo preset. Shadows and the crowd are also switched off
+   *  there (see BoxerModel). */
+  phoneMaxPixelRatio: 1,
   /** Opponent glove glow at full wind-up, as an emissive colour. */
   windupGlow: 0xff7a1a,
 } as const;

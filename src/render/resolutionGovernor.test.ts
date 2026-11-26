@@ -70,3 +70,45 @@ describe("ResolutionGovernor", () => {
     expect(g.ratio).toBe(1.75);
   });
 });
+
+describe("ResolutionGovernor ceiling (FPS Mode on phones)", () => {
+  const fast = (g: ResolutionGovernor, n: number) => {
+    let r: number | null = null;
+    for (let i = 0; i < n; i++) r = g.frame(0.005) ?? r;
+    return r;
+  };
+
+  it("drops straight to the cap", () => {
+    const g = new ResolutionGovernor(0.5, 1.75);
+    expect(g.setCeiling(1)).toBe(1);
+    expect(g.ratio).toBe(1);
+  });
+
+  it("never climbs past the cap on fast frames", () => {
+    const g = new ResolutionGovernor(0.5, 1.75);
+    g.setCeiling(1);
+    fast(g, (C.fastFramesToRaise + 2) * 10);
+    expect(g.ratio).toBe(1);
+  });
+
+  it("does nothing when already under the cap", () => {
+    const g = new ResolutionGovernor(0.5, 1.75, 0.75);
+    expect(g.setCeiling(1)).toBeNull();
+    expect(g.ratio).toBe(0.75);
+  });
+
+  it("climbs again in steps once the cap is lifted", () => {
+    const g = new ResolutionGovernor(0.5, 1.75);
+    g.setCeiling(1);
+    expect(g.setCeiling(Infinity)).toBeNull();
+    expect(g.ratio).toBe(1);
+    fast(g, C.fastFramesToRaise + 2);
+    expect(g.ratio).toBe(1 + C.step);
+  });
+
+  it("never caps below the minimum", () => {
+    const g = new ResolutionGovernor(0.5, 1.75);
+    g.setCeiling(0.1);
+    expect(g.ratio).toBe(0.5);
+  });
+});

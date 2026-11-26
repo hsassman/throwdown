@@ -1315,6 +1315,7 @@ export function BoxerModel({
     // it, and fading a shared material would fade the opponent too.
     const BASE_FOV = camera.fov;
     let fpsActive = false;
+    let fpsScanFrame = 0;
     let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
     let playerHead: THREE.Object3D | null = null;
     let opponentHead: THREE.Object3D | null = null;
@@ -1335,7 +1336,7 @@ export function BoxerModel({
     /** Lights the opponent's gloves in proportion to their wind-up, 0-1.
      *  `null` puts the original materials back. Re-checked every frame, like
      *  syncGhost, because the kit tint swaps the glove materials after load. */
-    const syncGlow = (windup: number | null) => {
+    const syncGlow = (windup: number | null, rescan = true) => {
       if (windup === null) {
         for (const [mesh, orig] of glowOriginals) mesh.material = orig;
         glowOriginals.clear();
@@ -1344,7 +1345,7 @@ export function BoxerModel({
         return;
       }
       if (!opponentRoot) return;
-      opponentRoot.traverse((o) => {
+      if (rescan) opponentRoot.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh || isGhostPart([mesh.name, mesh.parent?.name ?? ""])) return;
         const mat = mesh.material;
@@ -1370,7 +1371,17 @@ export function BoxerModel({
 
     const ghostMaterial = (m: THREE.Material): THREE.Material => {
       if (ghosted.has(m)) return m;
-      const g = m.clone();
+      // Lambert rather than a clone of the original (standard/physical):
+      // the see-through body covers a big part of the screen and is drawn on
+      // top of the opponent, so every pixel of it is shaded twice. At 28%
+      // opacity the specular and bump detail a standard material pays for
+      // are invisible anyway. Same texture and colour, so bruises still show.
+      const src = m as THREE.MeshStandardMaterial;
+      const g = new THREE.MeshLambertMaterial({
+        map: src.map ?? null,
+        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+        side: m.side,
+      });
       g.transparent = true;
       g.opacity = FPS_CAMERA.playerOpacity;
       // Without this the see-through body still writes depth and hides the
@@ -1383,10 +1394,15 @@ export function BoxerModel({
     /** Keeps the player's meshes see-through while FPS mode is on. Checked
      *  every frame rather than once, because skins and appearance changes
      *  swap materials after load. */
-    const syncGhost = (on: boolean) => {
+    const syncGhost = (on: boolean, rescan = true) => {
       if (!playerRoot) return;
+      if (on && !rescan) return;
       if (!on) {
-        for (const [mesh, orig] of ghostOriginals) mesh.material = orig;
+        for (const [mesh, orig] of ghostOriginals) {
+          const now = mesh.material;
+          (Array.isArray(now) ? now : [now]).forEach((x) => ghosted.has(x) && x.dispose());
+          mesh.material = orig;
+        }
         ghostOriginals.clear();
         return;
       }
@@ -1447,6 +1463,7 @@ export function BoxerModel({
       fpsActive = false;
       fpsCam = null;
       fpsRoll = 0;
+      fpsScanFrame = 0;
       syncGhost(false);
       syncGlow(null);
       controls.enabled = true;
@@ -1464,6 +1481,44 @@ export function BoxerModel({
     let lastViewSeen = viewDirtyRef.current;
     let lastTargetShown = showTargetRef.current;
     const governor = new ResolutionGovernor(MIN_PIXEL_RATIO, pixelRatio);
+
+    // FPS Mode on a phone: the ?demo speed settings that can change while
+    // running - resolution capped at 1x, no shadow pass, no crowd. A phone
+    // draws the scene and runs pose tracking on one GPU, and in FPS Mode any
+    // lag is right in front of you as your own gloves trailing your punches.
+    // Laptops keep the full picture.
+    const onPhone =
+      typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    let liteOn = false;
+    const shadowsOff: THREE.Mesh[] = [];
+    const setLite = (on: boolean) => {
+      liteOn = on;
+      const r = governor.setCeiling(on ? FPS_CAMERA.phoneMaxPixelRatio : Infinity);
+      if (r !== null) {
+        pixelRatio = r;
+        renderer.setPixelRatio(pixelRatio);
+        resize();
+      }
+      if (crowd) crowd.group.visible = !on;
+      if (on) {
+        for (const root of [playerRoot, opponentRoot]) {
+          root?.traverse((o) => {
+            const m = o as THREE.Mesh;
+            if (m.isMesh && m.castShadow) {
+              m.castShadow = false;
+              shadowsOff.push(m);
+            }
+          });
+        }
+      } else {
+        shadowsOff.forEach((m) => (m.castShadow = true));
+        shadowsOff.length = 0;
+      }
+      // No casters left, so render the shadow map once (empty) and then stop
+      // re-rendering it every frame. Back on when leaving.
+      renderer.shadowMap.autoUpdate = !on;
+      renderer.shadowMap.needsUpdate = true;
+    };
 
     function tick() {
       if (cancelled) return;
@@ -1502,7 +1557,7 @@ export function BoxerModel({
       /** Time step for the opponent and the hit reaction: frozen during a
        *  hit-stop, slowed through a knockdown, real time otherwise. */
       const figureDt = dt * warp.rate(now);
-      crowd?.update(dt);
+      if (crowd?.group.visible) crowd.update(dt);
 
       // Adaptive resolution. Only reacts to sustained pressure, so a one-off
       // hitch (a GC pause, the model finishing its load) can't permanently
@@ -1764,14 +1819,19 @@ export function BoxerModel({
       stepDirector(dt);
       if (driver) driver.lockDepth = fpsRef.current;
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
+      if ((wantFps && onPhone) !== liteOn) setLite(wantFps && onPhone);
       if (wantFps) {
         fpsActive = true;
         // The camera is driven every frame; dragging it would fight that.
         // Re-asserted each frame because the knockdown director re-enables
         // the controls when it hands the camera back.
         if (!directorOwns) controls.enabled = false;
-        syncGhost(true);
-        syncGlow(opponentHolder.current?.current?.windup ?? 0);
+        // The material scans walk both figures; materials only change at load
+        // or on an appearance change, so they run a few times a second rather
+        // than every frame. The glow's brightness still updates every frame.
+        const rescan = ++fpsScanFrame % 15 === 1;
+        syncGhost(true, rescan);
+        syncGlow(opponentHolder.current?.current?.windup ?? 0, rescan);
         if (!placeFpsCamera(dt) && !directorOwns) {
           followOpponent(dt);
           controls.update();
