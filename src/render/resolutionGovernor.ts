@@ -38,6 +38,8 @@ export class ResolutionGovernor {
   private readonly min: number;
   private readonly max: number;
   private current: number;
+  /** A temporary cap below `max` (FPS Mode on a phone), or Infinity. */
+  private ceiling = Infinity;
   private slowFrames = 0;
   private fastFrames = 0;
   private starvedReadings = 0;
@@ -109,6 +111,20 @@ export class ResolutionGovernor {
     return null;
   }
 
+  /**
+   * Caps the ratio at `cap` until it is lifted with `setCeiling(Infinity)`.
+   * Returns the new ratio when the cap forces it down, else null. Lifting the
+   * cap does not jump back up: the ratio climbs again in normal steps.
+   */
+  setCeiling(cap: number): number | null {
+    this.ceiling = Math.max(this.min, cap);
+    if (this.current > this.ceiling) {
+      this.current = this.ceiling;
+      return this.current;
+    }
+    return null;
+  }
+
   private stepDown(): number | null {
     if (this.current <= this.min) return null;
     this.current = Math.max(this.min, this.current - GOVERNOR_CONFIG.step);
@@ -116,8 +132,9 @@ export class ResolutionGovernor {
   }
 
   private stepUp(): number | null {
-    if (this.current >= this.max) return null;
-    this.current = Math.min(this.max, this.current + GOVERNOR_CONFIG.step);
+    const top = Math.min(this.max, this.ceiling);
+    if (this.current >= top) return null;
+    this.current = Math.min(top, this.current + GOVERNOR_CONFIG.step);
     return this.current;
   }
 }
