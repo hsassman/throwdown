@@ -48,6 +48,34 @@ export function impactKind(e: FightEvent, playerId: string): ImpactKind | null {
   }
 }
 
+/**
+ * Turns the sim's events into impacts, one per punch.
+ *
+ * The sim reports a blocked punch as two events: "block", then "land" with
+ * the reduced damage (the damage is real, so scoring needs it). Mapped one by
+ * one, a blocked punch became both "defended" and "taken" - the red flash and
+ * the big hit shake fired on a punch you had blocked, and hitting the
+ * opponent's guard showed "Blocked" alongside a landed hit. This drops the
+ * "land" that belongs to a block, so a blocked punch only ever reads as a
+ * block.
+ */
+export class ImpactClassifier {
+  private blockedTarget: string | null = null;
+
+  kind(e: FightEvent, playerId: string): ImpactKind | null {
+    if (e.type === "block") {
+      this.blockedTarget = e.target;
+    } else if (e.type === "land") {
+      const wasBlocked = this.blockedTarget === e.target;
+      this.blockedTarget = null;
+      if (wasBlocked) return null;
+    } else if (e.type === "miss") {
+      this.blockedTarget = null;
+    }
+    return impactKind(e, playerId);
+  }
+}
+
 /** Power for an event: the punch's own power when it landed, otherwise light. */
 export function impactPower(e: FightEvent): number {
   if (e.type === "land") return Math.max(0, Math.min(1, e.power));

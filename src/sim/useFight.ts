@@ -1,4 +1,4 @@
-import { ImpactLog, impactKind, impactPower } from "./impactFeedback";
+import { ImpactClassifier, ImpactLog, impactPower } from "./impactFeedback";
 import { GetUpMeter } from "./getUp";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -355,6 +355,7 @@ export function useFight(options: UseFightOptions) {
     // `stunned`, and these are derived from it.
     const downAt: Record<string, number> = {};
     const getUpMeter = new GetUpMeter();
+    const impacts = new ImpactClassifier();
 
     if (audio) audioRef.current = createImpactAudio({ master: 0.8 });
 
@@ -367,7 +368,7 @@ export function useFight(options: UseFightOptions) {
       if (fightEventQueueRef.current.length > 32) {
         fightEventQueueRef.current.splice(0, fightEventQueueRef.current.length - 32);
       }
-      const kind = impactKind(e, PLAYER);
+      const kind = impacts.kind(e, PLAYER);
       if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now());
       if (e.type === "knockdown") downAt[e.target] = performance.now();
       if (e.type === "knockdown" && e.target === PLAYER) getUpMeter.reset();
