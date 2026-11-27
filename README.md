@@ -10,6 +10,58 @@ opponent, and to nobody else.
 
 ![The ring](docs/images/ring.png)
 
+**Play it:** https://throwdown-orcin.vercel.app (Chrome, a webcam, and some room
+to move).
+
+---
+
+## Built with C# and .NET 11
+
+Throwdown has two halves.
+
+- **The game runs in the browser** (TypeScript, React, three.js, MediaPipe):
+  the camera, pose tracking, punch detection, the fight rules, the CPU
+  opponent and the 3D ring. Your video never leaves your machine.
+- **The online part is C# on .NET 11**: an ASP.NET Core server in
+  [`server/`](server/) that finds you an opponent, introduces your browser to
+  theirs, and keeps the scoreboard. It is deliberately small, and it is never in
+  the path of a punch.
+
+### What the C# server does
+
+| Piece | .NET feature | Where |
+| --- | --- | --- |
+| **Matchmaking** | **SignalR** hub: real-time, two-way messages over WebSockets. `JoinQueue` pairs the next two players; each gets a `Matched` message with the other's connection id. | [`MatchmakingHub.cs`](server/Throwdown.Server/MatchmakingHub.cs) |
+| **Pairing queue** | A thread-safe queue with one waiting slot. Leaving or disconnecting ends the pairing and tells the opponent (`OpponentLeft`), so nobody is stuck on "connecting". | [`MatchmakingQueue.cs`](server/Throwdown.Server/MatchmakingQueue.cs) |
+| **Connection relay** | `RelayOffer`, `RelayAnswer` and `RelayIceCandidate` pass the WebRTC handshake between the two browsers, and only between a matched pair - a client can't message an arbitrary connection. | [`MatchmakingHub.cs`](server/Throwdown.Server/MatchmakingHub.cs) |
+| **HTTP API** | **Minimal APIs**: `GET /health`, `GET /ice-servers`, `GET` and `POST /leaderboard`. | [`Program.cs`](server/Throwdown.Server/Program.cs) |
+| **Scoreboard** | C# `record`s and an `ILeaderboardStore` interface with two implementations, picked by **dependency injection** at startup: **Postgres via Npgsql** (Supabase) when a connection string is configured, in memory otherwise. | [`Leaderboard.cs`](server/Throwdown.Server/Leaderboard.cs) |
+| **Abuse protection** | The built-in **rate limiter** (10 score submissions per minute per IP), input validation, and **CORS** locked to the game's own domain. | [`Program.cs`](server/Throwdown.Server/Program.cs) |
+| **Configuration** | The **options pattern** (`IOptions<IceServerOptions>`); secrets such as the database connection string come from environment variables on the host and are never committed. | [`IceServers.cs`](server/Throwdown.Server/IceServers.cs) |
+| **Observability** | **OpenTelemetry** traces for every HTTP request and SignalR hub call, to the console or an OTLP collector. | [`Program.cs`](server/Throwdown.Server/Program.cs) |
+| **Tests** | **xUnit** with **`WebApplicationFactory`**, which runs the real server in memory, and the **SignalR .NET client** to drive the hub the way a browser does. | [`Throwdown.Server.Tests/`](server/Throwdown.Server.Tests/) |
+| **Load test** | A .NET console app that simulates hundreds of players connecting, matching and handshaking at once. | [`Throwdown.LoadTest/`](server/Throwdown.LoadTest/) |
+| **Deployment** | A multi-stage **Dockerfile** (.NET 11 SDK to build, ASP.NET Core runtime to run, port 8080). Deployed as a Docker web service on Render. | [`server/Dockerfile`](server/Dockerfile) |
+
+### How a two-player online match works
+
+```
+Browser A                     .NET 11 server (SignalR)                 Browser B
+    |-- JoinQueue ------------------->|                                    |
+    |<-------------------- Waiting ---|                                    |
+    |                                 |<------------------- JoinQueue -----|
+    |<-- Matched(B, answer) ----------|---------- Matched(A, offer) ------>|
+    |<-- ReceiveOffer ----------------|<------------------ RelayOffer -----|
+    |-- RelayAnswer ----------------->|----------------- ReceiveAnswer --->|
+    |<========= ICE candidates relayed both ways, then: ==================>|
+    |<================ direct peer-to-peer WebRTC link ===================>|
+    |                                 |                                    |
+    |-- POST /leaderboard (after the fight) ->|                            |
+```
+
+Once the two browsers are connected, the server steps out: pose data goes
+browser to browser, about 5 KB/s, and video is never sent at all.
+
 ---
 
 ## Getting started
@@ -29,8 +81,8 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (787). |
-| `dotnet test server/Throwdown.slnx` | Server tests (23). |
+| `npm test` | Web unit tests (800+). |
+| `dotnet test server/Throwdown.slnx` | Server tests (xUnit). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
@@ -100,6 +152,17 @@ is obviously a state machine.
 
 It cannot read your mind: it defends the side you have *been* going to, which is
 the same information a person in front of you would have.
+
+### FPS Mode: from behind your own eyes
+
+The same CPU bout, seen from just behind your fighter's head, like the
+over-the-shoulder view in motion-control boxing games. Your fighter is
+see-through so the opponent is always in view, and your gloves stay solid.
+Both fighters are locked at punching distance: you move only left and right
+(slips) and down (ducks). The opponent's gloves glow as they wind up, the
+camera leans with your slips, and when you are knocked down you get up early by
+holding your gloves up. On a phone it switches off shadows and the crowd and
+caps the resolution, because the scene shares the phone with pose tracking.
 
 ### Fighting a person: same network or online
 
@@ -301,11 +364,10 @@ together would have made every hit inherit that number.
 
 **Rough:** same-network multiplayer works and is verified end to end by two
 real browsers in the smoke test, but it is host-authoritative with no lag
-compensation, and the connection codes are pasted by hand. Online play now
-exists too — a SignalR hub finds you an opponent automatically — but no TURN
-relay is running yet, so some pairings behind strict NATs will fail to connect.
-The server is built and tested but not deployed, and the leaderboard has no
-browser UI yet.
+compensation, and the connection codes are pasted by hand. Online play uses
+the .NET SignalR server, which is deployed on Render, and the leaderboard
+shows in the game. No TURN relay is running yet, so some pairings behind strict
+NATs will fail to connect.
 
 **Not verified:** phone-camera framing has its own calibration to do, and no
 WCAG audit has been performed. This is a physical-movement game and has an
@@ -339,10 +401,15 @@ falls back to `http://localhost:5160/hubs/matchmaking`; a production build
 without it has no server, and the Online screen and leaderboard say so. `server/Dockerfile` builds a
 container that listens on port 8080.
 
+**Deployed** as a Docker web service on Render (free tier). A free instance
+sleeps after a while without traffic and takes up to about a minute to wake,
+so open `/health` once before a demo.
+
 **Limits, stated plainly:** scores are reported by the browser, so the
 leaderboard is not cheat-proof. No TURN server is running yet, so some
-pairings behind strict NATs will fail. The Postgres store has not yet been run
-against the real Supabase database, and the server is not deployed yet.
+pairings behind strict NATs will fail. The scoreboard uses Supabase Postgres
+once `ConnectionStrings__Leaderboard` is set on the host; until then it is kept
+in memory and resets when the server restarts.
 
 Plan and remaining work: [`docs/PLAN.md`](docs/PLAN.md).
 
