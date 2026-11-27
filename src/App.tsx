@@ -463,9 +463,12 @@ export default function App() {
           camera-driven UI needs a guaranteed way out that does not depend on
           the camera working, and a player who cannot be seen is exactly the
           player who needs to leave. */}
+      {/* Esc only. The backtick still toggles the diagnostics, but it is a
+          developer's key, and advertising it cost the title its room: in the
+          330px side panel "Dummy Work" and "Your Fighter" wrapped to two
+          lines. */}
       <span className="screen-keys" aria-hidden="true">
         <kbd>Esc</kbd> menu
-        <kbd>`</kbd> stats
       </span>
     </div>
   );
