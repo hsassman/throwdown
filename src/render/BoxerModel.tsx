@@ -1817,7 +1817,13 @@ export function BoxerModel({
       }
 
       stepDirector(dt);
-      if (driver) driver.lockDepth = fpsRef.current;
+      if (driver) {
+        driver.lockDepth = fpsRef.current;
+        // In a fight (or on the punching dummy) the legs stand planted rather
+        // than copying the camera's guesses at the player's legs.
+        driver.plantLegs = !!(showTargetRef.current || dummyRef.current);
+        driver.steadyBody = driver.plantLegs;
+      }
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
       if ((wantFps && onPhone) !== liteOn) setLite(wantFps && onPhone);
       if (wantFps) {

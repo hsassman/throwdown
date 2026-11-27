@@ -369,7 +369,14 @@ export function useFight(options: UseFightOptions) {
         fightEventQueueRef.current.splice(0, fightEventQueueRef.current.length - 32);
       }
       const kind = impacts.kind(e, PLAYER);
-      if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now());
+      if (kind) {
+        impactLogRef.current.push(
+          kind,
+          impactPower(e),
+          performance.now(),
+          e.type === "land" ? e.punch : undefined
+        );
+      }
       if (e.type === "knockdown") downAt[e.target] = performance.now();
       if (e.type === "knockdown" && e.target === PLAYER) getUpMeter.reset();
       if (e.type === "knockdown") audioRef.current?.bell(1);

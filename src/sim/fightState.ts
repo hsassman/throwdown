@@ -20,7 +20,7 @@ import {
   type FighterAttributes,
 } from "./attributes";
 import type { WeightClass } from "../menu/menuModel";
-import type { StrikeEvent } from "../perception/strikeResolver";
+import type { PunchKind, StrikeEvent } from "../perception/strikeResolver";
 import type { BodyMotion } from "../perception/bodyMotion";
 import { FIGHT_CONFIG } from "../config/tuning";
 
@@ -181,7 +181,7 @@ export interface FighterState {
 export type FightPhase = "idle" | "fighting" | "between" | "stopped" | "decision";
 
 export type FightEvent =
-  | { type: "land"; target: string; damage: number; region: string; power: number }
+  | { type: "land"; target: string; damage: number; region: string; power: number; punch?: PunchKind }
   | { type: "block"; target: string; region: string }
   | { type: "miss"; target: string; evasion: Evasion; region: string }
   | { type: "foul"; by: string; region: string }
@@ -415,6 +415,7 @@ export class FightSim {
       damage,
       region: strike.region.id,
       power: strike.power,
+      punch: strike.kind,
     });
 
     if (target.health <= 0) this.knockdown(target);
