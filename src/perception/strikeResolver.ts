@@ -123,7 +123,7 @@ interface HandState {
   /** Recent wrist samples, oldest first, spanning STRIKE_CONFIG.speedWindowMs.
    *  Velocity is measured across the window rather than between the last two
    *  samples - see speedWindowMs. */
-  trail: { t: number; x: number; y: number; depth: number }[];
+  trail: { t: number; x: number; y: number; depth: number; reach: number; height: number }[];
   speed: number;
   /** Body-frame velocity at the last sample: across, up, forward. */
   vel: { x: number; y: number; z: number };
@@ -140,6 +140,12 @@ interface HandState {
   /** Last time the fist was in the guard: up and pulled in. A punch has to
    *  leave from there, quickly - see STRIKE_CONFIG.guardMinHeight. */
   guardAt: number;
+  /** Furthest reach since the last strike; the fist must come back
+   *  STRIKE_CONFIG.rearmDrop from here before the hand re-arms. */
+  strikePeak: number;
+  /** Reach at the last moment the fist was in the guard: what a push is
+   *  measured from (STRIKE_CONFIG.motionPushGain). */
+  guardReach: number;
 }
 
 /** A strike between crossing the threshold and resolving. */
@@ -169,6 +175,8 @@ function freshHand(): HandState {
     spans: [],
     pending: null,
     guardAt: -Infinity,
+    strikePeak: 0,
+    guardReach: 0,
   };
 }
 
@@ -382,6 +390,9 @@ export class StrikeResolver {
       // Measured against the oldest sample still inside the window, so the
       // displacement spans one to three pose intervals depending on the rate.
       const trail = state.trail;
+      // A clock that went backwards (a restarted stream) makes every old
+      // sample meaningless for velocity.
+      if (trail.length > 0 && pose.timestamp < trail[trail.length - 1].t) trail.length = 0;
       while (trail.length > 0 && pose.timestamp - trail[0].t > STRIKE_CONFIG.speedWindowMs) {
         trail.shift();
       }
@@ -407,12 +418,12 @@ export class StrikeResolver {
       state.lastPos = { x: wrist.x, y: wrist.y };
       state.lastDepth = depth;
       state.lastT = pose.timestamp;
-      trail.push({ t: pose.timestamp, x: wrist.x, y: wrist.y, depth });
 
       // Continuous landing point, in the player's own body frame. Using the
       // body frame rather than image coordinates is what makes it hold when
       // the player moves around the room.
       const impact = impactPointOf(wrist, shoulders, hips, torso);
+      trail.push({ t: pose.timestamp, x: wrist.x, y: wrist.y, depth, reach, height: impact.height });
       this.impact[hand] = impact;
       this.zone[hand] = coarseZone(impact);
 
@@ -424,6 +435,7 @@ export class StrikeResolver {
         impact.height >= STRIKE_CONFIG.guardMinHeight
       ) {
         state.guardAt = pose.timestamp;
+        state.guardReach = reach;
       }
 
       // A crossed strike waits for its peak: it resolves on the first sample
@@ -452,11 +464,42 @@ export class StrikeResolver {
         // so it must come back before anything can count, but it never
         // becomes one.
         const fromGuard = pose.timestamp - state.guardAt <= STRIKE_CONFIG.maxThrustMs;
-        if (reach >= threshold && fastEnough && late && !fromGuard) {
+
+        // Motion punch: the fist pushed well out past where the player's own
+        // guard was, quickly, starting from the guard, with the fist still up.
+        // Measured against the player's guard rather than the fixed reach
+        // threshold, because a frontal camera often under-reads how far an
+        // arm thrown at it has extended - that is what made punches land one
+        // time and miss the next. Arm swings at the side (fist not up, never
+        // in the guard), waves (arm already out) and slow reaches (too slow,
+        // or too long after leaving the guard) still don't count.
+        const pushing =
+          late &&
+          fromGuard &&
+          state.speed >= STRIKE_CONFIG.motionPunchSpeed &&
+          reach - state.guardReach >= STRIKE_CONFIG.motionPushGain &&
+          impact.height >= STRIKE_CONFIG.guardMinHeight;
+
+        if (pushing && reach < threshold) {
+          state.extended = true;
+          state.strikePeak = reach;
+          state.lastStrikeAt = pose.timestamp;
+          state.pending = {
+            crossedAt: pose.timestamp,
+            samples: 0,
+            peakReach: reach,
+            impact,
+            vel: { ...state.vel },
+            peakSpeed: Math.max(state.peakSpeed, state.speed),
+          };
+          state.peakSpeed = 0;
+          if (STRIKE_CONFIG.peakLatchSamples <= 0) out.push(this.resolve(hand, state));
+        } else if (reach >= threshold && fastEnough && late && !fromGuard && !pushing) {
           state.extended = true;
           state.peakSpeed = 0;
         } else if (reach >= threshold && fastEnough && late) {
           state.extended = true;
+          state.strikePeak = reach;
           // The threshold was crossed somewhere between the last sample and
           // this one. At 19 FPS that interval is ~50ms, which is the same
           // order as the windows the fight judges evasion by, so the crossing
@@ -477,7 +520,12 @@ export class StrikeResolver {
           state.peakSpeed = 0;
           if (STRIKE_CONFIG.peakLatchSamples <= 0) out.push(this.resolve(hand, state));
         }
-      } else if (!state.pending && reach < threshold * STRIKE_CONFIG.releaseFraction) {
+      } else if (
+        (state.strikePeak = Math.max(state.strikePeak, reach)) >= 0 &&
+        !state.pending &&
+        reach < threshold * STRIKE_CONFIG.releaseFraction &&
+        reach <= state.strikePeak - STRIKE_CONFIG.rearmDrop
+      ) {
         // Hysteresis: the fist has to come meaningfully back before another
         // strike can register. Without it, noise around the threshold machine-
         // guns events out of one held extension.
@@ -494,9 +542,16 @@ export class StrikeResolver {
     const p = state.pending!;
     state.pending = null;
     const threshold = STRIKE_CONFIG.reachThreshold;
+    // Power from how far past the threshold the fist got, or from how fast it
+    // was moving - whichever is more. A motion punch that the camera never
+    // saw reach full extension still lands with the force it was thrown with.
     const power = Math.min(
       1,
-      (p.peakReach - threshold) / STRIKE_CONFIG.powerRange + STRIKE_CONFIG.basePower
+      Math.max(
+        (p.peakReach - threshold) / STRIKE_CONFIG.powerRange + STRIKE_CONFIG.basePower,
+        STRIKE_CONFIG.basePower +
+          Math.max(0, p.peakSpeed - STRIKE_CONFIG.motionPunchSpeed) / STRIKE_CONFIG.motionPowerRange
+      )
     );
     const region = regionAt(p.impact);
     // Approach is read from the velocity at the crossing, while the fist is
@@ -511,7 +566,9 @@ export class StrikeResolver {
       damage: damageOf(region, power, approach),
       power,
       speed: p.peakSpeed,
-      contactReach: p.peakReach + STRIKE_CONFIG.gloveNoseReach,
+      // At least the reach threshold, so a motion punch the camera saw only
+      // partly extended still lands its glove on the target in the render.
+      contactReach: Math.max(p.peakReach, threshold) + STRIKE_CONFIG.gloveNoseReach,
       timestamp: p.crossedAt,
       kind: punchKindOf(p.vel),
     };

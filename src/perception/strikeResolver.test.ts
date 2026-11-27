@@ -299,3 +299,50 @@ describe("punchKindOf", () => {
     expect(punchKindOf({ x: 0, y: -3, z: 0 })).toBe("straight");
   });
 });
+
+describe("motion punches (camera can't see full extension)", () => {
+  function move(from: Arm, to: Arm, steps: number, t0: number): PoseFrame[] {
+    return Array.from({ length: steps }, (_, i) => pose(lerpArm(from, to, (i + 1) / steps), t0 + (i + 1) * 66));
+  }
+  function hold(arm: Arm, n: number, t0: number): PoseFrame[] {
+    return Array.from({ length: n }, (_, i) => pose(arm, t0 + i * 66));
+  }
+  /** A punch that only gets 30% of the way to a full hook: well out past
+   *  the guard, but short of the fixed reach threshold. */
+  const SHORT = lerpArm(GUARD, HOOK, 0.3);
+
+  it("counts a quick push out of the guard that never reaches full measured extension", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    const events = run(r, [...move(GUARD, SHORT, 2, 660), ...hold(SHORT, 3, 860)]);
+    // The case this exists for: the fixed threshold was never crossed.
+    expect(r.debug.reach.right).toBeLessThan(1);
+    expect(events).toHaveLength(1);
+    expect(events[0].power).toBeGreaterThan(0);
+  });
+
+  it("one push is one punch, however long it is held out", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, [...move(GUARD, HOOK, 3, 660), ...hold(HOOK, 15, 900)])).toHaveLength(1);
+  });
+
+  it("two quick punches with a pull-back between them both count", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    const frames = [
+      ...move(GUARD, SHORT, 2, 660),
+      ...move(SHORT, GUARD, 2, 800),
+      ...hold(GUARD, 2, 1000),
+      ...move(GUARD, SHORT, 2, 1100),
+      ...hold(SHORT, 2, 1260),
+    ];
+    expect(run(r, frames)).toHaveLength(2);
+  });
+
+  it("a slow push the same distance still does not count", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, [...move(GUARD, SHORT, 20, 660), ...hold(SHORT, 3, 2060)])).toEqual([]);
+  });
+});
