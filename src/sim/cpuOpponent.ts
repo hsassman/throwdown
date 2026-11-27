@@ -579,7 +579,7 @@ export class CpuOpponent {
     // so the ceiling is allowed to drive `shown.depth` Down, and the command
     // is pulled along with it so the CPU does not spring forward the moment the
     // player gives ground.
-    const ceiling = theirSide - FIGHT_GEOMETRY.clinchRange;
+    const ceiling = theirSide - FIGHT_GEOMETRY.contactRange;
     if (this.shown.depth > ceiling) {
       this.shown.depth = Math.max(-CPU_CONFIG.depthLimit, ceiling);
       c.depth = Math.min(c.depth, this.shown.depth);
