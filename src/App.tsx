@@ -357,6 +357,9 @@ export default function App() {
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__shadowboxPose = () =>
       poseRef.current;
+    // The body channels the fight reads (slip, step, crouch, guard).
+    (window as unknown as Record<string, unknown>).__shadowboxBody = () =>
+      bodyRef.current;
   }, [poseRef]);
 
   // The last strikes the resolver produced, for tools/ to measure hit

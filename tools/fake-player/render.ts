@@ -39,6 +39,9 @@ interface Arm {
 }
 
 let arms: { l: Arm; r: Arm } | null = null;
+let figure: THREE.Object3D | null = null;
+/** Metres per torso unit on this rig, for the ?move script below. */
+let torsoMetres = 0.475;
 let ready = false;
 /** Which way along z the figure faces; the camera sits on that side. */
 const facing = 1;
@@ -65,6 +68,12 @@ new GLTFLoader().load("/models/boxer_lod3.glb", (gltf) => {
     return { up, low, hand: low.children.find((c) => c.type === "Bone") ?? low.children[0], upRest: up.quaternion.clone(), lowRest: low.quaternion.clone() };
   };
   arms = { l: arm("l"), r: arm("r") };
+  figure = model;
+  {
+    const sh = new THREE.Vector3().setFromMatrixPosition(bone("l_uparm").matrixWorld);
+    const hip = new THREE.Vector3().setFromMatrixPosition(bone("c_spine0").matrixWorld);
+    torsoMetres = Math.abs(sh.y - hip.y) || torsoMetres;
+  }
 
 
   // Webcam framing: hips to head with headroom, as the game asks a player to
@@ -105,8 +114,43 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, rest: THREE.Quaternion
 // the fight reads as low - kept, because every earlier measurement used it.
 const highGuard = new URLSearchParams(location.search).get("guard") === "high";
 
+// ?move: guard up, no punches, and the body moves on an 8 s script - so the
+// movement channels (step, slip, duck) can be measured against known motion.
+// Render with seconds = 8 so the loop is seamless. Times are in MOVE_SCRIPT.
+const move = new URLSearchParams(location.search).has("move");
+
+/** [start, end, lateral, depth, drop] in seconds and torso units: lateral to
+ *  the figure's own right, depth toward the camera, drop downward. Eased in
+ *  and out over 0.3 s at each end. */
+export const MOVE_SCRIPT: [number, number, number, number, number][] = [
+  [2.0, 3.8, 0, 0.5, 0], // step in, hold, step back
+  [4.4, 5.0, -0.35, 0, 0], // slip to the figure's left
+  [5.4, 6.0, 0.35, 0, 0], // slip to its right
+  [6.5, 7.3, 0, 0, 0.3], // duck
+];
+
+function body(t: number): { lateral: number; depth: number; drop: number } {
+  const c = t % 8;
+  const out = { lateral: 0, depth: 0, drop: 0 };
+  for (const [a, b, lat, dep, drop] of MOVE_SCRIPT) {
+    const ramp = 0.3;
+    const w =
+      c < a || c > b ? 0 : c < a + ramp ? (c - a) / ramp : c > b - ramp ? (b - c) / ramp : 1;
+    const e = w * w * (3 - 2 * w);
+    out.lateral += lat * e;
+    out.depth += dep * e;
+    out.drop += drop * e;
+  }
+  return out;
+}
+
 function pose(t: number) {
   if (!arms) return;
+  if (move && figure) {
+    const b = body(t);
+    // The figure's own right is image left, which is -x seen from the camera.
+    figure.position.set(-b.lateral * torsoMetres * facing, -b.drop * torsoMetres, b.depth * torsoMetres * facing);
+  }
   const cycle = t % 1.2;
   // Punch extension 0..1: out over 0.12s, back over 0.14s.
   const ext = (start: number) => {
@@ -114,7 +158,7 @@ function pose(t: number) {
     if (u < 0 || u > 0.26) return 0;
     return u < 0.12 ? Math.sin((u / 0.12) * (Math.PI / 2)) : Math.cos(((u - 0.12) / 0.14) * (Math.PI / 2));
   };
-  const amount = { l: ext(0.2), r: ext(0.6) };
+  const amount = move ? { l: 0, r: 0 } : { l: ext(0.2), r: ext(0.6) };
   const f = facing; // toward the camera
   for (const side of ["l", "r"] as const) {
     const a = arms[side];

@@ -179,10 +179,13 @@ export function guardHeightOf(pose: PoseFrame, torsoScale: number): number {
 export class BodyMotionTracker {
   private neutral: Neutral | null = null;
   private last: BodyMotion = { ...NEUTRAL_BODY_MOTION };
+  /** How long the body has been held away from neutral. See driftHold. */
+  private displacedFor = 0;
 
   reset(): void {
     this.neutral = null;
     this.last = { ...NEUTRAL_BODY_MOTION };
+    this.displacedFor = 0;
   }
 
   /** True once a resting reference has been established. */
@@ -246,10 +249,17 @@ export class BodyMotionTracker {
     );
 
     // --- Turn: |yaw| = acos(width/neutralWidth), signed by stance. ---
+    // Both widths are divided by their own torso scale. Raw image widths
+    // grow as the player steps in, so a neutral that drifted while they were
+    // close read every later frame as narrow - and stepping back registered
+    // as a 17-degree turn nobody made. Width over torso length is invariant to
+    // distance and still falls with yaw, since turning does not change the
+    // shoulder-to-hip length.
     // Clamped into [0,1] before acos: a player leaning in measures a wider
     // shoulder line than neutral, and acos of anything over 1 is NaN - which
     // would propagate into the character's rotation and freeze it.
-    const ratio = n.shoulderWidth > 1e-5 ? clamp(s.shoulderWidth / n.shoulderWidth, 0, 1) : 1;
+    const neutralWidth = n.shoulderWidth / n.scale;
+    const ratio = neutralWidth > 1e-5 ? clamp(s.shoulderWidth / s.scale / neutralWidth, 0, 1) : 1;
     const magnitude = Math.acos(ratio);
     // Ignore the first few degrees outright. Shoulder width is noisy at 15 Hz,
     // and acos is steepest exactly where the signal is smallest, so raw noise
@@ -288,7 +298,22 @@ export class BodyMotionTracker {
     if (!n) return;
     const s = sampleBody(pose);
     if (!s) return;
-    const a = 1 - Math.exp(-Math.max(0, dtSeconds) / BODY_CONFIG.neutralTau);
+    const dt = Math.max(0, dtSeconds);
+
+    // Hold still through a dodge or a step - see BODY_CONFIG.driftHold.
+    const hold = BODY_CONFIG.driftHold;
+    const depth = BODY_CONFIG.cameraDistance * (1 - n.scale / s.scale);
+    const crouch = (s.py - n.py) / BODY_CONFIG.fullCrouch;
+    const displaced =
+      Math.abs(depth) > hold.depth || Math.abs(s.px - n.px) > hold.lateral || crouch > hold.crouch;
+    if (displaced) {
+      this.displacedFor += dt;
+      if (this.displacedFor < hold.seconds) return;
+    } else {
+      this.displacedFor = 0;
+    }
+
+    const a = 1 - Math.exp(-dt / BODY_CONFIG.neutralTau);
     n.px += (s.px - n.px) * a;
     n.py += (s.py - n.py) * a;
     n.scale += (s.scale - n.scale) * a;

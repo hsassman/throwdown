@@ -2025,4 +2025,21 @@ export const BODY_CONFIG = {
 
   /** Neutral drift time constant, seconds. Long: a held crouch must stay one. */
   neutralTau: 9,
+
+  /**
+   * The neutral holds still while the body is clearly away from it - stepped
+   * in, slipped, ducked - for up to `seconds`, then drifts as normal.
+   *
+   * Without this, a step in held for under two seconds pulled the neutral a
+   * fifth of the way toward it, and after stepping back the player read as
+   * standing 0.15-0.3 torso units further away for the next ten seconds. A
+   * fake player stepping in and out on a loop sat permanently "back". Dodges
+   * and steps are brief; settling somewhere new is not, so a displacement
+   * held past `seconds` is treated as the new rest and followed.
+   *
+   * Thresholds in the channels' own units: torso units for depth and lateral,
+   * a crouch fraction for the duck. Each is several times that channel's
+   * standing noise (depth sd ~0.04, lateral ~0.01 against the fake player).
+   */
+  driftHold: { depth: 0.2, lateral: 0.15, crouch: 0.25, seconds: 2.5 },
 } as const;

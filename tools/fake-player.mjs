@@ -16,6 +16,9 @@
 // Output: tools/out/fake-player.y4m (git-ignored), and PNGs for --shots.
 //   FAKE_QUERY=guard=high  gloves at the chin instead of the chest
 //   FAKE_NAME=fake-high    writes tools/out/fake-high.y4m instead
+//   FAKE_QUERY="guard=high&move=1" FAKE_NAME=fake-move  ... 8 30
+//                          guard up, no punches, stepping in and out, slipping
+//                          and ducking on an 8 s loop (MOVE_SCRIPT in render.ts)
 
 import { chromium } from "playwright-core";
 import { mkdirSync, rmSync } from "node:fs";
