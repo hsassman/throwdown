@@ -179,7 +179,7 @@ const _dirPos = new THREE.Vector3();
 
 /** Render resolution bounds. Kept under the device pixel ratio because this
  * competes with pose inference for the same GPU. */
-const MAX_PIXEL_RATIO = isDemoMode() ? DEMO_PRESET.maxPixelRatio : 1.75;
+const MAX_PIXEL_RATIO = isDemoMode() ? DEMO_PRESET.maxPixelRatio : 1.25;
 const MIN_PIXEL_RATIO = 0.75;
 
 export type LoadStatus = "loading" | "ready" | "error";
@@ -457,7 +457,10 @@ export function BoxerModel({
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
     const demo = isDemoMode();
     const renderer = new THREE.WebGLRenderer({
-      antialias: demo ? DEMO_PRESET.antialias : true,
+      // Off everywhere: multisample anti-aliasing is a full-screen cost every
+      // frame, paid on the same GPU as pose tracking, and gameplay feeling
+      // responsive matters far more than smooth edges. (?demo already did this.)
+      antialias: demo ? DEMO_PRESET.antialias : false,
       alpha: wardrobe,
     });
     // Required for the punching dummy: the character figure used as its body
@@ -1316,7 +1319,7 @@ export function BoxerModel({
     // it, and fading a shared material would fade the opponent too.
     const BASE_FOV = camera.fov;
     let fpsActive = false;
-    let fpsScanFrame = 0;
+    let fpsScanAt = -Infinity;
     let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
     let playerHead: THREE.Object3D | null = null;
     let opponentHead: THREE.Object3D | null = null;
@@ -1464,7 +1467,7 @@ export function BoxerModel({
       fpsActive = false;
       fpsCam = null;
       fpsRoll = 0;
-      fpsScanFrame = 0;
+      fpsScanAt = -Infinity;
       syncGhost(false);
       syncGlow(null);
       controls.enabled = true;
@@ -1833,7 +1836,11 @@ export function BoxerModel({
       }
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
       const inBout = !!(showTargetRef.current || dummyRef.current);
-      const wantLite = (wantFps && onPhone) || (inBout && slowness.slow);
+      // Every fight - FPS Mode included - runs light: no shadow pass, no crowd,
+      // resolution capped at 1x, so the GPU goes to pose tracking and your
+      // fighter keeps up with you. The slowness detector still covers any
+      // other view.
+      const wantLite = inBout || (wantFps && onPhone) || slowness.slow;
       if (wantLite !== liteOn) setLite(wantLite);
       if (wantFps) {
         fpsActive = true;
@@ -1842,9 +1849,14 @@ export function BoxerModel({
         // the controls when it hands the camera back.
         if (!directorOwns) controls.enabled = false;
         // The material scans walk both figures; materials only change at load
-        // or on an appearance change, so they run a few times a second rather
-        // than every frame. The glow's brightness still updates every frame.
-        const rescan = ++fpsScanFrame % 15 === 1;
+        // or on an appearance change, so they run four times a second rather
+        // than every frame. By the clock, not by frame count: on a slow
+        // machine every 15th frame was seconds apart, and the player's body
+        // stayed solid for that long after the kit loaded. The glow's
+        // brightness still updates every frame.
+        const nowMs = performance.now();
+        const rescan = nowMs - fpsScanAt >= 250;
+        if (rescan) fpsScanAt = nowMs;
         syncGhost(true, rescan);
         syncGlow(opponentHolder.current?.current?.windup ?? 0, rescan);
         if (!placeFpsCamera(dt) && !directorOwns) {
