@@ -45,6 +45,7 @@ import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { NetFightState } from "./net/protocol";
+import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import { CameraLinkPanel } from "./ui/CameraLinkPanel";
 import { useCameraLink } from "./sensor/useCameraLink";
@@ -357,6 +358,29 @@ export default function App() {
     (window as unknown as Record<string, unknown>).__shadowboxPose = () =>
       poseRef.current;
   }, [poseRef]);
+
+  // The last strikes the resolver produced, for tools/ to measure hit
+  // registration against the fake player's known punches. Read-only; one
+  // more subscriber on the same stream the fight and the dummy read.
+  const { subscribe: subscribeStrikes } = strike;
+  useEffect(() => {
+    const log: StrikeEvent[] = [];
+    (window as unknown as Record<string, unknown>).__shadowboxStrikes = () => log.slice();
+    return subscribeStrikes((s) => {
+      log.push(s);
+      if (log.length > 64) log.shift();
+    });
+  }, [subscribeStrikes]);
+  // And the frames the resolver was given, so a run can be replayed through
+  // it offline (tools/out, and the recorded fixtures in perception tests).
+  useEffect(() => {
+    const frames: PoseFrame[] = [];
+    (window as unknown as Record<string, unknown>).__shadowboxStrikeFrames = () => frames.slice();
+    return subscribeStrikePose((f) => {
+      frames.push(f);
+      if (frames.length > 600) frames.shift();
+    });
+  }, [subscribeStrikePose]);
 
   if (new URLSearchParams(window.location.search).has("guides")) {
     return <GuideGallery />;
