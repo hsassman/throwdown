@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RigDriver } from "./rigDriver";
+import { RigDriver, dropUnsureArms } from "./rigDriver";
 import { RENDER_CONFIG } from "../../config/tuning";
 import type { Keypoint, PoseFrame } from "../../pose/poseTypes";
 import type { StrikeEvent } from "../../perception/strikeResolver";
@@ -76,6 +76,35 @@ function run(d: RigDriver, p: PoseFrame | null, seconds: number, fps: number) {
   const dt = 1 / fps;
   for (let t = 0; t < seconds; t += dt) d.update(p, dt, true);
 }
+
+describe("steady arms (fights)", () => {
+  it("a one-frame landmark glitch can't fling the arm faster than the speed cap", () => {
+    driver.steadyBody = true;
+    run(driver, pose(), 1, 60);
+    const bones = ["l_uparm", "l_lowarm", "r_uparm", "r_lowarm"].map((n) => model.getObjectByName(n)!);
+    const before = bones.map((b) => b.quaternion.clone());
+    // Both wrists teleport to the far corners of the frame for one frame.
+    const glitch: PoseFrame = { ...pose({ t: 1 }), leftWrist: kp(0.98, 0.02), rightWrist: kp(0.02, 0.98) };
+    driver.update(glitch, 1 / 60, true);
+    const max = RENDER_CONFIG.steadyMaxBoneSpeed / 60;
+    bones.forEach((b, i) => {
+      const turned = 2 * Math.acos(Math.min(1, Math.abs(b.quaternion.dot(before[i]))));
+      expect(turned, b.name).toBeLessThanOrEqual(max + 1e-6);
+    });
+  });
+
+  it("treats an unsure elbow or wrist as missing, and leaves the rest alone", () => {
+    const p: PoseFrame = { ...pose(), leftWrist: kp(0.6, 0.6, 0.4), rightElbow: kp(0.4, 0.5, 0.9) };
+    const out = dropUnsureArms(p, 0.65);
+    expect(out.leftWrist.confidence).toBe(0);
+    expect(out.rightElbow.confidence).toBe(0.9);
+    expect(out.leftShoulder).toBe(p.leftShoulder);
+    // The caller's pose is untouched.
+    expect(p.leftWrist.confidence).toBe(0.4);
+    // Nothing unsure: the same object back, no copy.
+    expect(dropUnsureArms(pose(), 0.65)).toBeTypeOf("object");
+  });
+});
 
 describe("smoothing", () => {
   it("eases toward the target instead of snapping to it", () => {
@@ -188,6 +217,21 @@ describe("whole-body travel", () => {
     // Mirrored, so a move toward increasing image x reads as the opposite way.
     expect(driver.debug.root.x).toBeLessThan(-0.05);
     expect(Math.abs(model.position.x)).toBeGreaterThan(0.01);
+  });
+
+  it("in a fight (steadyBody), small shifts don't sway the body", () => {
+    driver.steadyBody = true;
+    run(driver, pose(), 0.3, 60);
+    // 0.015 image units is ~0.04 torso: a weight shift, not a slip.
+    run(driver, pose({ shift: 0.015, t: 1 }), 0.6, 60);
+    expect(Math.abs(driver.debug.root.x)).toBeLessThan(0.005);
+  });
+
+  it("in a fight (steadyBody), a real slip still moves the body", () => {
+    driver.steadyBody = true;
+    run(driver, pose(), 0.3, 60);
+    run(driver, pose({ shift: 0.08, t: 1 }), 0.6, 60);
+    expect(driver.debug.root.x).toBeLessThan(-0.05);
   });
 
   it("drops the body when the player ducks", () => {
@@ -326,6 +370,28 @@ describe("the player's feet", () => {
     run(driver, pose({ t: 2 }), 1.5, 60);
     model.updateMatrixWorld(true);
     expect(foot("l").distanceTo(tracked)).toBeGreaterThan(0.02);
+  });
+
+  it("in a fight (plantLegs), ignores the camera's legs completely", () => {
+    // The tracker's leg landmarks jumping about used to send the legs kicking
+    // across the screen. With plantLegs on, the same wild leg readings must
+    // leave the feet exactly where the planted stance puts them.
+    const wildLegs = (t: number, k: number): PoseFrame => ({
+      ...pose({ t }),
+      leftKnee: kp(0.57 + 0.2 * Math.sin(k), 0.8),
+      rightKnee: kp(0.43 - 0.2 * Math.cos(k), 0.82),
+      leftAnkle: kp(0.6 + 0.3 * Math.cos(k), 0.95),
+      rightAnkle: kp(0.4 - 0.3 * Math.sin(k), 0.97),
+    });
+    driver.plantLegs = true;
+    run(driver, pose({ t: 0 }), 1.5, 60);
+    model.updateMatrixWorld(true);
+    const plantedL = foot("l").clone();
+    const plantedR = foot("r").clone();
+    for (let k = 0; k < 30; k++) driver.update(wildLegs(1.5 + k / 30, k), 1 / 30, true);
+    model.updateMatrixWorld(true);
+    expect(foot("l").distanceTo(plantedL)).toBeLessThan(0.01);
+    expect(foot("r").distanceTo(plantedR)).toBeLessThan(0.01);
   });
 });
 

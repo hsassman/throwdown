@@ -509,7 +509,49 @@ export const RENDER_CONFIG = {
    * the root and once by their own aim - and the punches would swing wide.
    */
   turnGain: 0.45,
+
+  // --- Steady body (fights) ----------------------------------------------
+  //
+  // In a fight the figure ignores the small movements the camera picks up
+  // between punches - weight shifts, breathing, landmark jitter - which made
+  // it sway and rock. Real slips and ducks still move it. See
+  // RigDriver.steadyBody.
+
+  /** Sideways travel under this many torso units is ignored, and bigger
+   *  travel is reduced by it. A slip registers at FIGHT_CONFIG.slipEnter
+   *  (0.22), so a real slip still clearly moves the body. */
+  steadyLateralDeadzone: 0.07,
+  /** Same, for rising up (the downward half is the duck, untouched). */
+  steadyVerticalDeadzone: 0.07,
+  /** Torso twist under this, radians (~7 degrees), doesn't turn the body. */
+  steadyTurnDeadzone: 0.12,
+  /** How much of the remaining twist turns the whole figure, in place of
+   *  turnGain. Every punch twists the torso, and at 0.45 the whole body
+   *  swung round with each one. */
+  steadyTurnGain: 0.2,
+  /** Scale on the hurt wobble (KNOCKDOWN_ANIM.wobble). */
+  steadyWobbleScale: 0.5,
+  /**
+   * Fastest any bone may turn on screen, radians per second (~900 deg/s).
+   * A fast straight turns the forearm about 90 degrees in 100-150ms, so real
+   * punches are under this; a landmark that teleports for one frame would
+   * otherwise snap the arm across the screen and back.
+   */
+  steadyMaxBoneSpeed: (900 * Math.PI) / 180,
+  /**
+   * Elbow and wrist landmarks below this confidence are treated as missing in
+   * a fight: the arm holds its last good position (then eases to the guard)
+   * instead of following a blurred or off-screen guess.
+   */
+  steadyArmConfidence: 0.65,
 };
+
+/** `v` with a dead band of `dz` around zero: smaller values become 0 and
+ *  larger ones are reduced by `dz`, so there is no jump at the edge. */
+export function deadzone(v: number, dz: number): number {
+  const m = Math.abs(v) - dz;
+  return m > 0 ? Math.sign(v) * m : 0;
+}
 
 export const DEBUG_CONFIG = {
   /** Minimum landmark confidence before a point/bone is drawn in the overlay. */
@@ -659,6 +701,33 @@ export const STRIKE_CONFIG = {
   powerRange: 0.45,
   /** Power credited to a punch that only just lands. */
   basePower: 0.35,
+
+  // --- Wii-style rules: what counts as a punch at all ----------------------
+  //
+  // A punch is a quick thrust that starts from the guard. Swinging or waving
+  // the arms around stretches them past the reach threshold just as a punch
+  // does, and used to count; these two gates are what tell them apart.
+
+  /**
+   * Lowest fist height, in torso units above the hips (shoulders = 1.0), that
+   * counts as being in the guard. A hand only arms for a punch once it has
+   * been back in the guard - up at about chest height or above, and pulled in
+   * (reach under `releaseFraction` of the threshold). Arms swinging at the
+   * sides, or already out from the last swing, never arm.
+   */
+  guardMinHeight: 0.5,
+  /**
+   * Longest time from the fist leaving the guard to crossing the reach
+   * threshold, ms. A punch gets there in roughly 150-300ms; a slow reach,
+   * or an arm wandering out and around, takes longer and doesn't count.
+   */
+  maxThrustMs: 450,
+  /**
+   * How much one direction of travel has to beat the others to decide the
+   * punch type (see punchKindOf): up for an uppercut, sideways for a hook,
+   * otherwise a straight.
+   */
+  kindDominance: 1.15,
 
   /** How far below the shoulder line still counts as a head shot, torso units. */
   headBandBelowShoulders: 0.08,

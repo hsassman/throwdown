@@ -83,6 +83,30 @@ export interface StrikeEvent {
   contactReach: number;
   /** performance.now() at the moment the strike resolved. */
   timestamp: number;
+  /** Wii-style punch type, from the direction the fist was travelling (see
+   *  punchKindOf). Optional: strikes from older clients over the network,
+   *  and the CPU's, don't carry one. */
+  kind?: PunchKind;
+}
+
+/** The three punches, Wii-style: decided by which way the fist was moving. */
+export type PunchKind = "straight" | "hook" | "uppercut";
+
+/**
+ * The punch type from the fist's body-frame velocity at the crossing (x
+ * across, y up, z forward/out of the image plane, torso units per second).
+ * Upward travel that clearly beats the rest is an uppercut, sideways travel
+ * that clearly beats the rest is a hook, and anything else - mostly forward,
+ * or no clear winner - is a straight.
+ */
+export function punchKindOf(vel: { x: number; y: number; z: number }): PunchKind {
+  const d = STRIKE_CONFIG.kindDominance;
+  const up = vel.y;
+  const side = Math.abs(vel.x);
+  const forward = Math.abs(vel.z) * STRIKE_CONFIG.depthSpeedWeight;
+  if (up > 0 && up >= d * Math.max(side, forward)) return "uppercut";
+  if (side > 0 && side >= d * Math.max(up, forward)) return "hook";
+  return "straight";
 }
 
 interface HandState {
@@ -113,6 +137,9 @@ interface HandState {
   /** A strike that has crossed the threshold and is waiting for the fist to
    *  reach its peak before it resolves. See STRIKE_CONFIG.peakLatchMs. */
   pending: PendingStrike | null;
+  /** Last time the fist was in the guard: up and pulled in. A punch has to
+   *  leave from there, quickly - see STRIKE_CONFIG.guardMinHeight. */
+  guardAt: number;
 }
 
 /** A strike between crossing the threshold and resolving. */
@@ -141,6 +168,7 @@ function freshHand(): HandState {
     lastStrikeAt: -Infinity,
     spans: [],
     pending: null,
+    guardAt: -Infinity,
   };
 }
 
@@ -390,6 +418,14 @@ export class StrikeResolver {
 
       const threshold = STRIKE_CONFIG.reachThreshold;
 
+      // In the guard: fist up and pulled in. Where every punch starts from.
+      if (
+        reach < threshold * STRIKE_CONFIG.releaseFraction &&
+        impact.height >= STRIKE_CONFIG.guardMinHeight
+      ) {
+        state.guardAt = pose.timestamp;
+      }
+
       // A crossed strike waits for its peak: it resolves on the first sample
       // where the reach stops growing, or when the latch runs out.
       const pending = state.pending;
@@ -410,7 +446,16 @@ export class StrikeResolver {
         state.peakSpeed = Math.max(state.peakSpeed, state.speed);
         const fastEnough = state.speed >= STRIKE_CONFIG.minStrikeSpeed;
         const late = pose.timestamp - state.lastStrikeAt >= STRIKE_CONFIG.refractoryMs;
-        if (reach >= threshold && fastEnough && late) {
+        // Wii-style: only a quick thrust out of the guard is a punch. An arm
+        // that crosses the threshold any other way - swinging up from the
+        // side, waving, or wandering out slowly - is latched like a strike,
+        // so it must come back before anything can count, but it never
+        // becomes one.
+        const fromGuard = pose.timestamp - state.guardAt <= STRIKE_CONFIG.maxThrustMs;
+        if (reach >= threshold && fastEnough && late && !fromGuard) {
+          state.extended = true;
+          state.peakSpeed = 0;
+        } else if (reach >= threshold && fastEnough && late) {
           state.extended = true;
           // The threshold was crossed somewhere between the last sample and
           // this one. At 19 FPS that interval is ~50ms, which is the same
@@ -468,6 +513,7 @@ export class StrikeResolver {
       speed: p.peakSpeed,
       contactReach: p.peakReach + STRIKE_CONFIG.gloveNoseReach,
       timestamp: p.crossedAt,
+      kind: punchKindOf(p.vel),
     };
     for (const cb of this.listeners) cb(event);
     return event;
