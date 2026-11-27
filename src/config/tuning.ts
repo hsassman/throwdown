@@ -92,6 +92,18 @@ export const POSE_CONFIG = {
   },
 };
 
+/** The deployed game and the .NET server it talks to. Public addresses. */
+export const LIVE_SITE = {
+  host: "throwdown-orcin.vercel.app",
+  matchmakingUrl: "https://throwdown-myc3.onrender.com/hubs/matchmaking",
+} as const;
+
+/** The server for a production page on `hostname`: the deployed one on the
+ *  live site, none anywhere else. */
+export function liveSiteServer(hostname: string): string | null {
+  return hostname === LIVE_SITE.host ? LIVE_SITE.matchmakingUrl : null;
+}
+
 export const NET_CONFIG = {
   /**
    * The MatchmakingHub this build talks to for "Find a match" and the
@@ -101,9 +113,16 @@ export const NET_CONFIG = {
    * `dotnet run`; a production build does not, because a deployed page calling
    * localhost reaches nothing, and every online screen then failed with a CORS
    * error instead of saying the site has no server.
+   *
+   * The live site itself (LIVE_SITE.host) falls back to the deployed server
+   * when the variable isn't set, so online play doesn't depend on a hosting
+   * dashboard setting. Only that exact host: the server only accepts that
+   * origin (CORS), so any other copy of the build would just be refused.
    */
   matchmakingUrl: (import.meta.env.VITE_MATCHMAKING_URL ||
-    (import.meta.env.DEV ? "http://localhost:5160/hubs/matchmaking" : null)) as string | null,
+    (import.meta.env.DEV
+      ? "http://localhost:5160/hubs/matchmaking"
+      : liveSiteServer(typeof window === "undefined" ? "" : window.location.hostname))) as string | null,
   /**
    * Fallback only. "Find a match" asks the server's /ice-servers endpoint
    * first (see net/iceServers.ts), which is where TURN gets configured. This
