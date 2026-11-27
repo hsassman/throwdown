@@ -1694,8 +1694,28 @@ export const FIGHT_GEOMETRY = {
    * 0.43 world units, where each glove sat behind the other fighter's face,
    * and in play the gloves visibly went through heads whenever the CPU closed
    * in. opponentAnimator.test.ts re-measures it against the shipped rig.
+   *
+   * This is the band the CPU's footwork DECIDES by - inside it, back out. The
+   * hard floor on where its body may stand is contactRange, below.
    */
   clinchRange: NEUTRAL_RANGE * 0.9,
+
+  /**
+   * The closest the CPU's body may stand, whatever either fighter does.
+   *
+   * Was clinchRange, sized by guards: the gap at which a guard glove reaches
+   * a face. But a straight punch is drawn to land at exactly the neutral gap
+   * (TARGET_CONFIG.distance is that derivation), so at 0.9 every landed
+   * straight while the CPU was in close went ~0.08 world units into the face
+   * - a headless fight showed the player's glove buried in the opponent's
+   * head on most exchanges. At 0.96 the extra overlap is ~0.03 world units,
+   * inside the glove's own compression.
+   *
+   * Not the full neutral gap, and kept apart from clinchRange: the fight
+   * starts at neutral and the footwork needs room to step into, and moving
+   * the decision band up with it had the CPU backing out of every exchange.
+   */
+  contactRange: NEUTRAL_RANGE * 0.96,
 } as const;
 
 /**
@@ -2074,4 +2094,21 @@ export const BODY_CONFIG = {
 
   /** Neutral drift time constant, seconds. Long: a held crouch must stay one. */
   neutralTau: 9,
+
+  /**
+   * The neutral holds still while the body is clearly away from it - stepped
+   * in, slipped, ducked - for up to `seconds`, then drifts as normal.
+   *
+   * Without this, a step in held for under two seconds pulled the neutral a
+   * fifth of the way toward it, and after stepping back the player read as
+   * standing 0.15-0.3 torso units further away for the next ten seconds. A
+   * fake player stepping in and out on a loop sat permanently "back". Dodges
+   * and steps are brief; settling somewhere new is not, so a displacement
+   * held past `seconds` is treated as the new rest and followed.
+   *
+   * Thresholds in the channels' own units: torso units for depth and lateral,
+   * a crouch fraction for the duck. Each is several times that channel's
+   * standing noise (depth sd ~0.04, lateral ~0.01 against the fake player).
+   */
+  driftHold: { depth: 0.2, lateral: 0.15, crouch: 0.25, seconds: 2.5 },
 } as const;

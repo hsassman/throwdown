@@ -622,7 +622,11 @@
   width: auto;
   max-width: none;
   aspect-ratio: auto;
-  height: min(82vh, 980px);
+  /* The window's height less the .app padding above and below. Was
+     min(82vh, 980px), which left an empty band under the stage on every
+     screen with a side panel - 110px of nothing at 720px tall. */
+  height: calc(100vh - 2.5rem);
+  height: calc(100dvh - 2.5rem);
   flex: 1 1 62%;
 }
 
@@ -924,6 +928,12 @@ summary:focus-visible,
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  /* One line, always: a title broken over two reads as two headings. If the
+     panel is ever narrower than the title, it shortens rather than wraps. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Keyboard affordances for the in-mode screens. Pushed to the far end and

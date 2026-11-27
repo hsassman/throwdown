@@ -204,7 +204,9 @@ const see = (over: Partial<CpuPerception> = {}): CpuPerception => ({
   // drifted out of the pocket the moment the ranges were re-anchored on where
   // the fighters really stand, and the tests then measured a fighter backing
   // out of a clinch for the whole run rather than the behaviour they name.
-  range: FIGHT_GEOMETRY.strikingRange * 0.9,
+  // Midway between the closest the body may stand and striking range: a
+  // fixed range inside contactRange would be pushed back on every frame.
+  range: (FIGHT_GEOMETRY.contactRange + FIGHT_GEOMETRY.strikingRange) / 2,
   incomingSide: null,
   ...over,
 });
@@ -268,7 +270,7 @@ describe("footwork", () => {
     // constraint sees it. That is the whole of the permitted slack.
     // 1e-6 is float slop from accumulating `t` at 1/60, not a tolerance on
     // the rule - the measured value lands on the bar to fifteen decimal places.
-    const bar = FIGHT_GEOMETRY.clinchRange - STEP_SPEED / 60 - 1e-6;
+    const bar = FIGHT_GEOMETRY.contactRange - STEP_SPEED / 60 - 1e-6;
 
     for (const id of ["rookie", "contender", "champion"] as const) {
       for (const seed of [1, 7, 11, 23]) {
@@ -435,6 +437,10 @@ describe("the range scale matches where the fighters really stand", () => {
 
   it("orders the bands the way a fight does", () => {
     expect(FIGHT_GEOMETRY.clinchRange).toBeLessThan(FIGHT_GEOMETRY.strikingRange);
+    // The body floor sits inside striking range (room to step in) and no
+    // closer than the clinch band the footwork backs out of.
+    expect(FIGHT_GEOMETRY.contactRange).toBeGreaterThanOrEqual(FIGHT_GEOMETRY.clinchRange);
+    expect(FIGHT_GEOMETRY.contactRange).toBeLessThan(FIGHT_GEOMETRY.strikingRange);
     expect(FIGHT_GEOMETRY.strikingRange).toBeLessThan(
       FIGHT_GEOMETRY.preferredRange
     );

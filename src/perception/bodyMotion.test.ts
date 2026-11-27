@@ -113,6 +113,52 @@ describe("the neutral", () => {
   });
 });
 
+describe("the neutral, through a dodge or a step", () => {
+  /** Feeds `m` for `seconds` at 15 Hz, as the renderer does. */
+  const hold = (t: BodyMotionTracker, m: Move, seconds: number) => {
+    for (let i = 0; i < seconds * 15; i++) {
+      t.update(pose(m));
+      t.followNeutral(pose(m), 1 / 15);
+    }
+  };
+
+  it("does not drift toward a step that is stepped back out of", () => {
+    const t = new BodyMotionTracker();
+    hold(t, {}, 1);
+    hold(t, { zoom: 1.15 }, 1.8);
+    expect(t.state.depth).toBeGreaterThan(0.4);
+    hold(t, {}, 0.2);
+    // Measured against a fake player stepping in and out: this read -0.15 to
+    // -0.3 for ten seconds after every step.
+    expect(Math.abs(t.state.depth)).toBeLessThan(0.02);
+  });
+
+  it("does not drift toward a held slip or duck either", () => {
+    const t = new BodyMotionTracker();
+    hold(t, {}, 1);
+    hold(t, { dx: 0.06 }, 1.5);
+    hold(t, { dy: 0.06 }, 1.5);
+    hold(t, {}, 0.2);
+    expect(Math.abs(t.state.lateral)).toBeLessThan(0.02);
+    expect(Math.abs(t.state.vertical)).toBeLessThan(0.02);
+  });
+
+  it("still settles on a displacement held long enough to be the new rest", () => {
+    const t = new BodyMotionTracker();
+    hold(t, {}, 1);
+    hold(t, { zoom: 1.15 }, 40);
+    expect(Math.abs(t.state.depth)).toBeLessThan(0.05);
+  });
+
+  it("does not read stepping back out as a turn", () => {
+    const t = new BodyMotionTracker();
+    hold(t, {}, 1);
+    hold(t, { zoom: 1.25 }, 20);
+    hold(t, {}, 0.5);
+    expect(t.state.turn).toBe(0);
+  });
+});
+
 describe("lateral and vertical", () => {
   it("measures a slip in torso units, signed toward the player's right", () => {
     // 0.06 image units against a 0.30 torso is 0.2 torso units.

@@ -45,6 +45,7 @@ import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { NetFightState } from "./net/protocol";
+import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import { CameraLinkPanel } from "./ui/CameraLinkPanel";
 import { useCameraLink } from "./sensor/useCameraLink";
@@ -356,7 +357,33 @@ export default function App() {
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__shadowboxPose = () =>
       poseRef.current;
+    // The body channels the fight reads (slip, step, crouch, guard).
+    (window as unknown as Record<string, unknown>).__shadowboxBody = () =>
+      bodyRef.current;
   }, [poseRef]);
+
+  // The last strikes the resolver produced, for tools/ to measure hit
+  // registration against the fake player's known punches. Read-only; one
+  // more subscriber on the same stream the fight and the dummy read.
+  const { subscribe: subscribeStrikes } = strike;
+  useEffect(() => {
+    const log: StrikeEvent[] = [];
+    (window as unknown as Record<string, unknown>).__shadowboxStrikes = () => log.slice();
+    return subscribeStrikes((s) => {
+      log.push(s);
+      if (log.length > 64) log.shift();
+    });
+  }, [subscribeStrikes]);
+  // And the frames the resolver was given, so a run can be replayed through
+  // it offline (tools/out, and the recorded fixtures in perception tests).
+  useEffect(() => {
+    const frames: PoseFrame[] = [];
+    (window as unknown as Record<string, unknown>).__shadowboxStrikeFrames = () => frames.slice();
+    return subscribeStrikePose((f) => {
+      frames.push(f);
+      if (frames.length > 600) frames.shift();
+    });
+  }, [subscribeStrikePose]);
 
   if (new URLSearchParams(window.location.search).has("guides")) {
     return <GuideGallery />;
@@ -436,9 +463,12 @@ export default function App() {
           camera-driven UI needs a guaranteed way out that does not depend on
           the camera working, and a player who cannot be seen is exactly the
           player who needs to leave. */}
+      {/* Esc only. The backtick still toggles the diagnostics, but it is a
+          developer's key, and advertising it cost the title its room: in the
+          330px side panel "Dummy Work" and "Your Fighter" wrapped to two
+          lines. */}
       <span className="screen-keys" aria-hidden="true">
         <kbd>Esc</kbd> menu
-        <kbd>`</kbd> stats
       </span>
     </div>
   );
