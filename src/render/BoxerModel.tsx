@@ -1,4 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
+import { SlowDetector } from "./slowDetector";
 import { FPS_CAMERA, approach, fpsCameraPose, fpsLean, isGhostPart } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
@@ -1490,6 +1491,10 @@ export function BoxerModel({
     const onPhone =
       typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
     let liteOn = false;
+    // Any machine, any fight mode: if the scene is visibly starving pose
+    // tracking, the same extras come off for the rest of the session. See
+    // slowDetector.ts.
+    const slowness = new SlowDetector();
     const shadowsOff: THREE.Mesh[] = [];
     const setLite = (on: boolean) => {
       liteOn = on;
@@ -1565,6 +1570,7 @@ export function BoxerModel({
       // oscillating between two levels. Also gives resolution up when pose
       // tracking is starved - see resolutionGovernor.ts.
       let nextRatio = governor.frame(rawDt);
+      slowness.frame(rawDt);
       if (now - lastPoseCheck > 500) {
         lastPoseCheck = now;
         const gaps = poseIntervalHolder.current;
@@ -1572,6 +1578,7 @@ export function BoxerModel({
         const mean = gaps && gaps.size >= 10 ? gaps.compute().mean : null;
         const inferMean = infer && infer.size >= 10 ? infer.compute().mean : null;
         nextRatio = governor.poseInterval(mean, inferMean) ?? nextRatio;
+        slowness.poseInterval(mean, inferMean);
       }
       if (nextRatio !== null && nextRatio !== pixelRatio) {
         pixelRatio = nextRatio;
@@ -1825,7 +1832,9 @@ export function BoxerModel({
         driver.steadyBody = driver.plantLegs;
       }
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
-      if ((wantFps && onPhone) !== liteOn) setLite(wantFps && onPhone);
+      const inBout = !!(showTargetRef.current || dummyRef.current);
+      const wantLite = (wantFps && onPhone) || (inBout && slowness.slow);
+      if (wantLite !== liteOn) setLite(wantLite);
       if (wantFps) {
         fpsActive = true;
         // The camera is driven every frame; dragging it would fight that.
