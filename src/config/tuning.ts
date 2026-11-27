@@ -729,6 +729,32 @@ export const STRIKE_CONFIG = {
    */
   kindDominance: 1.15,
 
+  // --- Motion punches -------------------------------------------------------
+  //
+  // A punch also lands as a fast push of the fist away from the shoulder,
+  // whether or not the arm gets to full measured extension. A single frontal
+  // camera often can't see how far an arm thrown at it has extended, so
+  // waiting for the reach threshold alone missed real punches at random.
+
+  /** Fist speed, torso-widths per second, a push has to reach. Real punches
+   *  peak at ~4-8 in the synthetic runs (hitRegistration.test.ts). */
+  motionPunchSpeed: 2.0,
+  /**
+   * How much further out than the player's own guard the fist has to get,
+   * torso units. From a typical guard the fixed reach threshold needs ~0.4;
+   * this is a quarter less. Measured: a guard adjustment peaks at 0.20 and
+   * a still guard at 0, against 0.4-1.0 for real punches, at 19 and 30 FPS
+   * in steady and poor light.
+   */
+  motionPushGain: 0.3,
+  /** After a punch, how far the fist has to come back (torso units below
+   *  the furthest it got) before that hand can punch again. One push, one
+   *  punch. */
+  rearmDrop: 0.12,
+  /** Speed above motionPunchSpeed, torso-widths per second, that counts as
+   *  full power. */
+  motionPowerRange: 4,
+
   /** How far below the shoulder line still counts as a head shot, torso units. */
   headBandBelowShoulders: 0.08,
 
