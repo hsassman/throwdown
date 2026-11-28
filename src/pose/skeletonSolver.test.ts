@@ -408,6 +408,34 @@ describe("roi crop", () => {
     expect(roi.crop).toBeNull();
   });
 
+  it("widens at once when the player is lost, before giving up", () => {
+    const roi = new RoiTracker();
+    for (let i = 0; i < 40; i++) roi.update(truth(i / 15), VW, VH);
+    const tight = roi.crop!.w;
+    roi.update(null, VW, VH);
+    expect(roi.crop!.w).toBeGreaterThanOrEqual(Math.min(VH, tight * 1.3));
+    expect(roi.crop!.w).toBeGreaterThan(tight);
+    for (let i = 0; i < 4; i++) roi.update(null, VW, VH);
+    expect(roi.crop).toBeNull();
+  });
+
+  it("keeps up with a player who steps sideways", () => {
+    const roi = new RoiTracker();
+    for (let i = 0; i < 60; i++) roi.update(truth(0), VW, VH);
+    const shift = (dx: number) => {
+      const p = truth(0);
+      for (const k of Object.keys(p) as (keyof PoseFrame)[]) {
+        if (k !== "timestamp") (p[k] as { x: number }).x += dx;
+      }
+      return p;
+    };
+    const centre = () => roi.crop!.x + roi.crop!.w / 2;
+    const before = centre();
+    for (let i = 0; i < 4; i++) roi.update(shift(0.12), VW, VH);
+    // A twelfth of the frame in four frames; easing at the shrink rate managed a quarter of that.
+    expect(centre() - before).toBeGreaterThan(0.12 * VW * 0.75);
+  });
+
   it("never proposes a window outside the frame", () => {
     const roi = new RoiTracker();
     // Player hard against the left edge.

@@ -59,6 +59,8 @@ const MenuShell = lazy(() =>
   import("./ui/shell/MenuShell").then((m) => ({ default: m.MenuShell }))
 );
 
+const VIEW_KEY = "shadowbox.view";
+
 /** Where the player is. `null` is the menu. */
 type Screen = string | null;
 
@@ -130,8 +132,18 @@ export default function App() {
   const onLan = screen === "lan";
   const onInternet = screen === "internet";
   const inFight = screen === "cpu" || inCareer || onLan || onInternet;
-  // First person is the default view; V switches to the camera behind the fighter.
-  const [thirdPerson, setThirdPerson] = useState(false);
+  // First person is the default view; V switches to the camera behind the
+  // fighter and is remembered. ?view=third starts there.
+  const [thirdPerson, setThirdPerson] = useState(
+    () => new URLSearchParams(window.location.search).get("view") === "third" || safeStorage()?.getItem(VIEW_KEY) === "third"
+  );
+  useEffect(() => {
+    try {
+      safeStorage()?.setItem(VIEW_KEY, thirdPerson ? "third" : "first");
+    } catch {
+      // Blocked storage: the choice lasts for this visit.
+    }
+  }, [thirdPerson]);
   const firstPerson = !thirdPerson;
 
   // The first-run walkthrough, over the menu, once the camera is tracking.

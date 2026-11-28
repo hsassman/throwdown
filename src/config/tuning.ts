@@ -792,10 +792,13 @@ export const ROI_CONFIG = {
    *  resampling noise - which would be a new jitter source. */
   quantise: 8,
 
-  /** Frames of lost tracking before the crop gives up and goes full-frame.
-   *  Staying zoomed on an empty box is self-sealing: the player cannot be
-   *  re-acquired from outside the only region being examined. */
-  lostFramesBeforeReset: 12,
+  /** Body-centre movement, as a fraction of the window side, past which the
+   *  window's position follows at growRate instead of easing. */
+  followDeadBand: 0.06,
+  /** Each lost frame widens the window by this factor about its centre. */
+  lostWiden: 1.45,
+  /** Lost frames before the crop goes full-frame. */
+  lostFramesBeforeReset: 4,
 
   /**
    * Longest side, px, the whole frame is scaled to before a crop has been

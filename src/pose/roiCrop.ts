@@ -76,12 +76,7 @@ export class RoiTracker {
     if (!(videoW > 0 && videoH > 0)) return;
 
     if (!pose) {
-      this.lost++;
-      // Give up and go wide after a sustained loss. Staying zoomed on an empty
-      // box is self-sealing: the player cannot be re-acquired because they are
-      // outside the only region being looked at.
-      if (this.lost > ROI_CONFIG.lostFramesBeforeReset) this.rect = null;
-      this.publish(videoW, videoH);
+      this.onLost(videoW, videoH);
       return;
     }
 
@@ -100,9 +95,7 @@ export class RoiTracker {
       if (kp.y > maxY) maxY = kp.y;
     }
     if (seen < ROI_CONFIG.minLandmarks) {
-      this.lost++;
-      if (this.lost > ROI_CONFIG.lostFramesBeforeReset) this.rect = null;
-      this.publish(videoW, videoH);
+      this.onLost(videoW, videoH);
       return;
     }
     this.lost = 0;
@@ -149,15 +142,17 @@ export class RoiTracker {
       return;
     }
 
-    // Asymmetric damping. Growing is urgent - if the player has moved out of
-    // the box, every frame spent easing toward the new one is a frame of bad
-    // data. Shrinking is never urgent, so it is slow enough to be invisible.
-    const grow = want.w > this.rect.w;
-    const k = grow ? ROI_CONFIG.growRate : ROI_CONFIG.shrinkRate;
+    // Growing is urgent: every frame the body spends outside the box is bad
+    // data. Shrinking never is. Position follows fast once the body has moved
+    // past a small dead band (a slip or a step), and slowly inside it, so a
+    // still player gets a still window.
+    const k = want.w > this.rect.w ? ROI_CONFIG.growRate : ROI_CONFIG.shrinkRate;
+    const drift = Math.hypot(want.x + want.w / 2 - (this.rect.x + this.rect.w / 2), want.y + want.h / 2 - (this.rect.y + this.rect.h / 2));
+    const kPos = drift > this.rect.w * ROI_CONFIG.followDeadBand ? ROI_CONFIG.growRate : k;
 
     const next: CropRect = {
-      x: this.rect.x + (want.x - this.rect.x) * k,
-      y: this.rect.y + (want.y - this.rect.y) * k,
+      x: this.rect.x + (want.x - this.rect.x) * kPos,
+      y: this.rect.y + (want.y - this.rect.y) * kPos,
       w: this.rect.w + (want.w - this.rect.w) * k,
       h: this.rect.h + (want.h - this.rect.h) * k,
     };
@@ -173,6 +168,22 @@ export class RoiTracker {
     next.h = next.w;
 
     this.rect = clampToFrame(next, videoW, videoH);
+    this.publish(videoW, videoH);
+  }
+
+  /** No usable pose: widen about the last centre each frame, so a player who
+   *  moved fast is found again within a frame or two, and go full-frame after
+   *  a sustained loss (an empty zoomed box can never re-acquire anyone). */
+  private onLost(videoW: number, videoH: number): void {
+    this.lost++;
+    if (this.rect && this.lost <= ROI_CONFIG.lostFramesBeforeReset) {
+      const side = Math.min(Math.min(videoW, videoH), this.rect.w * ROI_CONFIG.lostWiden);
+      const cx = this.rect.x + this.rect.w / 2;
+      const cy = this.rect.y + this.rect.h / 2;
+      this.rect = clampToFrame({ x: cx - side / 2, y: cy - side / 2, w: side, h: side }, videoW, videoH);
+    } else {
+      this.rect = null;
+    }
     this.publish(videoW, videoH);
   }
 
