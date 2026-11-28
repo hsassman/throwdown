@@ -17,13 +17,6 @@ export interface ShellItem {
   lockedReason?: string;
 }
 
-export const CATEGORY_LABEL: Record<ShellCategory, string> = {
-  fight: "Fight",
-  online: "Online",
-  train: "Train",
-  tools: "Settings",
-};
-
 export const SHELL_ITEMS: ShellItem[] = [
   {
     id: "cpu",
@@ -107,15 +100,6 @@ export const STAGES: StageItem[] = [
 ];
 
 export const ITEM_BY_ID: ReadonlyMap<string, ShellItem> = new Map(SHELL_ITEMS.map((i) => [i.id, i]));
-
-const ORDER: ShellCategory[] = ["fight", "online", "train", "tools"];
-
-/** Items grouped in display order. */
-export function grouped(): { category: ShellCategory; items: ShellItem[] }[] {
-  return ORDER.map((category) => ({ category, items: SHELL_ITEMS.filter((i) => i.category === category) })).filter(
-    (g) => g.items.length > 0
-  );
-}
 
 export function isPlayable(item: ShellItem): boolean {
   return item.availability !== "locked";

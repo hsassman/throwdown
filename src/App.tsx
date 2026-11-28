@@ -59,8 +59,6 @@ const MenuShell = lazy(() =>
   import("./ui/shell/MenuShell").then((m) => ({ default: m.MenuShell }))
 );
 
-const VIEW_KEY = "shadowbox.view";
-
 /** Where the player is. `null` is the menu. */
 type Screen = string | null;
 
@@ -112,20 +110,11 @@ export default function App() {
   const onLan = screen === "lan";
   const onInternet = screen === "internet";
   const inFight = screen === "cpu" || inCareer || onLan || onInternet;
-  // First person is the default view; V switches to the camera behind the
-  // fighter and is remembered. ?view=third starts there.
-  const [thirdPerson, setThirdPerson] = useState(
-    () => new URLSearchParams(window.location.search).get("view") === "third" || safeStorage()?.getItem(VIEW_KEY) === "third"
-  );
-  const toggleFightView = useCallback(() => setThirdPerson((view) => !view), []);
-  useEffect(() => {
-    try {
-      safeStorage()?.setItem(VIEW_KEY, thirdPerson ? "third" : "first");
-    } catch {
-      // Blocked storage: the choice lasts for this visit.
-    }
-  }, [thirdPerson]);
-  const firstPerson = !thirdPerson;
+  // First person is the default; V or Settings switches to the camera behind
+  // the fighter, remembered with the other preferences. ?view=third forces it.
+  const [forceThird] = useState(() => new URLSearchParams(window.location.search).get("view") === "third");
+  const firstPerson = !(forceThird || preferences.thirdPerson);
+  const toggleFightView = useCallback(() => changePreference("thirdPerson"), [changePreference]);
 
   // The first-run walkthrough, over the menu, once the camera is tracking.
   const [firstRunPending, setFirstRunPending] = useState(
@@ -238,29 +227,28 @@ export default function App() {
   });
 
   const fightOver = inFight && !!fight.hud?.result;
+  /** Snapshots the next career opponent and clears the record guard. */
+  const resetCareerFight = useCallback(() => {
+    careerFightOpponentRef.current = currentOpponent(careerProfile);
+    careerRecordedRef.current = false;
+    setCareerOutcome(null);
+  }, [careerProfile]);
+  const requestNetRematch = net.requestRematch;
   const rematch = useCallback(() => {
     if (netOpen) {
-      net.requestRematch();
+      requestNetRematch();
       return;
     }
-    if (inCareer) {
-      careerFightOpponentRef.current = currentOpponent(careerProfile);
-      careerRecordedRef.current = false;
-      setCareerOutcome(null);
-    }
+    if (inCareer) resetCareerFight();
     setCpuRematchKey((k) => k + 1);
-  }, [netOpen, net, inCareer, careerProfile]);
+  }, [netOpen, requestNetRematch, inCareer, resetCareerFight]);
   useHandsUp(bodyRef, fightOver && !(netOpen && net.rematch.local), rematch);
 
   // Re-snapshot the opponent and reset the double-record guard each time the
   // career screen is (re-)entered - not on every profile change, so a fight
   // in progress never has its opponent swapped out from under it.
   useEffect(() => {
-    if (inCareer) {
-      careerFightOpponentRef.current = currentOpponent(careerProfile);
-      careerRecordedRef.current = false;
-      setCareerOutcome(null);
-    }
+    if (inCareer) resetCareerFight();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inCareer]);
 
@@ -359,18 +347,26 @@ export default function App() {
   }, [subscribeStrikePose]);
 
   // Read-only view and pairing for tools/ (two-browser smoke tests).
+  const debugRef = useRef<Record<string, unknown>>({});
+  debugRef.current = {
+    hud: fight.hud,
+    netOpen,
+    role: netRole,
+    code: session.outgoingCode,
+    remoteDefence: net.remoteDefenceRef.current,
+    rematch: net.rematch,
+    net: { host: session.startHost, join: session.join, complete: session.completeHost, rematch },
+  };
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
-    w.__shadowboxDebug = () => ({
-      hud: fight.hud,
-      netOpen,
-      role: netRole,
-      code: session.outgoingCode,
-      remoteDefence: net.remoteDefenceRef.current,
-      rematch: net.rematch,
-    });
-    w.__shadowboxNet = { host: session.startHost, join: session.join, complete: session.completeHost, rematch };
-  });
+    w.__shadowboxDebug = () => debugRef.current;
+    w.__shadowboxNet = {
+      host: () => (debugRef.current.net as { host: () => void }).host(),
+      join: (code: string) => (debugRef.current.net as { join: (c: string) => void }).join(code),
+      complete: (code: string) => (debugRef.current.net as { complete: (c: string) => void }).complete(code),
+      rematch: () => (debugRef.current.net as { rematch: () => void }).rematch(),
+    };
+  }, []);
 
   if (!started) {
     return (
@@ -468,6 +464,7 @@ export default function App() {
       className={`app ${
         inMenu ? "app-menu" : wardrobe ? "app-boxer app-wardrobe" : stage3d ? "app-boxer" : "app-wide"
       }${immersive ? " app-immersive" : ""}${connecting ? " app-connect" : ""}`}
+      data-fight-camera={inFight && firstPerson && !connecting ? "first" : undefined}
     >
       <div className="stage">
         {inMenu && (
@@ -514,6 +511,7 @@ export default function App() {
               view="behind"
               showTarget={inFight}
               fps={firstPerson}
+              lineLockedRef={inFight ? fight.lockedRef : undefined}
               dummy={onDummy}
               litRef={training.litRef}
               outcomeQueueRef={training.outcomeQueueRef}
@@ -536,7 +534,7 @@ export default function App() {
               conditionRef={inFight ? fight.conditionRef : undefined}
               impactLogRef={inFight ? fight.impactLogRef : undefined}
               remotePoseRef={
-                netOpen ? (onInternet ? onlineSession.remotePoseRef : session.remotePoseRef) : undefined
+                netOpen ? net.remotePoseRef : undefined
               }
               onTargetDebug={setTargetDebug}
               onStatusChange={(s, detail) => {
@@ -570,14 +568,14 @@ export default function App() {
         )}
         {netOpen && (
           <VersusChip
-            status={onInternet ? onlineSession.linkStatus : session.status}
+            status={netStatus}
             role={netRole}
-            onLeave={onInternet ? onlineSession.leave : session.leave}
+            onLeave={net.leave}
           />
         )}
 
         {/* Never moved, never remounted. See the note above. */}
-        <div className={camClass}>
+        <div className={`${camClass}${preferences.showCamera ? "" : " cam-skeleton"}`}>
           <video ref={videoRef} className="video" playsInline muted />
           <PoseOverlay
             poseRef={poseRef}
@@ -586,6 +584,18 @@ export default function App() {
             mirrored
             showRaw={showRaw}
           />
+          {camClass.startsWith("cam-inset") && (
+            <button
+              type="button"
+              className="cam-toggle"
+              aria-pressed={preferences.showCamera}
+              aria-label={preferences.showCamera ? "Hide my camera, show only the skeleton" : "Show my camera"}
+              title={preferences.showCamera ? "Hide my camera" : "Show my camera"}
+              onClick={() => changePreference("showCamera")}
+            >
+              <UiIcon name="camera" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -25,9 +25,9 @@ const QUICK_TOOL = TOOLS.length === 1 && isPlayable(TOOLS[0]) ? TOOLS[0] : null;
 const SETTINGS_TOOLS = QUICK_TOOL ? [] : TOOLS.map((item) => item.id);
 const SETTINGS = "settings";
 const MOTION = "reducedMotion";
-const CONTRAST = "highContrast";
+const PREFERENCES: (keyof UiPreferences)[] = ["showCamera", "thirdPerson", MOTION, "highContrast"];
 const PLAY_ORDER = [...FEATURED, ...PLAY, ...(QUICK_TOOL ? [QUICK_TOOL.id] : []), SETTINGS];
-const SETTINGS_ORDER = [MOTION, CONTRAST, ...SETTINGS_TOOLS, SETTINGS];
+const SETTINGS_ORDER = [...PREFERENCES, ...SETTINGS_TOOLS, SETTINGS];
 const LOCKED = SHELL_ITEMS.filter((item) => !isPlayable(item)).map((item) => item.id);
 const CARD_ART: Record<string, string> = {
   dummy: "training", cpu: "fight", internet: "online",
@@ -46,12 +46,12 @@ export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraP
     if (id === SETTINGS) {
       drawerFocus.current = true;
       setRejected(null);
-      setFocusId(settings ? SETTINGS : MOTION);
+      setFocusId(settings ? SETTINGS : PREFERENCES[0]);
       setSettings(!settings);
       return;
     }
-    if (id === MOTION || id === CONTRAST) {
-      onPreference(id);
+    if ((PREFERENCES as string[]).includes(id)) {
+      onPreference(id as keyof UiPreferences);
       return;
     }
     const item = ITEM_BY_ID.get(id);
@@ -78,7 +78,7 @@ export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraP
 
   useEffect(() => {
     if (drawerFocus.current) {
-      targets.current.get(settings ? MOTION : SETTINGS)?.focus({ preventScroll: true });
+      targets.current.get(settings ? PREFERENCES[0] : SETTINGS)?.focus({ preventScroll: true });
       drawerFocus.current = false;
     }
   }, [settings]);
@@ -207,8 +207,10 @@ export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraP
             <h1>Settings</h1>
             <section aria-labelledby="presentation-heading">
               <h2 id="presentation-heading">Presentation</h2>
+              {preferenceRow("showCamera", "Show my camera", "Your webcam picture in the corner. Off shows only the tracked skeleton.")}
+              {preferenceRow("thirdPerson", "Third-person fights", "Watch from behind your fighter instead of through their eyes. V switches in a fight.")}
               {preferenceRow(MOTION, "Reduce UI motion", "Keep the interface still.")}
-              {preferenceRow(CONTRAST, "High contrast", "Use solid backgrounds behind labels.")}
+              {preferenceRow("highContrast", "High contrast", "Use solid backgrounds behind labels.")}
             </section>
             {SETTINGS_TOOLS.length > 0 && <section aria-labelledby="tools-heading">
               <h2 id="tools-heading">Camera tools</h2>

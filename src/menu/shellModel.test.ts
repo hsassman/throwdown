@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CATEGORY_LABEL, ITEM_BY_ID, SHELL_ITEMS, STAGES, grouped, isPlayable } from "./shellModel";
+import { ITEM_BY_ID, SHELL_ITEMS, STAGES, isPlayable } from "./shellModel";
 
 describe("availability", () => {
   it("gives every locked entry a reason, and nothing else one", () => {
@@ -33,15 +33,9 @@ describe("shape", () => {
     }
   });
 
-  it("loses nothing when grouped, and labels every group", () => {
-    const flat = grouped().flatMap((g) => g.items);
-    expect(new Set(flat.map((i) => i.id)).size).toBe(SHELL_ITEMS.length);
-    for (const g of grouped()) expect(CATEGORY_LABEL[g.category]).toBeTruthy();
-  });
-
   it("puts the fight first", () => {
-    expect(grouped()[0].items[0].id).toBe("cpu");
-    expect(isPlayable(grouped()[0].items[0])).toBe(true);
+    expect(SHELL_ITEMS[0].id).toBe("cpu");
+    expect(isPlayable(SHELL_ITEMS[0])).toBe(true);
   });
 
   it("treats locked as the only unplayable state", () => {

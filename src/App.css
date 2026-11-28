@@ -1093,3 +1093,28 @@ summary:focus-visible,
     display: none;
   }
 }
+
+/* Skeleton only: the video stays mounted and playing (pose tracking reads it),
+   just invisible, the same way .cam-hidden keeps the menu tracked. */
+.cam-skeleton { background: #15111f; }
+.cam-skeleton .video { opacity: 0; }
+
+.cam-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #ffffff33;
+  border-radius: 12px;
+  background: #110d1acc;
+  color: #faf5ff;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.cam-toggle svg { width: 20px; }
+.cam-toggle[aria-pressed="false"] { color: #d3cadf; }
+.cam-toggle:focus-visible { outline: 2px solid #f1ddff; outline-offset: 2px; }

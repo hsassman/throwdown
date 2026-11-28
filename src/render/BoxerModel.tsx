@@ -1,6 +1,6 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
 import { SlowDetector } from "./slowDetector";
-import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove } from "./fpsCamera";
+import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove, type CameraPose as FpsPose } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
@@ -172,6 +172,9 @@ interface Props {
   showTarget?: boolean;
   /** First person: the camera at the player's eyes. Only takes effect in a duel. */
   fps?: boolean;
+  /** True while the fight holds both fighters on one line; the first-person
+   *  camera then looks straight down it instead of turning with the opponent. */
+  lineLockedRef?: React.RefObject<boolean>;
   /** Strikes to play on the target. The ref is read and drained by the render
    * loop rather than passed as a prop, because hits arrive at pose rate and
    * routing each one through React would re-render the tree mid-combination. */
@@ -227,6 +230,7 @@ export function BoxerModel({
   recentreSignal = 0,
   showTarget = false,
   fps = false,
+  lineLockedRef,
   strikeQueueRef,
   onTargetDebug,
   dummy = false,
@@ -270,6 +274,8 @@ export function BoxerModel({
   targetDebugCbRef.current = onTargetDebug;
   const showTargetRef = useRef(showTarget);
   showTargetRef.current = showTarget;
+  const lineLockedHolder = useRef(lineLockedRef);
+  lineLockedHolder.current = lineLockedRef;
   const fpsRef = useRef(fps);
   fpsRef.current = fps;
   // Mirrored into a ref like every other prop this effect reads, so changing
@@ -1117,7 +1123,7 @@ export function BoxerModel({
     const BASE_FOV = camera.fov;
     let fpsActive = false;
     let fpsScanAt = -Infinity;
-    let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
+    let fpsCam: FpsPose | null = null;
     let playerEyes: [THREE.Object3D, THREE.Object3D] | null = null;
     let playerHead: THREE.Object3D | null = null;
     let opponentHead: THREE.Object3D | null = null;
@@ -1168,11 +1174,8 @@ export function BoxerModel({
       for (const m of glowMats) m.emissive.copy(glowColor).multiplyScalar(k);
     };
 
-    const setOwnHead = (shown: boolean) => {
-      if (!playerHead) return;
-      playerHead.scale.setScalar(shown ? 1 : 1e-4);
-      playerHead.updateMatrixWorld(true);
-    };
+    // The next getWorldPosition or render picks the new scale up.
+    const setOwnHead = (shown: boolean) => playerHead?.scale.setScalar(shown ? 1 : 1e-4);
 
     /** Places the first-person camera. False when it can't (no opponent yet,
      *  the director holds the camera, the model isn't loaded). */
@@ -1202,7 +1205,7 @@ export function BoxerModel({
       // The fighters face each other down one fixed line, so the camera looks
       // straight down it: their slips move them across the frame, the
       // player's own slips move the camera.
-      _oppHead.x = _head.x;
+      if (lineLockedHolder.current?.current ?? true) _oppHead.x = _head.x;
       const goal = fpsCameraPose(_head, _oppHead, FPS_CAMERA, lean.side);
       fpsCam = fpsCam
         ? {

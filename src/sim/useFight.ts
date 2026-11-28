@@ -7,6 +7,7 @@ import {
   evasionFromBody,
   guardCovers,
   guardFromBody,
+  type DefenceSnapshot,
   type FightEvent,
   type FightPhase,
   type FightRules,
@@ -19,7 +20,7 @@ import type { WeightClass } from "./attributes";
 import type { BodyMotion } from "../perception/bodyMotion";
 import type { OpponentVisualState } from "../render/opponentAnimator";
 import { mirrorEvent, type NetDefence, type NetFightState, type NetMessage } from "../net/protocol";
-import type { RemoteEvent } from "../net/usePeerChannel";
+import { pushBounded, type RemoteEvent } from "../net/usePeerChannel";
 import { FIGHT_CONFIG, FIGHT_GEOMETRY, NET_CONFIG, STRIKE_CONFIG } from "../config/tuning";
 
 // Wires the fight together: player strikes in, CPU or remote strikes back,
@@ -68,7 +69,6 @@ const OPPONENT = "opponent";
 
 /** The sim's knockdown window ends the count, so it never claims to reach ten. */
 const REFEREE_COUNT_TO = 8;
-const QUEUE_CAP = 32;
 
 const NO_INTENT = Object.freeze({}) as ReturnType<CpuOpponent["update"]>;
 const NO_STANCE = Object.freeze({ lateral: 0, depth: 0, crouch: 0, lean: 0 }) as CpuOpponent["stance"];
@@ -107,19 +107,16 @@ export interface UseFightOptions {
   rttMs?: number | null;
   /** A new value starts a fresh fight. */
   restartKey?: number;
-  /** A downed player can get up early by holding their gloves up. CPU fights only. */
+  /** A downed player can get up early by holding their gloves up. CPU fights
+   *  only, and fixed when the fight starts. */
   getUp?: boolean;
-  /** Holds both fighters at the neutral gap: slips and ducks only. CPU fights only. */
+  /** Holds both fighters at the neutral gap: slips and ducks only. CPU fights
+   *  only, and fixed when the fight starts. */
   locked?: boolean;
 }
 
-function pushBounded<T>(q: T[], item: T) {
-  q.push(item);
-  if (q.length > QUEUE_CAP) q.splice(0, q.length - QUEUE_CAP);
-}
-
 /** How long the host waits on the guest's defence before judging its own punch, ms. */
-export function defendWindowMs(rttMs: number | null | undefined): number {
+function defendWindowMs(rttMs: number | null | undefined): number {
   const { defendWindowMinMs: lo, defendWindowMaxMs: hi } = NET_CONFIG;
   return Math.max(lo, Math.min(hi, rttMs ?? hi));
 }
@@ -146,10 +143,10 @@ export function useFight(options: UseFightOptions) {
     getUp = false,
     locked = false,
   } = options;
-  const lockedRef = useRef(locked);
-  lockedRef.current = locked;
-  const getUpRef = useRef(getUp);
-  getUpRef.current = getUp;
+  const rulesRef = useRef({ locked, getUp });
+  rulesRef.current = { locked, getUp };
+  /** Whether the running fight holds both fighters on one line, for the camera. */
+  const lockedRef = useRef(false);
   const rttRef = useRef(rttMs);
   rttRef.current = rttMs;
 
@@ -318,8 +315,13 @@ export function useFight(options: UseFightOptions) {
     }
 
     const sim = new FightSim(rules, { id: PLAYER, weightClass: playerClass }, { id: OPPONENT, weightClass: opponentClass });
+    // Fixed for this fight: switching the camera mid-round must not change the rules.
+    const fightLocked = rulesRef.current.locked && mode === "cpu";
+    const fightGetUp = rulesRef.current.getUp && mode === "cpu";
+    lockedRef.current = fightLocked;
     // Seeded from the ruleset, so a fight is reproducible.
     const ai = new CpuOpponent(difficulty, rules.rounds * 7919 + rules.roundSeconds);
+    ai.locked = fightLocked;
     simRef.current = sim;
     cpuRef.current = ai;
     // Presentation timing (how long a figure lies down, what the count reads),
@@ -338,7 +340,7 @@ export function useFight(options: UseFightOptions) {
       }
     });
 
-    const apply = (by: string, strike: StrikeEvent, defence?: Parameters<FightSim["applyStrike"]>[2]) => {
+    const apply = (by: string, strike: StrikeEvent, defence?: DefenceSnapshot) => {
       applying = strike;
       sim.applyStrike(by, strike, defence);
       applying = undefined;
@@ -363,7 +365,7 @@ export function useFight(options: UseFightOptions) {
       throwingUntil = performance.now() + 220;
     });
 
-    const landPlayerStrike = (strike: StrikeEvent, defence: Parameters<FightSim["applyStrike"]>[2]) => {
+    const landPlayerStrike = (strike: StrikeEvent, defence: DefenceSnapshot | null) => {
       const d = defence ?? sim.fighters[OPPONENT];
       apply(PLAYER, strike, d);
       if (mode === "cpu" && !guardCovers(d, strike) && strike.damage > 0.9) ai.onHurt(0.45);
@@ -396,14 +398,14 @@ export function useFight(options: UseFightOptions) {
       // --- Player strikes ---------------------------------------------------
       for (const strike of inbox) {
         if (mode === "host") awaitingDefence.push(strike);
-        else landPlayerStrike(strike, opponentDefence.at(strike.timestamp, now) ?? undefined);
+        else landPlayerStrike(strike, opponentDefence.at(strike.timestamp, now));
       }
       inbox.length = 0;
       if (awaitingDefence.length > 0) {
         const wait = defendWindowMs(rttRef.current);
         while (awaitingDefence.length > 0 && now - awaitingDefence[0].timestamp >= wait) {
           const s = awaitingDefence.shift()!;
-          landPlayerStrike(s, opponentDefence.bestAgainst(s, s.timestamp, s.timestamp + wait) ?? undefined);
+          landPlayerStrike(s, opponentDefence.bestAgainst(s, s.timestamp, s.timestamp + wait));
         }
       }
 
@@ -421,8 +423,7 @@ export function useFight(options: UseFightOptions) {
 
       // --- The player's body --------------------------------------------------
       const body = bodyRef?.current;
-      const isLocked = lockedRef.current && mode === "cpu";
-      ai.locked = isLocked;
+      const isLocked = fightLocked;
       // The gap: neutral less both depth channels. Untracked counts as neutral.
       const playerDepth = body?.tracked && !isLocked ? body.depth : 0;
       const wantEvasion = body ? evasionFromBody(body, you.evasion) : "none";
@@ -482,7 +483,7 @@ export function useFight(options: UseFightOptions) {
       // Getting up early, gloves up. Only ever shortens a knockdown.
       let getUpShown: number | null = null;
       const playerDownAt = downAt[PLAYER];
-      if (getUpRef.current && mode === "cpu" && playerDownAt !== undefined && sim.phase === "fighting") {
+      if (fightGetUp && playerDownAt !== undefined && sim.phase === "fighting") {
         const sinceDown = (now - playerDownAt) / 1000;
         if (sinceDown < FIGHT_CONFIG.knockdownSeconds) {
           const rose = getUpMeter.update(wallDt, {
@@ -569,6 +570,7 @@ export function useFight(options: UseFightOptions) {
       unsubscribeStrikes();
       unsub();
       stopAudio();
+      lockedRef.current = false;
       simRef.current = null;
       cpuRef.current = null;
     };
@@ -607,6 +609,7 @@ export function useFight(options: UseFightOptions) {
     phaseRef,
     conditionRef,
     impactLogRef,
+    lockedRef,
   };
 }
 

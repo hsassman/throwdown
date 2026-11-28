@@ -201,8 +201,13 @@ export class DefenceHistory {
   }
 }
 
+/** Whether a defence's head movement beats a strike. A stunned fighter evades nothing. */
+export function evadesSnapshot(d: DefenceSnapshot, strike: StrikeEvent): boolean {
+  return d.stunned <= 0 && evades(d.evasion, strike);
+}
+
 function answers(d: DefenceSnapshot, strike: StrikeEvent): boolean {
-  return (d.stunned <= 0 && evades(d.evasion, strike)) || guardCovers(d, strike);
+  return evadesSnapshot(d, strike) || guardCovers(d, strike);
 }
 
 function freshFighter(id: string, weightClass: WeightClass): FighterState {
@@ -310,7 +315,7 @@ export class FightSim {
     // miss is a hit that never arrived. A stunned fighter evades nothing -
     // the same rule the guard follows, and the reason a knockdown is a real
     // turning point.
-    if (d.stunned <= 0 && evades(d.evasion, strike)) {
+    if (evadesSnapshot(d, strike)) {
       this.emit({
         type: "miss",
         target: target.id,

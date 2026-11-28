@@ -11,8 +11,8 @@ import type { FightEvent } from "../sim/fightState";
 
 /** How often the pose pump looks for a new frame, ms. It sends only new frames. */
 const PUMP_MS = 20;
-/** Cap on any inbound queue nothing is draining (hidden tab, no 3D view). */
-const QUEUE_CAP = 32;
+/** Cap on any queue nothing is draining (hidden tab, no 3D view). */
+export const QUEUE_CAP = 32;
 
 export interface RemoteEvent {
   event: FightEvent;
@@ -32,9 +32,9 @@ export interface PeerChannelOptions {
   subscribe: (cb: (s: StrikeEvent) => void) => () => void;
 }
 
-function push<T>(q: T[], item: T) {
+export function pushBounded<T>(q: T[], item: T, cap = QUEUE_CAP) {
   q.push(item);
-  if (q.length > QUEUE_CAP) q.splice(0, q.length - QUEUE_CAP);
+  if (q.length > cap) q.splice(0, q.length - cap);
 }
 
 export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptions) {
@@ -52,16 +52,11 @@ export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptio
   /** Bumped each time both players have asked for another fight. */
   const [rematchKey, setRematchKey] = useState(0);
 
-  const poseHolder = useRef(poseRef);
-  poseHolder.current = poseRef;
-
-  const settleRematch = useCallback((next: RematchState) => {
-    if (next.local && next.remote) {
-      setRematchKey((k) => k + 1);
-      return { local: false, remote: false };
-    }
-    return next;
-  }, []);
+  useEffect(() => {
+    if (!rematch.local || !rematch.remote) return;
+    setRematchKey((k) => k + 1);
+    setRematch({ local: false, remote: false });
+  }, [rematch]);
 
   const reset = useCallback(() => {
     remotePoseRef.current = null;
@@ -79,7 +74,7 @@ export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptio
           remotePoseRef.current = m.frame;
           break;
         case "strike":
-          push(remoteStrikeQueueRef.current, m.strike);
+          pushBounded(remoteStrikeQueueRef.current, m.strike);
           break;
         case "state":
           remoteStateRef.current = m.state;
@@ -88,14 +83,14 @@ export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptio
           remoteDefenceRef.current = m.defence;
           break;
         case "event":
-          push(remoteEventQueueRef.current, { event: m.event, strike: m.strike });
+          pushBounded(remoteEventQueueRef.current, { event: m.event, strike: m.strike });
           break;
         case "rematch":
-          setRematch((r) => settleRematch({ ...r, remote: true }));
+          setRematch((r) => ({ ...r, remote: true }));
           break;
       }
     },
-    [settleRematch]
+    []
   );
 
   /** Takes over an open or opening link's messages. */
@@ -118,8 +113,8 @@ export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptio
 
   const requestRematch = useCallback(() => {
     if (!send({ kind: "rematch" })) return;
-    setRematch((r) => settleRematch({ ...r, local: true }));
-  }, [send, settleRematch]);
+    setRematch((r) => ({ ...r, local: true }));
+  }, [send]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -127,13 +122,13 @@ export function usePeerChannel({ enabled, poseRef, subscribe }: PeerChannelOptio
     const id = setInterval(() => {
       const l = linkRef.current;
       if (!l || l.state !== "open") return;
-      const frame = poseHolder.current.current;
+      const frame = poseRef.current;
       if (!frame || frame.timestamp === lastSent) return;
       lastSent = frame.timestamp;
       l.send({ kind: "pose", frame });
     }, PUMP_MS);
     return () => clearInterval(id);
-  }, [enabled]);
+  }, [enabled, poseRef]);
 
   useEffect(() => {
     if (!enabled) return;
