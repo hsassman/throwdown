@@ -52,9 +52,18 @@ const browser = await chromium.launch({
 });
 
 let failures = 0;
+/** In GitHub Actions, also as an annotation: those show on the commit without a login, the log does not. */
+function annotate(level, title, text) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  const esc = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  console.log(`::${level} title=${esc(title).replace(/[:,]/g, " ")}::${esc(text)}`);
+}
 function check(name, ok, detail = "") {
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` - ${detail}` : ""}`);
-  if (!ok) failures += 1;
+  if (!ok) {
+    failures += 1;
+    annotate("error", name, detail || "failed");
+  }
 }
 
 const errors = [];
@@ -200,19 +209,24 @@ try {
 } catch (err) {
   console.log(`  FAIL  threw: ${err.message.split("\n")[0]}`);
   failures += 1;
+  annotate("error", "threw", err.message.split("\n").slice(0, 4).join("\n"));
 }
 
 if (failures > 0) {
   console.log("\n--- what each player's screen said ---");
+  const screens = [];
   for (const { label, page } of players) {
     const text = await page
       .evaluate(() => document.querySelector(".vs")?.innerText ?? "(no panel)")
       .catch(() => "(page closed)");
-    console.log(`  ${label}: ${text.replace(/\s+/g, " ")}`);
+    screens.push(`${label}: ${text.replace(/\s+/g, " ")}`);
+    console.log(`  ${screens.at(-1)}`);
     await page.screenshot({ path: `${OUT}/fail-${label}.png` }).catch(() => {});
   }
   console.log("\n--- WebRTC log ---");
   for (const line of rtcLog) console.log(`  ${line}`);
+  annotate("warning", "screens", screens.join("\n"));
+  annotate("warning", "WebRTC states", rtcLog.filter((l) => !/candidate/.test(l)).slice(-60).join("\n"));
 }
 
 // Same filter as smoke-shell.mjs, plus WebRTC/socket noise from the pages we
