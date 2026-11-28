@@ -33,6 +33,11 @@ const PING_INTERVAL_MS = 1000;
 
 export class PeerLink {
   private pc: RTCPeerConnection | null = null;
+  private candidateCb: ((candidate: string) => void) | null = null;
+  /** The local description has been handed out; later candidates trickle. */
+  private described = false;
+  /** Trickled candidates that arrived before the other end's description. */
+  private pendingRemote: RTCIceCandidateInit[] = [];
   private channel: RTCDataChannel | null = null;
   private msgCb: ((m: NetMessage) => void) | null = null;
   private stateCb: ((s: LinkStatus) => void) | null = null;
@@ -98,6 +103,7 @@ export class PeerLink {
     await pc.setLocalDescription(await pc.createOffer());
     await this.gathered(pc);
     this.set("connecting");
+    this.described = true;
     return this.code(pc.localDescription);
   }
 
@@ -122,9 +128,11 @@ export class PeerLink {
     pc.ondatachannel = (e) => this.attach(e.channel);
 
     await pc.setRemoteDescription(offer);
+    await this.flushCandidates(pc);
     await pc.setLocalDescription(await pc.createAnswer());
     await this.gathered(pc);
     this.set("connecting");
+    this.described = true;
     return this.code(pc.localDescription);
   }
 
@@ -140,6 +148,36 @@ export class PeerLink {
       throw new Error("no connection");
     }
     await this.pc.setRemoteDescription(answer);
+    await this.flushCandidates(this.pc);
+  }
+
+  /**
+   * Candidates found after the code was made, for a signalling channel to
+   * carry (the server's relay). Gathering can outlast the wait for the code on
+   * a slow network, and without these such a code may hold no usable address.
+   */
+  onCandidate(cb: (candidate: string) => void): void {
+    this.candidateCb = cb;
+  }
+
+  /** A candidate trickled from the other end. Untrusted: bad ones are dropped. */
+  async addCandidate(candidate: string): Promise<void> {
+    let init: RTCIceCandidateInit;
+    try {
+      init = JSON.parse(candidate);
+    } catch {
+      return;
+    }
+    // Held until there is a connection with the other end's description.
+    if (!this.pc?.remoteDescription) {
+      this.pendingRemote.push(init);
+      return;
+    }
+    await this.pc.addIceCandidate(init).catch(() => {});
+  }
+
+  private async flushCandidates(pc: RTCPeerConnection): Promise<void> {
+    for (const c of this.pendingRemote.splice(0)) await pc.addIceCandidate(c).catch(() => {});
   }
 
   send(msg: NetMessage): boolean {
@@ -173,6 +211,9 @@ export class PeerLink {
     // internet only adds a timeout to every gather. Online mode passes a real
     // STUN server in (see the constructor).
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+    pc.onicecandidate = (e) => {
+      if (e.candidate && this.described) this.candidateCb?.(JSON.stringify(e.candidate.toJSON()));
+    };
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "failed") {
         this.fail("The connection could not be established.");
@@ -284,6 +325,7 @@ export class PeerLink {
     }
     this.channel = null;
     this.pc = null;
+    this.described = false;
   }
 
   private set(state: LinkState, detail: string | null = null): void {

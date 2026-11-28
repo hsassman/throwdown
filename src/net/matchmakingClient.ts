@@ -38,6 +38,7 @@ export class MatchmakingClient {
   private offerCb: ((from: string, sdp: string) => void) | null = null;
   private answerCb: ((from: string, sdp: string) => void) | null = null;
   private opponentLeftCb: (() => void) | null = null;
+  private candidateCb: ((from: string, candidate: string) => void) | null = null;
   private readonly connection: HubConnectionLike;
 
   constructor(connection: HubConnectionLike) {
@@ -55,6 +56,10 @@ export class MatchmakingClient {
     connection.on("ReceiveAnswer", (...args: unknown[]) => {
       const [from, sdp] = args as [string, string];
       this.answerCb?.(from, sdp);
+    });
+    connection.on("ReceiveIceCandidate", (...args: unknown[]) => {
+      const [from, candidate] = args as [string, string];
+      this.candidateCb?.(from, candidate);
     });
     // The hub sends this when the player we were paired with disconnects or
     // queues again. Before the peer link opens it is the only way to find out:
@@ -96,6 +101,10 @@ export class MatchmakingClient {
     this.opponentLeftCb = cb;
   }
 
+  onCandidate(cb: (from: string, candidate: string) => void): void {
+    this.candidateCb = cb;
+  }
+
   async findMatch(): Promise<void> {
     await this.enter(() => this.connection.invoke("JoinQueue"));
   }
@@ -118,6 +127,10 @@ export class MatchmakingClient {
 
   async relayAnswer(targetConnectionId: string, sdp: string): Promise<void> {
     await this.connection.invoke("RelayAnswer", targetConnectionId, sdp);
+  }
+
+  async relayCandidate(targetConnectionId: string, candidate: string): Promise<void> {
+    await this.connection.invoke("RelayIceCandidate", targetConnectionId, candidate);
   }
 
   async leave(): Promise<void> {

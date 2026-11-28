@@ -104,6 +104,7 @@ export function useOnlineSession(options: PeerChannelOptions) {
         const iceServers = await iceServersPromise;
         if (clientRef.current !== client) return null;
         const link = new PeerLink(iceServers);
+        link.onCandidate((c) => void client.relayCandidate(opponentConnectionId, c).catch(() => {}));
         link.onStatus((next) => {
           // A dropped link still reports its channel closing; only the current one counts.
           if (linkRef.current !== link) return;
@@ -138,6 +139,10 @@ export function useOnlineSession(options: PeerChannelOptions) {
       } catch {
         setMatchStatus({ state: "failed", detail: UNREACHABLE });
       }
+    });
+
+    client.onCandidate((_from, c) => {
+      void linkReady.then((link) => link?.addCandidate(c));
     });
 
     client.onAnswer(async (_from, sdp) => {
