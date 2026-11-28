@@ -391,10 +391,15 @@ export class OpponentAnimator {
     // duck the same way. Translating the body downward instead, which is what
     // this used to do, reads as the figure sinking through the canvas with its
     // legs straight.
+    // A punch is thrown with the body: the shoulders turn into it, the chest
+    // leans after it, and a dig to the body sits down into the legs.
+    const out = (hand: "left" | "right") => Math.max(0, this.extension[hand]);
+    const dip = Math.max(out("left") * Math.max(0, -this.aim.left), out("right") * Math.max(0, -this.aim.right));
     const crouch = Math.min(
       1,
       stance.crouch +
         FOOTWORK_CONFIG.standingBend +
+        dip * OPPONENT_ANIM.bodyDip +
         this.shownDown * KNOCKDOWN_ANIM.hipFold
     );
     const drop = this.crouchRig
@@ -410,9 +415,13 @@ export class OpponentAnimator {
           this.shownHurt
         : 0;
     this.pivot.rotation.z = -stance.lean + sway;
+    // Cocking a hand loads the turn the other way, so the extension can be signed.
+    this.pivot.rotation.y =
+      this.extension.right * OPPONENT_ANIM.twistRear - this.extension.left * OPPONENT_ANIM.twistLead;
 
-    // The fall.
-    this.pivot.rotation.x = this.shownDown * KNOCKDOWN_ANIM.fallAngle;
+    // The fall, and the lean into a punch.
+    this.pivot.rotation.x =
+      this.shownDown * KNOCKDOWN_ANIM.fallAngle - Math.max(out("left"), out("right")) * OPPONENT_ANIM.punchLean;
 
     // The waist fold lives in the crouch now, so there is nothing left for the
     // pivot to pitch. `evasion` is still read because a duck and a plain low

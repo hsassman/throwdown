@@ -517,6 +517,7 @@ export default function App() {
               outcomeQueueRef={training.outcomeQueueRef}
               strikeQueueRef={strike.strikeQueueRef}
               opponentRef={inFight ? fight.opponentRef : undefined}
+              opponentThrowQueueRef={inFight ? fight.opponentThrowQueueRef : undefined}
               opponentStrikeQueueRef={
                 inFight ? fight.opponentStrikeQueueRef : undefined
               }

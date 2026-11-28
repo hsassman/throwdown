@@ -191,7 +191,9 @@ interface Props {
   outcomeQueueRef?: React.RefObject<DrillOutcome[]>;
   /** The CPU opponent's body state, read every frame. */
   opponentRef?: React.RefObject<OpponentVisualState | null>;
-  /** Punches thrown by the opponent, drained by the render loop. */
+  /** CPU punches leaving the guard, to animate. Drained by the render loop. */
+  opponentThrowQueueRef?: React.RefObject<StrikeEvent[]>;
+  /** Opponent punches that landed on the player, for the flinch and marks. */
   opponentStrikeQueueRef?: React.RefObject<StrikeEvent[]>;
   /** Written every frame with the player's live whole-body channels. */
   bodyOutRef?: React.RefObject<BodyMotion | null>;
@@ -237,6 +239,7 @@ export function BoxerModel({
   litRef,
   outcomeQueueRef,
   opponentRef,
+  opponentThrowQueueRef,
   opponentStrikeQueueRef,
   bodyOutRef,
   stage = null,
@@ -290,6 +293,8 @@ export function BoxerModel({
   opponentHolder.current = opponentRef;
   const opponentStrikeHolder = useRef(opponentStrikeQueueRef);
   opponentStrikeHolder.current = opponentStrikeQueueRef;
+  const opponentThrowHolder = useRef(opponentThrowQueueRef);
+  opponentThrowHolder.current = opponentThrowQueueRef;
   const bodyOutHolder = useRef(bodyOutRef);
   bodyOutHolder.current = bodyOutRef;
   const fightEventHolder = useRef(fightEventQueueRef);
@@ -1538,30 +1543,23 @@ export function BoxerModel({
       // CPU's fastest telegraph (260ms) a frame of slack is about 6% of the
       // whole wind-up, which is small but is exactly the part the player is
       // reading.
-      if (opponentAnim) {
-        const thrown = opponentStrikeHolder.current?.current;
-        if (thrown && thrown.length > 0) {
-          for (const strike of thrown.splice(0, thrown.length)) {
-            opponentAnim.throw(strike.hand, strike.impact.height, strike.impact.lateral);
-            // The punch lands on the player, so the player's surfaces are what
-            // mark. Same two calls the opponent takes in the other direction -
-            // deliberately symmetric, so a fighter cannot be damaged in a way
-            // the other one never can be.
-            playerSkin?.addBruise(
-              `${strike.zone.height}/${strike.zone.lane}`,
-              strike.power
-            );
-            if (playerRoot) {
-              faces.get(playerRoot)?.hit(strike.region.id, strike.power);
-            }
-            // And the player's own figure takes the punch. Until this line the
-            // opponent had a full hit reaction and the player had none, so a
-            // clean right hand landed on a character that did not move.
-            driverRef.current?.flinch(strike);
-          }
+      const thrown = opponentThrowHolder.current?.current;
+      if (thrown && thrown.length > 0) {
+        for (const strike of thrown.splice(0, thrown.length)) {
+          opponentAnim?.throw(strike.hand, strike.impact.height, strike.impact.lateral);
         }
-        opponentAnim.update(figureDt, opponentHolder.current?.current ?? IDLE_OPPONENT);
       }
+      // Punches that landed on the player, at contact: the same marks and
+      // reaction the opponent takes in the other direction.
+      const landed = opponentStrikeHolder.current?.current;
+      if (landed && landed.length > 0) {
+        for (const strike of landed.splice(0, landed.length)) {
+          playerSkin?.addBruise(`${strike.zone.height}/${strike.zone.lane}`, strike.power);
+          if (playerRoot) faces.get(playerRoot)?.hit(strike.region.id, strike.power);
+          driverRef.current?.flinch(strike);
+        }
+      }
+      if (opponentAnim) opponentAnim.update(figureDt, opponentHolder.current?.current ?? IDLE_OPPONENT);
 
       // The player's own condition. Until this line a clean right hand put the
       // player on the canvas, the simulation started a count and resumed the

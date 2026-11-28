@@ -21,7 +21,7 @@ import type { BodyMotion } from "../perception/bodyMotion";
 import type { OpponentVisualState } from "../render/opponentAnimator";
 import { mirrorEvent, type NetDefence, type NetFightState, type NetMessage } from "../net/protocol";
 import { pushBounded, type RemoteEvent } from "../net/usePeerChannel";
-import { FIGHT_CONFIG, FIGHT_GEOMETRY, NET_CONFIG, STRIKE_CONFIG } from "../config/tuning";
+import { FIGHT_CONFIG, FIGHT_GEOMETRY, NET_CONFIG, OPPONENT_ANIM, STRIKE_CONFIG } from "../config/tuning";
 
 // Wires the fight together: player strikes in, CPU or remote strikes back,
 // the sim keeps score, audio plays. The sim runs on its own rAF and React
@@ -171,7 +171,9 @@ export function useFight(options: UseFightOptions) {
     down: 0,
     hurt: 0,
   });
-  /** Opponent punches for the renderer to animate; drained there. */
+  /** CPU punches leaving the guard, for the renderer to animate; drained there. */
+  const opponentThrowQueueRef = useRef<StrikeEvent[]>([]);
+  /** Opponent punches that landed on the player, for the flinch and marks; drained there. */
   const opponentStrikeQueueRef = useRef<StrikeEvent[]>([]);
   /** Fight events for the render layer (camera director, knockdowns); drained there. */
   const fightEventQueueRef = useRef<FightEvent[]>([]);
@@ -208,19 +210,20 @@ export function useFight(options: UseFightOptions) {
       pushBounded(fightEventQueueRef.current, e);
       const kind = impacts.kind(e, PLAYER);
       if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now(), e.type === "land" ? e.punch : undefined);
+      // A blocked punch emits block then land: one muffled sound, no flinch.
+      const blocked = e.type === "land" && blockedTarget === e.target;
+      if (e.type === "block") blockedTarget = e.target;
+      else if (e.type === "land" || e.type === "miss") blockedTarget = null;
       const a = audioRef.current;
       if (a && strike) {
-        // A blocked punch emits block then land; it should sound once, muffled.
-        if (e.type === "block") {
-          a.play(strike, { blocked: true });
-          blockedTarget = e.target;
-        } else if (e.type === "land") {
-          if (blockedTarget !== e.target) a.play(strike);
-          blockedTarget = null;
-        } else if (e.type === "miss") {
-          a.whiff(strike.power);
-          blockedTarget = null;
-        }
+        if (e.type === "block") a.play(strike, { blocked: true });
+        else if (e.type === "land" && !blocked) a.play(strike);
+        else if (e.type === "miss") a.whiff(strike.power);
+      }
+      // The player's figure reacts to punches that landed clean, at contact.
+      if (e.type === "land" && !blocked && e.target === PLAYER && strike) {
+        pushBounded(opponentStrikeQueueRef.current, strike);
+        strikeCb.current?.(strike);
       }
       if (e.type === "knockdown" || e.type === "roundEnd") a?.bell(1);
       if (e.type === "stoppage") {
@@ -351,6 +354,8 @@ export function useFight(options: UseFightOptions) {
 
     // Buffered so strikes land on the fight's own clock.
     const inbox: StrikeEvent[] = [];
+    /** CPU punches in flight: thrown, resolved when the glove arrives. */
+    const inFlight: { strike: StrikeEvent; at: number }[] = [];
     /** Host: our punches at the guest, held until the guest's defence for them has arrived. */
     const awaitingDefence: StrikeEvent[] = [];
     let throwingUntil = 0;
@@ -414,11 +419,7 @@ export function useFight(options: UseFightOptions) {
       // machine against their own camera.
       const incoming = remoteStrikeRef?.current;
       if (mode === "host" && incoming && incoming.length > 0) {
-        for (const strike of incoming.splice(0, incoming.length)) {
-          apply(OPPONENT, strike);
-          pushBounded(opponentStrikeQueueRef.current, strike);
-          strikeCb.current?.(strike);
-        }
+        for (const strike of incoming.splice(0, incoming.length)) apply(OPPONENT, strike);
       }
 
       // --- The player's body --------------------------------------------------
@@ -471,12 +472,12 @@ export function useFight(options: UseFightOptions) {
           power: intent.strike.power,
           speed: 4,
           contactReach: STRIKE_CONFIG.reachThreshold + STRIKE_CONFIG.gloveNoseReach,
-          timestamp: now,
+          timestamp: now + OPPONENT_ANIM.contactSeconds * 1000,
         };
-        apply(OPPONENT, strike);
-        pushBounded(opponentStrikeQueueRef.current, strike);
-        strikeCb.current?.(strike);
+        pushBounded(opponentThrowQueueRef.current, strike);
+        inFlight.push({ strike, at: strike.timestamp });
       }
+      while (inFlight.length > 0 && inFlight[0].at <= now) apply(OPPONENT, inFlight.shift()!.strike);
 
       sim.tick(dt);
 
@@ -604,6 +605,7 @@ export function useFight(options: UseFightOptions) {
     enableAudio,
     simRef,
     opponentRef,
+    opponentThrowQueueRef,
     opponentStrikeQueueRef,
     fightEventQueueRef,
     phaseRef,

@@ -1045,6 +1045,17 @@ export const DIRECTOR_CONFIG = {
 export const OPPONENT_ANIM = {
   /** Seconds from release to the arm being back on guard. */
   punchSeconds: 0.34,
+  /** Seconds from release to the glove arriving. The CPU's punch is resolved
+   *  (damage, sound, the player's flinch) then, not when the arm starts out. */
+  contactSeconds: 0.15,
+  /** Torso turn at full extension, radians: the shoulder drives the punch.
+   *  The rear hand (right, orthodox) turns the body more than the jab. */
+  twistRear: 0.38,
+  twistLead: 0.16,
+  /** Forward lean at full extension, radians. */
+  punchLean: 0.12,
+  /** Extra knee bend at full extension on a body shot, 0-1. */
+  bodyDip: 0.35,
   /** Share of that spent going out. Out fast, back slow: the recovery is the
    *  half that leaves you open, and a symmetric animation reads as a piston. */
   punchOutShare: 0.35,
