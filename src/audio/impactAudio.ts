@@ -22,6 +22,31 @@ export interface ImpactAudio {
   dispose(): void;
 }
 
+/** Recorded one-shots in public/sfx (Openverse, CC0 and CC BY; see docs/CREDITS.md). */
+const SAMPLES = ["head-1", "head-2", "body-1", "body-2", "block", "whiff", "bell", "crowd-1", "crowd-2"] as const;
+type SampleName = (typeof SAMPLES)[number];
+
+/** Decoded once per audio context and shared by every fight. A sample that
+ *  fails to load leaves the synthesised sound in its place. */
+const sampleCache = new WeakMap<AudioContext, Map<SampleName, AudioBuffer>>();
+
+function loadSamples(ctx: AudioContext): Map<SampleName, AudioBuffer> {
+  let bank = sampleCache.get(ctx);
+  if (bank) return bank;
+  bank = new Map();
+  sampleCache.set(ctx, bank);
+  if (typeof fetch !== "function") return bank;
+  const base = `${import.meta.env.BASE_URL}sfx/`;
+  for (const name of SAMPLES) {
+    fetch(`${base}${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
+      .then((data) => ctx.decodeAudioData(data))
+      .then((buf) => bank!.set(name, buf))
+      .catch(() => {});
+  }
+  return bank;
+}
+
 /** One buffer of white noise, shared by every impact. */
 function noiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
   const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -78,7 +103,24 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
   room.connect(limiter);
 
   const noise = noiseBuffer(ctx, 1);
+  const samples = loadSamples(ctx);
   let disposed = false;
+  let flip = 0;
+
+  /** Plays a recorded one-shot. False when it has not loaded, so the caller can synthesise. */
+  function sample(name: SampleName, t0: number, gain: number, rate = 0.94 + Math.random() * 0.12): boolean {
+    const buf = samples.get(name);
+    if (!buf) return false;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g);
+    g.connect(master);
+    src.start(t0);
+    return true;
+  }
 
   /** Schedules one impact. All timing is relative to `t0`. */
   function impact(
@@ -170,7 +212,9 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
       if (opts.blocked) {
         // A block is the same impact heard through a forearm: quieter, duller,
         // and with the crack taken off it.
-        impact(t0, { bright: bright * 0.35, weight: weight * 0.8, level: level * 0.45 });
+        if (!sample("block", t0, level * 0.7)) {
+          impact(t0, { bright: bright * 0.35, weight: weight * 0.8, level: level * 0.45 });
+        }
         return;
       }
 
@@ -178,16 +222,20 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
       // damage multiplier already encodes that distinction, so it is reused
       // rather than duplicated as a second table.
       level *= 0.7 + Math.min(1.6, strike.region.damage) * 0.3;
-      impact(t0, { bright, weight, level });
+      flip ^= 1;
+      const hit: SampleName = bright > 0.5 ? (flip ? "head-1" : "head-2") : flip ? "body-1" : "body-2";
+      if (!sample(hit, t0, Math.min(1, level))) impact(t0, { bright, weight, level });
 
       if (options.crowd !== false && strike.damage > 1.1) {
-        swell(t0 + 0.08, Math.min(1, strike.damage / 2.2));
+        const swellLevel = Math.min(1, strike.damage / 2.2);
+        if (!sample(flip ? "crowd-1" : "crowd-2", t0 + 0.08, swellLevel * 0.55, 1)) swell(t0 + 0.08, swellLevel);
       }
     },
 
     whiff(power) {
       if (disposed || ctx.state === "suspended") return;
       const t0 = ctx.currentTime;
+      if (sample("whiff", t0, 0.25 + 0.45 * power)) return;
       const src = ctx.createBufferSource();
       src.buffer = noise;
       src.loop = true;
@@ -207,6 +255,10 @@ export function createImpactAudio(options: ImpactAudioOptions = {}): ImpactAudio
 
     bell(count = 1) {
       if (disposed || ctx.state === "suspended") return;
+      if (samples.has("bell")) {
+        for (let i = 0; i < count; i++) sample("bell", ctx.currentTime + i * 0.45, 0.6, 1);
+        return;
+      }
       for (let i = 0; i < count; i++) {
         const t0 = ctx.currentTime + i * 0.42;
         // Two detuned partials. A bell is inharmonic - a single sine sounds
