@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { NET_CONFIG } from "../config/tuning";
 import { fetchTop, type LeaderboardRow } from "../net/leaderboard";
 import { playUrl, qrMatrix, qrPath } from "./stageModel";
+import { BrandMark } from "../ui/BrandMark";
 import "./stage.css";
 
 // The projector page for the talk: open the game with ?stage on the laptop
@@ -49,7 +50,7 @@ export function StagePage() {
   return (
     <main className="stagepage">
       <section className="stagepage-join">
-        <h1>Shadow Box</h1>
+        <h1><BrandMark /></h1>
         <p className="stagepage-sub">Scan to fight. Your phone's camera is the controller.</p>
         <svg
           className="stagepage-qr"

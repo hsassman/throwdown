@@ -1,261 +1,258 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { PoseFrame } from "../../pose/poseTypes";
-import {
-  CATEGORY_LABEL,
-  ITEM_BY_ID,
-  SHELL_ITEMS,
-  grouped,
-  isPlayable,
-  type ShellItem,
-} from "../../menu/shellModel";
+import { ITEM_BY_ID, SHELL_ITEMS, isPlayable } from "../../menu/shellModel";
+import { BrandMark, UiIcon } from "../BrandMark";
+import SpotlightCard from "../react-bits/SpotlightCard";
+import type { UiPreferences } from "../uiPreferences";
 import { useCameraMenu } from "./useCameraMenu";
 import "./shell.css";
 
-// The menu.
-// Two inputs, one source of truth
-//
-// The list is driven by both the camera pointer and the keyboard, and they
-// must never disagree about where focus is. So there is exactly one `focusId`
-// in state, and each input writes to it - the camera on hover, the keyboard on
-// arrow keys. The detail panel reads only that.
-//
-// The alternative, which is what usually gets built, is a `hoverIndex` for the
-// mouse and a `focusIndex` for the keyboard, and then a permanent low-grade
-// bug where the panel shows one thing and the confirm activates another.
-//
-// Real DOM focus is kept in sync too, so a screen reader and Tab still work.
-// The camera is an addition to the keyboard here, never a replacement - a
-// player whose camera is not working must still be able to reach the tracking
-// diagnostics that would tell them why.
-
 interface Props {
   poseRef: React.RefObject<PoseFrame | null>;
-  /** True once the camera is delivering usable poses. */
   cameraReady: boolean;
-  /** Why the camera is not running, if known (permission denied, needs
-   *  https, unsupported browser). Shown instead of the generic hint. */
   cameraProblem?: string | null;
-  /** Stops the camera pointer without calling the camera broken - while the
-   *  first-run walkthrough has the player holding a guard, which would
-   *  otherwise dwell on a row and launch it. */
   pointerPaused?: boolean;
+  preferences: UiPreferences;
+  onPreference: (key: keyof UiPreferences) => void;
   onLaunch: (id: string) => void;
 }
 
-const GROUPS = grouped();
-const FLAT: ShellItem[] = GROUPS.flatMap((g) => g.items);
-const LOCKED = SHELL_ITEMS.filter((i) => !isPlayable(i)).map((i) => i.id);
+const FEATURED_IDS = new Set(["dummy", "cpu", "internet"]);
+const FEATURED = SHELL_ITEMS.filter((item) => FEATURED_IDS.has(item.id)).map((item) => item.id);
+const PLAY = ["career", "lan", "fighter", "stages"].filter((id) => ITEM_BY_ID.has(id));
+const TOOLS = SHELL_ITEMS.filter((item) => item.category === "tools");
+const QUICK_TOOL = TOOLS.length === 1 && isPlayable(TOOLS[0]) ? TOOLS[0] : null;
+const SETTINGS_TOOLS = QUICK_TOOL ? [] : TOOLS.map((item) => item.id);
+const SETTINGS = "settings";
+const MOTION = "reducedMotion";
+const CONTRAST = "highContrast";
+const PLAY_ORDER = [...FEATURED, ...PLAY, ...(QUICK_TOOL ? [QUICK_TOOL.id] : []), SETTINGS];
+const SETTINGS_ORDER = [MOTION, CONTRAST, ...SETTINGS_TOOLS, SETTINGS];
+const LOCKED = SHELL_ITEMS.filter((item) => !isPlayable(item)).map((item) => item.id);
+const CARD_ART: Record<string, string> = {
+  dummy: "training", cpu: "fight", internet: "online",
+  career: "career", fighter: "kit", stages: "venue", lan: "network",
+};
 
-export function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused = false, onLaunch }: Props) {
-  const [focusId, setFocusId] = useState<string>(FLAT[0].id);
+export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused = false, preferences, onPreference, onLaunch }: Props) {
+  const [settings, setSettings] = useState(false);
+  const [focusId, setFocusId] = useState(PLAY_ORDER[0]);
   const [rejected, setRejected] = useState<string | null>(null);
-  const rowEls = useRef(new Map<string, HTMLElement>());
+  const targets = useRef(new Map<string, HTMLElement>());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const drawerFocus = useRef(false);
 
-  const launch = useCallback(
-    (id: string) => {
-      const item = ITEM_BY_ID.get(id);
-      if (!item) return;
-      setFocusId(id);
-      if (!isPlayable(item)) {
-        // Pressing a locked row must explain, not silently do nothing. Silence
-        // is indistinguishable from the input being broken - and with a camera
-        // pointer the player's first assumption will always be that the
-        // tracking failed.
-        setRejected(id);
-        return;
-      }
-      onLaunch(id);
-    },
-    [onLaunch]
-  );
+  const activate = useCallback((id: string) => {
+    if (id === SETTINGS) {
+      drawerFocus.current = true;
+      setRejected(null);
+      setFocusId(settings ? SETTINGS : MOTION);
+      setSettings(!settings);
+      return;
+    }
+    if (id === MOTION || id === CONTRAST) {
+      onPreference(id);
+      return;
+    }
+    const item = ITEM_BY_ID.get(id);
+    if (!item) return;
+    setFocusId(id);
+    if (!isPlayable(item)) {
+      setRejected(id);
+      return;
+    }
+    onLaunch(id);
+  }, [onLaunch, onPreference, settings]);
 
   const camera = useCameraMenu({
     poseRef,
     enabled: cameraReady && !pointerPaused,
-    onConfirm: launch,
+    onConfirm: activate,
     disabledIds: LOCKED,
+    scrollRef,
   });
 
-  // The camera's hover is the focus. One source of truth.
   useEffect(() => {
     if (camera.hoverId) setFocusId(camera.hoverId);
   }, [camera.hoverId]);
 
-  // Clear a rejection message once the player moves on.
+  useEffect(() => {
+    if (drawerFocus.current) {
+      targets.current.get(settings ? MOTION : SETTINGS)?.focus({ preventScroll: true });
+      drawerFocus.current = false;
+    }
+  }, [settings]);
+
   useEffect(() => {
     if (rejected && rejected !== focusId) setRejected(null);
-  }, [focusId, rejected]);
+  }, [rejected, focusId]);
 
-  // Keyboard, kept working alongside the camera.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
-      const i = FLAT.findIndex((x) => x.id === focusId);
-      if (i < 0) return;
-      const move = (d: number) => {
-        e.preventDefault();
-        // Wrapping, not clamping - pressing down on the last row to reach the
-        // first is the convention and it is genuinely faster.
-        const next = FLAT[(((i + d) % FLAT.length) + FLAT.length) % FLAT.length];
-        setFocusId(next.id);
-        rowEls.current.get(next.id)?.focus({ preventScroll: false });
-      };
-      switch (e.key) {
-        case "ArrowDown":
-        case "s":
-          move(1);
-          break;
-        case "ArrowUp":
-        case "w":
-          move(-1);
-          break;
-        case "Enter":
-        case " ":
-          e.preventDefault();
-          launch(focusId);
-          break;
+    if (pointerPaused) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (settings && event.key === "Escape") {
+        event.preventDefault();
+        activate(SETTINGS);
+        return;
+      }
+      const order = settings ? SETTINGS_ORDER : PLAY_ORDER;
+      const keyboardTarget = order.find((id) => targets.current.get(id) === event.target);
+      const index = order.indexOf(keyboardTarget ?? focusId);
+      const forward = ["ArrowRight", "ArrowDown", "s"].includes(event.key);
+      const backward = ["ArrowLeft", "ArrowUp", "w"].includes(event.key);
+      if (forward || backward) {
+        event.preventDefault();
+        const next = order[(index + (forward ? 1 : -1) + order.length) % order.length];
+        setFocusId(next);
+        targets.current.get(next)?.focus({ preventScroll: false });
+      } else if (event.key === "Enter" || event.key === " ") {
+        if (event.repeat) {
+          event.preventDefault();
+          return;
+        }
+        if (event.target instanceof HTMLButtonElement) return;
+        event.preventDefault();
+        activate(focusId);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusId, launch]);
+  }, [activate, focusId, pointerPaused, settings]);
 
-  const focused = useMemo(() => ITEM_BY_ID.get(focusId) ?? FLAT[0], [focusId]);
+  const refFor = (id: string) => (element: HTMLElement | null) => {
+    camera.registerRow(id)(element);
+    if (element) targets.current.set(id, element);
+    else targets.current.delete(id);
+  };
 
-  // What the camera is doing right now. Only ever about the camera, because
-  // that is the input whose state the player cannot see for themselves - the
-  // keyboard and mouse either work or the machine is broken, and reporting on
-  // them frame by frame would be noise.
+  const focus = ITEM_BY_ID.get(focusId);
   const hint = !cameraReady
-    ? cameraProblem
-      ? `Camera not running: ${cameraProblem}`
-      : "Camera not running."
+    ? cameraProblem ?? "Camera is getting ready."
     : !camera.tracked
-      ? "Raise a hand to point at the menu."
+      ? "Raise a hand to point at a mode."
       : camera.reason === "moving"
         ? "Hold still to select."
         : camera.reason === "rearm"
-          ? "Move away, then back, to choose again."
-        : "Hold your hand over a row to open it.";
+          ? "Move away before selecting again."
+          : "Point and hold to select.";
+
+  function modeCard(id: string, featured = false) {
+    const item = ITEM_BY_ID.get(id);
+    if (!item) return null;
+    const available = isPlayable(item);
+    const art = CARD_ART[id];
+    const card = (
+        <button type="button" className="shell-row"
+          data-mode-id={id} data-focused={id === focusId} data-locked={!available} data-rejected={rejected === id}
+          disabled={pointerPaused} ref={refFor(id)}
+          onFocus={() => setFocusId(id)}
+          onPointerMove={(event) => {
+            if (event.pointerType === "mouse" && id !== focusId) setFocusId(id);
+          }}
+          onClick={() => activate(id)}>
+          {art && <img className="mode-image" src={`/ui/${art}.webp`} loading={featured ? "eager" : "lazy"} alt="" />}
+          <span className="mode-shade" aria-hidden="true" />
+          <span className="shell-row-text">
+            <span className="shell-row-title">{item.title}</span>
+            <span className="shell-row-blurb">{available ? item.blurb : "Unavailable"}</span>
+          </span>
+          <span className="mode-icon"><UiIcon name={available ? "open" : "lock"} /></span>
+          {rejected === id && <span className="shell-detail-reject" role="alert">{item.lockedReason}</span>}
+        </button>
+    );
+    if (!featured) return <div key={id} className="mode-tile">{card}</div>;
+    return (
+      <SpotlightCard key={id} className="mode-tile mode-tile-featured"
+        spotlightColor="#d5baff" proximity={0} borderGlow={0} intensity={0.22} flare={false}>
+        {card}
+      </SpotlightCard>
+    );
+  }
+
+  function preferenceRow(key: keyof UiPreferences, name: string, description: string) {
+    return (
+      <button className="presentation-option" ref={refFor(key)} type="button" aria-pressed={preferences[key]}
+        data-focused={key === focusId} onFocus={() => setFocusId(key)} onClick={() => activate(key)}>
+        <span><strong>{name}</strong><small>{description}</small></span>
+        <span className="preference-state">{preferences[key] ? "On" : "Off"}</span>
+      </button>
+    );
+  }
 
   return (
-    <div className="shell">
-      <div className="shell-bg" aria-hidden="true" />
-
+    <main className="shell" ref={camera.containerRef}>
       <header className="shell-head">
-        <h1 className="shell-title">ShadowBox</h1>
-        <p className="shell-hint" role="status">
-          {hint}
-        </p>
-        {/* Every input the shell accepts, stated once and always visible. The
-            three are genuinely equal here - the camera is the headline, but a
-            player whose webcam is covered, or who is simply sitting down,
-            needs to know the list is fully navigable without it, and that was
-            previously only mentioned once the camera had already failed. */}
-        <ul className="shell-inputs" aria-label="How to navigate">
-          <li>
-            <kbd>&uarr;</kbd>
-            <kbd>&darr;</kbd> Move
-          </li>
-          <li>
-            <kbd>Enter</kbd> Open
-          </li>
-          <li>Click or tap to open</li>
-          <li>Webcam: point and hold</li>
-        </ul>
+        <div className="shell-identity"><BrandMark compact /><span>ShadowBox</span></div>
+        <div className="shell-actions">
+          {QUICK_TOOL && !settings && (
+            <button className="shell-settings" ref={refFor(QUICK_TOOL.id)} type="button" disabled={pointerPaused}
+              aria-label={QUICK_TOOL.title} title={QUICK_TOOL.title} data-mode-id={QUICK_TOOL.id}
+              data-focused={focusId === QUICK_TOOL.id}
+              onFocus={() => setFocusId(QUICK_TOOL.id)} onClick={() => activate(QUICK_TOOL.id)}>
+              <UiIcon name="camera" />
+            </button>
+          )}
+          <button className="shell-settings" ref={refFor(SETTINGS)} type="button" disabled={pointerPaused}
+            aria-label={settings ? "Close settings" : "Settings"} aria-expanded={settings} aria-controls={settings ? "shell-settings-panel" : undefined}
+            data-focused={focusId === SETTINGS} onFocus={() => setFocusId(SETTINGS)} onClick={() => activate(SETTINGS)}>
+            <UiIcon name={settings ? "close" : "settings"} />
+          </button>
+        </div>
       </header>
 
-      <div className="shell-body">
-        <div className="shell-list-wrap" ref={camera.containerRef}>
-          <ul className="shell-list" role="menu" aria-label="Game modes">
-            {GROUPS.map((group) => (
-              <li key={group.category} className="shell-group">
-                <h2 className="shell-group-label">{CATEGORY_LABEL[group.category]}</h2>
-                <ul className="shell-group-items">
-                  {group.items.map((item) => {
-                    const playable = isPlayable(item);
-                    return (
-                      <li key={item.id}>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="shell-row"
-                          data-availability={item.availability}
-                          data-focused={item.id === focusId}
-                          data-rejected={rejected === item.id}
-                          data-locked={!playable}
-                          /* Deliberately not aria-disabled. A locked row is
-                             not a dead control - activating it explains why it
-                             is locked, which is the whole point. Marking it
-                             disabled would promise assistive technology that
-                             pressing it does nothing, which is false, and it
-                             also makes the row unreachable to automation.
-                             The "Unavailable" label is inside the button, so it
-                             is part of the accessible name already. */
-                          ref={(el) => {
-                            camera.registerRow(item.id)(el);
-                            if (el) rowEls.current.set(item.id, el);
-                            else rowEls.current.delete(item.id);
-                          }}
-                          // Hover-to-focus for a real mouse only. On a touch
-                          // screen a tap fires an emulated mouseenter just before
-                          // the click; focusing then swaps the detail panel above
-                          // the list for one of a different height, the row moves,
-                          // and the click lands on whatever slid under the finger.
-                          // A tap should simply open the row.
-                          onPointerEnter={(e) => {
-                            if (e.pointerType === "mouse") setFocusId(item.id);
-                          }}
-                          onFocus={() => setFocusId(item.id)}
-                          onClick={() => launch(item.id)}
-                        >
-                          {/* The dwell ring, drawn on the row itself so the
-                              player can watch the row fill rather than having
-                              to look at their own hand. */}
-                          <span className="shell-row-fill" aria-hidden="true" />
-                          <span className="shell-row-text">
-                            <span className="shell-row-title">{item.title}</span>
-                            <span className="shell-row-blurb">{item.blurb}</span>
-                          </span>
-                          {!playable && <span className="shell-unavailable">Unavailable</span>}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </li>
-            ))}
-          </ul>
-
-          <div className="shell-cursor" ref={camera.cursorRef} aria-hidden="true">
-            <svg viewBox="0 0 48 48" className="shell-cursor-ring">
-              <circle className="shell-cursor-track" cx="24" cy="24" r="20" />
-              <circle className="shell-cursor-progress" cx="24" cy="24" r="20" />
-            </svg>
-            <span className="shell-cursor-dot" />
+      <div className="shell-list-wrap" ref={scrollRef} key={settings ? "settings" : "play"}>
+        {settings ? (
+          <div className="shell-content shell-settings-panel" id="shell-settings-panel">
+            <h1>Settings</h1>
+            <section aria-labelledby="presentation-heading">
+              <h2 id="presentation-heading">Presentation</h2>
+              {preferenceRow(MOTION, "Reduce UI motion", "Keep the interface still.")}
+              {preferenceRow(CONTRAST, "High contrast", "Use solid backgrounds behind labels.")}
+            </section>
+            {SETTINGS_TOOLS.length > 0 && <section aria-labelledby="tools-heading">
+              <h2 id="tools-heading">Camera tools</h2>
+              <div className="mode-grid mode-grid-secondary">{SETTINGS_TOOLS.map((id) => modeCard(id))}</div>
+            </section>}
           </div>
-        </div>
-
-        <aside className="shell-detail" aria-live="polite">
-          <img className="shell-detail-art" src={`/art/${detailArtwork(focused)}.webp`} alt="" />
-          <h2 className="shell-detail-title">{focused.title}</h2>
-          <p className="shell-detail-body">{focused.detail}</p>
-          {rejected === focused.id && <p className="shell-detail-reject" role="alert">{focused.lockedReason}</p>}
-        </aside>
+        ) : (
+          <div className="shell-content">
+            <section className="shell-hero" aria-label="ShadowBox">
+              <div className="shell-hero-art" aria-hidden="true" />
+              <div className="shell-hero-copy">
+                <h1 className="shell-title"><BrandMark /></h1>
+                <p>Motion-controlled boxing</p>
+              </div>
+            </section>
+            <section className="shell-list" aria-labelledby="play-heading">
+              <h2 id="play-heading">Play</h2>
+              <div className="mode-grid mode-grid-featured">{FEATURED.map((id) => modeCard(id, true))}</div>
+              <div className="mode-grid mode-grid-secondary">{PLAY.map((id) => modeCard(id))}</div>
+            </section>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
 
-function detailArtwork(item: ShellItem): string {
-  if (item.id === "fighter") return "kit-room";
-  if (item.id === "career") return "locker-room";
-  if (item.id === "stages") return "cage-preview";
-  if (item.id === "dummy") return "training-banner";
-  if (item.id === "punchlab") return "wraps-art";
-  if (item.category === "train") return "gym";
-  if (item.id === "tracking") return "tracking-art";
-  if (item.category === "online") return item.id === "internet" ? "crowd-lower" : "audience";
-  return "arena-night";
-}
+      <footer className="shell-footer">
+        <div className="shell-camera-state"><UiIcon name="camera" /><span role="status">{hint}</span></div>
+        <div className="shell-detail" aria-live="polite">
+          {focus && <><span className="shell-detail-title">{focus.title}</span><span className="shell-detail-body">{focus.lockedReason ?? focus.detail}</span></>}
+        </div>
+        <ul className="shell-inputs" aria-label="How to navigate">
+          <li><kbd>←</kbd><kbd>→</kbd> Move</li>
+          <li><kbd>Enter</kbd> Open</li>
+          <li>Click or tap</li>
+          <li>Webcam</li>
+        </ul>
+      </footer>
+
+      <div className="shell-cursor" ref={camera.cursorRef} aria-hidden="true">
+        <svg viewBox="0 0 48 48" className="shell-cursor-ring">
+          <circle className="shell-cursor-track" cx="24" cy="24" r="20" />
+          <circle className="shell-cursor-progress" cx="24" cy="24" r="20" />
+        </svg>
+        <span className="shell-cursor-dot" />
+      </div>
+    </main>
+  );
+});

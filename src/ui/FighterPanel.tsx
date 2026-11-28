@@ -7,7 +7,11 @@ import "./fighterPanel.css";
 const LABELS = {
   skin: "Skin tone", hair: "Hairstyle", colour: "Kit colour", finish: "Kit material",
 } as const;
-type Field = keyof FighterAppearance;
+const TRIM_LABELS = {
+  laces: "Boot laces", soles: "Boot soles", wraps: "Glove cuffs",
+} as const;
+type Field = keyof typeof LABELS;
+const TRIM_FIELDS = Object.keys(TRIM_LABELS) as (keyof typeof TRIM_LABELS)[];
 
 export function FighterPanel({ appearance, onChange, onSave }: {
   appearance: FighterAppearance;
@@ -41,6 +45,22 @@ export function FighterPanel({ appearance, onChange, onSave }: {
           </div>
         </fieldset>
       ))}
+      <fieldset>
+        <legend>Kit details</legend>
+        <div className="fighter-trim">
+          {TRIM_FIELDS.map((field) => (
+            <label key={field}>
+              <span>{TRIM_LABELS[field]}</span>
+              <select value={appearance[field]} onChange={(event) => {
+                const option = FIGHTER_OPTIONS[field].find(({ id }) => id === event.target.value);
+                if (option) change({ ...appearance, [field]: option.id });
+              }}>
+                {FIGHTER_OPTIONS[field].map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="fighter-actions">
         <button type="button" className="fighter-save" onClick={() => setNotice(
           onSave() ? "Fighter saved on this device." : "Fighter applied for this session. Browser storage is unavailable."

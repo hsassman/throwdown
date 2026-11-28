@@ -42,6 +42,8 @@ import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
+import { BrandMark, UiIcon } from "./ui/BrandMark";
+import { useUiPreferences } from "./ui/uiPreferences";
 import "./App.css";
 
 // Lazy-loaded: these pull in three.js and GLTFLoader, which a player who never
@@ -75,6 +77,7 @@ type Screen = string | null;
 // choose anything.
 
 export default function App() {
+  const { preferences, changePreference } = useUiPreferences();
   const [started, setStarted] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   /**
@@ -390,9 +393,10 @@ export default function App() {
 
   if (!started) {
     return (
-      <div className="gate">
+      <main className="gate">
+        <div className="gate-light" aria-hidden="true" />
         <div className="gate-content">
-          <h1>Shadow Box</h1>
+          <h1><BrandMark /></h1>
           <p className="gate-body">
             Use your webcam to control your boxer. The game processes your camera
             feed in your browser.
@@ -406,10 +410,10 @@ export default function App() {
               setStarted(true);
             }}
           >
-            Enable camera
+            <UiIcon name="camera" /> Enable camera
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -453,7 +457,7 @@ export default function App() {
   const screenHead = (
     <div className={`screen-head${immersive ? " screen-head-float" : ""}`}>
       <button className="back-btn" onClick={goMenu}>
-        Main menu
+        <UiIcon name="back" /><span>Main menu</span>
       </button>
       <h2 className="screen-title">{item?.title ?? screen}</h2>
       {/* The two keys that work on every screen. Escape especially: a
@@ -505,6 +509,8 @@ export default function App() {
                   : camError
               }
               pointerPaused={coaching && firstRun.step !== "ready"}
+              preferences={preferences}
+              onPreference={changePreference}
               onLaunch={launch}
             />
           </Suspense>
@@ -583,7 +589,7 @@ export default function App() {
                     onClick={() => setStage(v.id as StageId)}
                   >
                     <img
-                      src={v.id === "ring" ? "/art/arena-night.webp" : "/art/cage-preview.webp"}
+                      src={v.id === "ring" ? "/ui/venue.webp" : "/ui/cage.webp"}
                       alt=""
                     />
                     <span className="stage-btn-copy">
@@ -597,7 +603,7 @@ export default function App() {
           </Suspense>
         )}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
-        <FramingPrompt issue={framingIssue} />
+        {!inMenu && <FramingPrompt issue={framingIssue} />}
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}

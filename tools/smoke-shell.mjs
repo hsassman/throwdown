@@ -167,6 +167,7 @@ try {
     inputs.slice(0, 120)
   );
 
+  await page.locator(".shell-list-wrap").evaluate((el) => { el.scrollTop = 0; });
   await page.screenshot({ path: `${OUT}/shell-menu.png` });
   step(`saved ${OUT}/shell-menu.png`);
 
@@ -321,6 +322,7 @@ try {
   // something. It is also the only place the auto-tuner is auditable: it
   // changes how the game responds without being asked, so it must be able to
   // say what it changed.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await rows.filter({ hasText: "Tracking" }).first().click();
   await page.waitForSelector(".tpanel", { timeout: 45000 });
   const tp = await page.evaluate(() => ({
@@ -734,7 +736,11 @@ try {
 
   let entered = 0;
   let escaped = 0;
-  for (const title of playable) {
+  const cameraTools = ["Tracking", "Phone Camera", "Punch Lab"];
+  for (const title of [...playable, ...cameraTools]) {
+    if (cameraTools.includes(title)) {
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+    }
     await page.locator(".shell-row").filter({ hasText: title }).first().click();
     // Every mode puts a back button on screen, wherever it sits.
     await page.waitForSelector(".back-btn", { timeout: 30000 });
@@ -745,13 +751,13 @@ try {
   }
   check(
     "every playable row opens with the mouse",
-    entered === playable.length,
-    `${entered}/${playable.length}`
+    entered === playable.length + cameraTools.length,
+    `${entered}/${playable.length + cameraTools.length}`
   );
   check(
     "and every one of them closes with Escape",
-    escaped === playable.length,
-    `${escaped}/${playable.length}`
+    escaped === playable.length + cameraTools.length,
+    `${escaped}/${playable.length + cameraTools.length}`
   );
 
   // The same trip on the keyboard alone, which is the half a mouse test

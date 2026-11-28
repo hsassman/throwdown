@@ -1,0 +1,242 @@
+:root {
+  --ui-background: #111019;
+  --ui-surface: #241f32;
+  --ui-control: #342b48;
+  --ui-ink: #faf5ff;
+  --ui-muted: #d3cadf;
+  --ui-accent: #e0c8ff;
+  --ui-danger: #ffadbf;
+  --ui-border: #ffffff26;
+  --ui-ease: cubic-bezier(.18, .72, .28, 1);
+  color-scheme: dark;
+  color: var(--ui-ink);
+  background: var(--ui-background);
+  accent-color: #c3a6fc;
+}
+
+button, input, textarea, select { font-family: inherit; }
+:root :is(button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline-color: #f1ddff;
+}
+:root .shell-row:focus-visible { outline-offset: -3px; }
+
+.brand-mark { display: inline-block; line-height: 1; }
+.brand-mark-face {
+  display: grid;
+  width: max-content;
+  padding: .02em .105em .14em 0;
+  color: #f5eaff;
+  font-family: "Arial Black", "Segoe UI", sans-serif;
+  font-weight: 950;
+  font-style: italic;
+  letter-spacing: -.075em;
+  line-height: .79;
+  text-transform: uppercase;
+  transform: perspective(700px) rotateY(-8deg) rotateX(5deg);
+  transform-origin: left center;
+}
+
+.brand-mark-face > span {
+  display: block;
+  text-shadow: 0 1px #cec3e4, -1px 2px #b4a5ce, -1px 3px #9b85bf, -2px 4px #786492, -2px 5px #62507e, -3px 6px #49355f, -4px 8px #332548, -5px 11px 16px #0c0818;
+}
+.brand-mark-face > span:last-child { color: #d9b9ff; }
+.shell-title .brand-mark, .gate h1 .brand-mark { animation: wordmark-in .7s var(--ui-ease) both; }
+
+.gate {
+  position: relative;
+  display: grid;
+  align-content: center;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(1.25rem, 8vw, 8rem);
+  background: linear-gradient(90deg, #100d19 0%, #100d19dc 32%, #18102448 67%, #100d1929),
+    url('/ui/hero.webp') center 38% / cover no-repeat;
+}
+
+.gate-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 68% 18%, #af80ff48, transparent 54%);
+  animation: gate-light-in 1.45s var(--ui-ease) both;
+}
+.gate-content { width: min(100%, 34rem); }
+.gate h1 { font-size: clamp(3.5rem, 10vw, 9.3rem); line-height: 1; margin: 0; }
+.gate-body { margin: 1rem 0; color: var(--ui-muted); max-width: 31ch; font-size: clamp(1rem, 1.5vw, 1.15rem); }
+.gate-btn,
+.app .fighter-actions .fighter-save,
+.app .thud-again {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem;
+  min-height: 48px;
+  padding: .7rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: #e0c8ff;
+  color: #1c1030;
+  font-weight: 800;
+  transition: background .17s var(--ui-ease);
+}
+.gate-btn svg { width: 20px; }
+.gate-btn:hover,
+.app .fighter-actions .fighter-save:hover,
+.app .thud-again:hover { background: #f4e7ff; }
+
+@keyframes wordmark-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes gate-light-in { from { opacity: .18; transform: translateX(-8%); } to { opacity: 1; transform: none; } }
+@keyframes surface-in { from { opacity: .45; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
+
+.app-menu .stage { border-radius: 0; }
+.app-menu .stage > .shell { overflow: hidden; }
+.shell-boot { padding: 1rem; color: var(--ui-muted); }
+.app :is(.stage, .cam-inset) { background-color: #15111f; border-color: var(--ui-border); }
+.app:not(.app-menu, .app-immersive) .stage { border-radius: 17px; }
+.app .screen-head { gap: 8px; }
+.app .screen-head:not(.screen-head-float) { margin-bottom: 4px; }
+.app .screen-title { font-size: clamp(1.05rem, 1.6vw, 1.3rem); color: var(--ui-ink); letter-spacing: -.035em; }
+.app .screen-keys { color: var(--ui-muted); }
+.app .back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 5px 10px 5px 7px;
+  background: #292137;
+  border: 1px solid #ffffff26;
+  color: var(--ui-ink);
+}
+.app .back-btn svg { width: 16px; height: 16px; }
+.app .back-btn:is(:hover, :focus-visible) { color: #fff; background: #423353; border-color: #e2c9ff79; }
+.app.app-immersive {
+  --immersive-head: calc(54px + env(safe-area-inset-top));
+  display: block;
+  gap: 0;
+  padding: 0;
+}
+.app.app-immersive .stage {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+}
+.app-immersive .screen-head-float { padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); background: linear-gradient(#0e0b18e8, #0e0b1855, transparent); }
+.app-boxer.app-wardrobe .stage {
+  background: radial-gradient(ellipse at 53% 30%, #1c142682, #100d19ed 85%), url('/ui/kit.webp') 66% center / cover;
+}
+.wardrobe-preview-hint { color: var(--ui-ink); }
+
+.app .panel { min-width: 0; }
+.app .panel > :is(.fighter-panel, .harness, .thud, .vs, .tpanel, .spanel, .cpanel, .hud) {
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 15px;
+  animation: surface-in .23s var(--ui-ease) both;
+}
+.app .panel :is(.vs-head, .fighter-panel legend, .fighter-notice, .spanel-title, .thud-target-label, .tpanel-score-label, .harness h2, .cpanel-name) {
+  color: var(--ui-ink);
+}
+.app .panel :is(.thud-stat-label, .thud-note-kind, .thud-profile, .vs-detail, .vs-code label, .cpanel-blurb, .muted, .hud-label, .hud-note, .hud-sub, .spanel-advice, .tpanel-note) {
+  color: var(--ui-muted);
+}
+.app .panel :is(.vs-btn, .fighter-reset, .fighter-option, .vs-copy, .harness button, .hud button) {
+  min-height: 42px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: var(--ui-control);
+  color: var(--ui-ink);
+}
+.app .panel :is(.vs-btn, .fighter-reset, .fighter-option, .vs-copy, .harness button, .hud button):hover:not(:disabled) {
+  background: #524268;
+}
+.app .panel .fighter-option:has(input:checked) {
+  background: #54416d;
+  border-color: #e4caff;
+  box-shadow: none;
+  color: #fff;
+}
+.app .panel :is(textarea, select, input[type="text"], input[type="number"]) {
+  background: #171222;
+  border-color: #ffffff37;
+  border-radius: 8px;
+  color: var(--ui-ink);
+}
+.app .panel .thud-notes li { border: 0; border-radius: 8px; background: #33283f; }
+.app .panel .thud-stat { background: #342c45; border-radius: 9px; border-color: transparent; }
+.app .panel .thud-stat[data-emphasis="true"] { background: #4a395f; }
+.app .panel :is(.thud-stat-value, .thud-done-score) { color: #f3e8ff; }
+.app .panel .thud-target { background: linear-gradient(94deg, #171122eb, #1b1026aa), url('/ui/training.webp') 65% 42% / cover; border-color: var(--ui-border); border-radius: 12px; }
+.app .panel .thud-target-bar { background: #e0c8ff; }
+.app .panel .thud-done { background: linear-gradient(95deg, #150f21f0, #21152bce), url('/ui/kit.webp') 70% center / cover; border-color: var(--ui-border); }
+.app .panel .tpanel-score { background: #302641; border-color: var(--ui-border); }
+.app .panel .cpanel-art { border-radius: 10px; }
+.app .panel :is(.punch-label, .log-type, .guide-title, .guide-hand) { color: #e4caff; }
+.app .panel :is(.report, .guide, .dodge, .thud-last, .cpanel-next) { background: #1b1526; border-color: var(--ui-border); }
+.app .vs-chip { background: #171122f4; border-color: var(--ui-border); color: var(--ui-ink); border-radius: 11px; }
+.app .framing-prompt { background: #231724f5; border-color: #e8abd36b; color: #ffd8ee; }
+.app .stage-btn { background: #1b1428f5; border-radius: 13px; border-color: #ffffff3d; color: #fff; }
+.app .stage-btn[aria-pressed="true"] { border-color: #e3c7ff; box-shadow: 0 0 0 1px #e3c7ff; }
+.app .stage-btn-copy > span { color: var(--ui-muted); }
+.app .firstrun {
+  color: var(--ui-ink);
+  background: #21192e;
+  border-color: #ecd8ff42;
+  border-radius: 18px;
+  box-shadow: 0 0 0 100vmax #090711bf, 0 20px 55px #0007;
+}
+.app .firstrun-title { color: var(--ui-ink); }
+.app .firstrun-body { color: var(--ui-muted); }
+.app .firstrun-btn { background: #3a2c4f; border-color: var(--ui-border); color: var(--ui-ink); }
+.app .firstrun-btn:hover { background: #54406e; }
+.app .firstrun-go { background: #e0c8ff; color: #211630; }
+.app .firstrun-go:hover { background: #f4e7ff; }
+.app .impact-good { color: #eee0ff; }
+.app .impact-neutral { color: #f4eef9; }
+.app .impact-bad { color: #ffc3d2; }
+
+html .stagepage {
+  background: linear-gradient(90deg, #120d1af0, #161021d4), url('/ui/venue.webp') center / cover;
+  color: var(--ui-ink);
+}
+.stagepage .stagepage-sub, .stagepage .stagepage-note, .stagepage .stagepage-rank { color: var(--ui-muted); }
+.stagepage .stagepage-board { background: #21192ef0; border-color: var(--ui-border); border-radius: 18px; }
+
+[data-ui-contrast] { --ui-surface: #181320; --ui-muted: #f5eaff; --ui-border: #e8d7ff83; }
+[data-ui-contrast] .app :is(.vs-chip, .framing-prompt, .stage-btn) { background: #160f20; border-color: var(--ui-border); }
+
+@media (max-width: 650px) {
+  .gate { align-content: end; padding: 24px 20px max(30px, env(safe-area-inset-bottom)); background: linear-gradient(0deg, #100d19 1%, #100d19e8 37%, #100d197a 63%, #100d1913 100%), url('/ui/hero-phone.webp') 69% center / cover; }
+  .gate h1 { font-size: clamp(3.3rem, 14vw, 5.5rem); }
+  .app:not(.app-menu, .app-immersive, .app-connect) { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .app:not(.app-menu, .app-immersive, .app-connect) .panel { display: contents; }
+  .app:not(.app-menu, .app-immersive, .app-connect) .panel > .screen-head { grid-row: 1; }
+  .app:not(.app-menu, .app-immersive, .app-connect) > .stage { grid-row: 2; }
+  .app.app-boxer:not(.app-immersive) .stage { height: clamp(260px, 51dvh, 520px); }
+  .app.app-wardrobe .stage { min-height: 250px; }
+  .app .panel :is(.vs-btn, .fighter-option, .vs-copy, .harness button, .hud button) { min-height: 44px; }
+  .app .firstrun { top: 42%; }
+}
+@media (max-height: 470px) and (orientation: landscape) {
+  .app .firstrun { top: 44%; padding: 12px 16px; }
+  .app.app-immersive .cam-inset { width: min(17%, 150px); }
+  .app-immersive .screen-head-float { background: linear-gradient(90deg, #0e0b18b8, transparent 35%, transparent 65%, #0e0b18b8); }
+  .gate { padding-block: 1rem; }
+  .gate h1 { font-size: clamp(2.8rem, 8vh, 5.4rem); }
+}
+@media (max-width: 340px) {
+  .app .screen-keys { display: none; }
+}
+
+[data-ui-reduced] :is(.brand-mark, .gate-light, .firstrun, .framing-prompt, .panel > *) { animation: none !important; }
+[data-ui-reduced] .impact-flash { display: none; }
+[data-ui-reduced] .impact-word { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark, .gate-light, .app .panel > * { animation: none !important; }
+}

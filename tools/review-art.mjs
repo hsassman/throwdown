@@ -1,107 +1,173 @@
-import { chromium } from 'playwright-core';
-import { mkdir, readdir } from 'node:fs/promises';
+// Capture and validate the React UI in the installed Chrome browser.
+// Start Vite or the built preview, then set BASE_URL to its local address.
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { chromium, devices } from "playwright-core";
 
-await mkdir('tools/out', { recursive: true });
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'] });
-try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, permissions: ['camera'] });
-  await page.addInitScript(() => localStorage.setItem('shadowbox.firstRun.v1', 'done'));
+const base = process.env.BASE_URL ?? "http://localhost:4173";
+const out = new URL("./out/ui-review/", import.meta.url);
+await mkdir(out, { recursive: true });
+
+const browser = await chromium.launch({
+  channel: "chrome",
+  args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--enable-unsafe-swiftshader"],
+});
+
+async function shot(page, name, selector) {
+  if (selector) await page.locator(selector).first().waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), name + " overflows");
+  await page.screenshot({ path: fileURLToPath(new URL(name + ".png", out)), animations: "disabled", timeout: 25000 });
+  console.log("Saved " + name);
+}
+
+const heading = (page) => page.getByRole("heading", { name: "Play", exact: true });
+const button = (page, name) => page.getByRole("button", { name, exact: true });
+const settings = (page) => button(page, "Settings").click();
+const mode = (page, id) => page.locator(`[data-mode-id="${id}"]`);
+async function openHome(context, name) {
+  await context.addInitScript(() => localStorage.setItem("shadowbox.firstRun.v1", "done"));
+  const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', message => {
-    if (message.type() === 'error') errors.push(message.text());
-  });
-  await page.goto(process.env.BASE_URL ?? 'http://localhost:4174');
-  await page.screenshot({ path: 'tools/out/art-entry-desktop.png' });
-  await page.locator('.gate-btn').click();
-  await page.locator('.shell-detail-art').waitFor();
-  await page.evaluate(async () => {
-    await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
-    await document.fonts.ready;
-  });
-  await page.screenshot({ path: 'tools/out/art-menu-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: 'tools/out/art-menu-phone.png' });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
-  const overlap = await page.evaluate(() => {
-    const detail = document.querySelector('.shell-detail').getBoundingClientRect();
-    const list = document.querySelector('.shell-list-wrap').getBoundingClientRect();
-    return detail.bottom > list.top;
-  });
-  if (overflow || overlap || errors.length) throw new Error(JSON.stringify({ overflow, overlap, errors }));
-  // Verify every generated runtime image loads, and the decal has clear margins.
-  const artNames = (await readdir('public/art')).filter(file => file.endsWith('.webp')).map(file => file.slice(0, -5));
-  const assets = await page.evaluate(async names => {
-    const result = {};
-    for (const name of names) {
-      const img = new Image(); img.src = `/art/${name}.webp`; await img.decode();
-      result[name] = `${img.width}x${img.height}`;
-      if (name === 'blood' || name === 'crowd-ringside') {
-        const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
-        const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
-        if (ctx.getImageData(0, 0, 1, 1).data[3] !== 0) throw new Error(`${name} corner is opaque`);
-      }
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(base);
+  if (name) await shot(page, name + "-intro", ".gate-btn");
+  await button(page, "Enable camera").click();
+  await heading(page).waitFor();
+  return { page, errors };
+}
+
+async function review(view, name) {
+  const context = await browser.newContext({ ...view, permissions: ["camera"] });
+  context.setDefaultTimeout(25000);
+  try {
+    const { page, errors } = await openHome(context, name);
+    await shot(page, name + "-home");
+    const scroll = page.locator(".shell-list-wrap");
+    assert.ok(await scroll.evaluate((el) => el.scrollHeight > el.clientHeight));
+    assert.equal(await page.locator(".mode-tile-featured").count(), 3);
+    assert.ok(await page.locator(".mode-tile-featured").evaluateAll((tiles) => {
+      const viewport = document.querySelector(".shell-list-wrap").getBoundingClientRect();
+      return tiles.every((tile) => tile.getBoundingClientRect().bottom <= viewport.bottom + 1);
+    }), name + " primary modes are cut off");
+
+    await settings(page);
+    const reduced = page.getByRole("button", { name: /Reduce UI motion/ });
+    const contrast = page.getByRole("button", { name: /High contrast/ });
+    await reduced.click();
+    await contrast.click();
+    assert.equal(await reduced.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator("html").getAttribute("data-ui-contrast"), "");
+    await shot(page, name + "-settings");
+    await button(page, "Close settings").click();
+    assert.equal(await page.locator(".shell-hero-art").evaluate((el) => getComputedStyle(el).animationName), "none");
+    await page.reload();
+    await button(page, "Enable camera").click();
+    assert.equal(await page.locator("html").getAttribute("data-ui-reduced"), "");
+    await settings(page);
+    await reduced.click();
+    await contrast.click();
+    await page.keyboard.press("Escape");
+    await heading(page).waitFor();
+    const keyboardTargets = await page.locator(".shell-row").evaluateAll(
+      (cards) => cards.map((card) => card.dataset.modeId)
+    );
+    if (await mode(page, "tracking").count()) keyboardTargets.push("tracking");
+    for (const target of [...keyboardTargets, "Settings", keyboardTargets[0]]) {
+      await page.keyboard.press("ArrowRight");
+      const active = await page.locator(":focus").evaluate(
+        (element) => element.dataset.modeId ?? element.getAttribute("aria-label")
+      );
+      assert.equal(active, target);
     }
-    return result;
-  }, artNames);
-  console.log('Decoded generated artwork and verified cutout alpha and phone menu fit.', assets);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('.shell-row').filter({ hasText: 'Dummy Work' }).first().click();
-  await page.locator('.thud-target-label').waitFor({ timeout: 45000 });
-  await page.waitForTimeout(1500);
-  await page.screenshot({ path: 'tools/out/art-training-room.png' });
-  await page.locator('.back-btn').click();
-  await page.locator('.shell-row').filter({ hasText: 'Career' }).first().click();
-  await page.locator('.cpanel-art').waitFor();
-  await page.locator('.cpanel-art').evaluate(img => img.decode());
-  await page.screenshot({ path: 'tools/out/art-career.png' });
-  await page.locator('.back-btn').click();
-  await page.locator('.shell-row').filter({ hasText: 'Stages' }).first().click();
-  const venueCards = page.locator('.stage-btn');
-  await venueCards.first().waitFor();
-  await venueCards.locator('img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
-  for (const title of ['The Ring', 'The Cage']) {
-    const card = venueCards.filter({ hasText: title });
-    await card.click();
-    if (await card.getAttribute('aria-pressed') !== 'true') throw new Error(`Venue selection failed: ${title}`);
+
+    if (await mode(page, "local").count()) {
+      await mode(page, "local").click();
+      await page.getByRole("alert").filter({ hasText: "Same-screen play is unavailable." }).waitFor();
+    }
+    await scroll.evaluate((el) => { el.scrollTop = 0; });
+    let hasPhoneCamera = false;
+    const screens = [
+      ["dummy", ".thud:has(.thud-target, .thud-done)", "training"],
+      ["freeplay", ".thud-profile", "free-work", false, true],
+      ["cpu", ".fh-clock", "fight"],
+      ["fps", ".fh-clock", "first-person", false, true],
+      ["fighter", ".fighter-panel", "fighter"],
+      ["stages", ".stage-picker", "venues"],
+      ["career", ".cpanel", "career"],
+      ["lan", ".vs", "network"],
+      ["internet", ".vs", "online"],
+      ["tracking", ".tpanel", "tracking", true],
+      ["phonecam", ".vs", "phone-camera", true, true],
+      ["punchlab", ".harness", "punch-lab", true, true],
+    ];
+    for (const [id, selector, slug, utility, optional] of screens) {
+      const target = mode(page, id);
+      const openTools = utility && (await target.count()) === 0;
+      if (openTools) await settings(page);
+      if (optional && (await target.count()) === 0) {
+        if (openTools) await button(page, "Close settings").click();
+        continue;
+      }
+      if (id === "phonecam") hasPhoneCamera = true;
+      await target.click();
+      if (["fight", "first-person", "training", "free-work", "career", "fighter"].includes(slug)) {
+        await page.locator(".boxer-model canvas").waitFor();
+        await page.waitForTimeout(550);
+      }
+      if (slug === "fight" || slug === "first-person") {
+        assert.ok(await page.locator(".app-immersive .stage").evaluate(
+          (stage) => stage.getBoundingClientRect().height >= innerHeight - 1
+        ), name + " fight stage does not fill the viewport");
+      }
+      await shot(page, name + "-" + slug, selector);
+      await button(page, "Main menu").click();
+      await heading(page).waitFor();
+    }
+    assert.deepEqual(errors, []);
+    return hasPhoneCamera;
+  } finally {
+    await context.close();
   }
-  await page.screenshot({ path: 'tools/out/art-venues-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  const cardsFit = await venueCards.evaluateAll(cards => cards.length === 2 && cards.every(card => {
-    const box = card.getBoundingClientRect();
-    return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
-  }));
-  if (!cardsFit) throw new Error('Venue cards extend past the phone viewport');
-  await page.screenshot({ path: 'tools/out/art-venues-phone.png' });
-  await page.locator('.back-btn').click();
-  const openFighter = async () => {
-    await page.getByRole('menuitem', { name: /Your Fighter/ }).click();
-    await page.getByRole('img', { name: /3D fighter preview/ }).waitFor();
-  };
-  const choose = name => page.locator('.fighter-option').getByText(name, { exact: true }).click();
-  await openFighter();
-  await choose('Deep brown');
-  await choose('Curled crop');
-  await choose('Brass');
-  await choose('Matte leather and ribbed fabric');
-  await page.getByRole('button', { name: 'Save fighter' }).click();
-  await page.getByText('Fighter saved on this device.').waitFor();
-  await page.getByRole('img', { name: /3D fighter preview/ }).waitFor();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('shadowbox.fighter.v1')));
-  if (saved.skin !== 'deep' || saved.hair !== 'crop' || saved.colour !== 'gold' || saved.finish !== 'matte') {
-    throw new Error('Fighter appearance was not saved');
+}
+
+try {
+  const hasPhoneCamera = await review({ viewport: { width: 1440, height: 900 } }, "desktop");
+  await review(devices["iPhone 13"], "phone");
+
+  const firstRun = await browser.newPage({ viewport: { width: 390, height: 744 }, permissions: ["camera"] });
+  await firstRun.goto(base);
+  await button(firstRun, "Enable camera").click();
+  await shot(firstRun, "phone-onboarding", ".firstrun");
+  await firstRun.keyboard.press("Escape");
+  assert.equal(await firstRun.locator(".firstrun").count(), 0);
+  await firstRun.close();
+
+  const narrowPhone = await browser.newContext({ viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true, reducedMotion: "reduce", permissions: ["camera"] });
+  const { page: narrow } = await openHome(narrowPhone);
+  await shot(narrow, "narrow-phone-home");
+  assert.equal(await narrow.locator(".shell-hero-art").evaluate((el) => getComputedStyle(el).animationName), "none");
+  if (hasPhoneCamera) {
+    await narrow.goto(base + "/?sensor");
+    await shot(narrow, "phone-sensor", ".sensor");
   }
-  await page.screenshot({ path: 'tools/out/art-fighter-phone.png', fullPage: true });
-  await choose('Shaved');
-  await page.keyboard.press('Escape');
-  await page.reload();
-  await page.locator('.gate-btn').click();
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openFighter();
-  if (!await page.getByRole('radio', { name: 'Curled crop' }).isChecked()) {
-    throw new Error('Saved hairstyle was not restored after leaving and reloading');
-  }
-  await page.screenshot({ path: 'tools/out/art-fighter-desktop.png' });
-  if (errors.length) throw new Error(JSON.stringify(errors));
-  console.log('Art review passed, including character and venue rendering and phone venue fit.');
-} finally { await browser.close(); }
+  await narrow.goto(base + "/?stage");
+  await shot(narrow, "phone-stage", ".stagepage-qr");
+  await narrowPhone.close();
+
+  const landscape = await browser.newContext({ viewport: { width: 844, height: 390 }, permissions: ["camera"], isMobile: true, hasTouch: true });
+  const { page } = await openHome(landscape);
+  await shot(page, "landscape-home");
+  assert.ok(await mode(page, "cpu").evaluate(
+    (tile) => tile.getBoundingClientRect().bottom <= document.querySelector(".shell-list-wrap").getBoundingClientRect().bottom
+  ));
+  await mode(page, "cpu").tap();
+  await page.locator(".app-immersive .boxer-model canvas").waitFor();
+  const clock = await page.locator(".fh-centre").boundingBox();
+  const meters = await page.locator(".fh-left").boundingBox();
+  assert.ok(clock && meters && clock.y + clock.height < meters.y + 3, "Landscape clock overlaps the meters");
+  await shot(page, "landscape-fight", ".fh-clock");
+  await landscape.close();
+} finally {
+  await browser.close();
+}
