@@ -51,6 +51,25 @@ async function review(view, name) {
       return tiles.every((tile) => tile.getBoundingClientRect().bottom <= viewport.bottom + 1);
     }), name + " primary modes are cut off");
 
+    const card = page.locator(".mode-tile-featured .shell-row").nth(1);
+    await card.evaluate((el) => Promise.all(el.parentElement.getAnimations().map((animation) => animation.finished)));
+    await page.mouse.move(0, 0);
+    const cardGeometry = () => card.evaluate((el) => {
+      const art = el.querySelector(".mode-image");
+      const title = el.querySelector(".shell-row-title");
+      const list = el.closest(".shell-list-wrap");
+      return [el, art, title, list].map((part) => part.getBoundingClientRect().toJSON());
+    });
+    assert.equal(await card.locator(".mode-image").evaluate((art) => getComputedStyle(art).transform), "none");
+    const restingCard = await cardGeometry();
+    if (view.hasTouch) await card.evaluate((el) => el.focus({ preventScroll: true }));
+    else await card.hover();
+    assert.equal(await card.getAttribute("data-focused"), "true");
+    assert.equal(await card.locator(".mode-image").evaluate((art) => (
+      getComputedStyle(art).transform === "none" && art.getAnimations().length === 0
+    )), true);
+    assert.deepEqual(await cardGeometry(), restingCard, name + " card moved when highlighted");
+
     await settings(page);
     const reduced = page.getByRole("button", { name: /Reduce UI motion/ });
     const contrast = page.getByRole("button", { name: /High contrast/ });
