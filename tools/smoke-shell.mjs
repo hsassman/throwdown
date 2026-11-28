@@ -94,10 +94,9 @@ try {
   );
   const rows = page.locator(".shell-row");
   const rowCount = await rows.count();
-  check("menu shell renders rows", rowCount >= 8, `${rowCount} rows`);
-
-  const locked = page.locator('.shell-row[data-locked="true"]');
-  check("locked rows are marked", (await locked.getByText("Unavailable").count()) > 0);
+  // Eight modes: seven cards and Camera Check as an icon in the header.
+  check("menu shell renders rows", rowCount >= 7, `${rowCount} rows`);
+  check("nothing on the menu is locked", (await page.locator('.shell-row[data-locked="true"]').count()) === 0);
 
   // The focused row and the detail panel must never disagree. This is the
   // classic two-sources-of-truth bug (a hoverIndex for the mouse, a focusIndex
@@ -171,12 +170,6 @@ try {
   await page.screenshot({ path: `${OUT}/shell-menu.png` });
   step(`saved ${OUT}/shell-menu.png`);
 
-  // --- Locked row explains itself rather than doing nothing ---
-  await locked.first().click();
-  await page.waitForTimeout(250);
-  const reject = await page.locator(".shell-detail-reject").count();
-  check("pressing a locked row explains why", reject === 1);
-
   // --- The camera must survive navigation ---
   //
   // The regression test for this file. The camera is attached to the <video>
@@ -231,7 +224,7 @@ try {
   check("camera is PLAYING in the menu", camMenuLive.time > camMenu.time, JSON.stringify(camMenuLive));
 
   // --- Dummy training ---
-  const dummyRow = rows.filter({ hasText: "Dummy Work" }).first();
+  const dummyRow = rows.filter({ hasText: "Training" }).first();
   await dummyRow.click();
   await page.waitForSelector(".thud", { timeout: 45000 });
   check("training HUD mounts", true);
@@ -264,8 +257,8 @@ try {
   // And the drill must keep moving. One target stuck on screen forever would
   // pass the check above and still be completely broken.
   const presentedAt = async () => {
-    const line = (await page.locator(".thud-line").textContent()) ?? "";
-    return Number(line.match(/\d+\/(\d+)/)?.[1] ?? 0);
+    const text = (await page.locator(".thud").textContent()) ?? "";
+    return Number(text.match(/\d+\/(\d+) landed/)?.[1] ?? 0);
   };
   //
   // Polled with a generous budget rather than waiting one target-cycle. In
@@ -322,8 +315,8 @@ try {
   // something. It is also the only place the auto-tuner is auditable: it
   // changes how the game responds without being asked, so it must be able to
   // say what it changed.
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await rows.filter({ hasText: "Tracking" }).first().click();
+  // The one camera tool is an icon in the menu header.
+  await page.getByRole("button", { name: "Camera Check", exact: true }).click();
   await page.waitForSelector(".tpanel", { timeout: 45000 });
   const tp = await page.evaluate(() => ({
     score: document.querySelector(".tpanel-score-value")?.textContent,
@@ -371,12 +364,10 @@ try {
   await page.locator(".back-btn").click();
   await page.waitForSelector(".shell", { timeout: 45000 });
 
-  // --- Free work ---
-  await rows.filter({ hasText: "Free Work" }).first().click();
+  // --- Training again ---
+  await rows.filter({ hasText: "Training" }).first().click();
   await page.waitForSelector(".thud", { timeout: 45000 });
   await page.waitForTimeout(1500);
-  const freeLit = await page.locator(".thud-target-label").count();
-  check("free work shows no scored target", freeLit === 0);
 
   // One visit to the dummy is one round. `stop` is reachable from several
   // places - the screen changing, the round ending, the mode being disabled -
@@ -397,7 +388,7 @@ try {
   // than a stand-in: the CPU circles, closes range and throws whether or not a
   // player is there. What cannot be checked here is the player landing a
   // punch, which needs a body in frame.
-  await rows.filter({ hasText: "Fight the CPU" }).first().click();
+  await page.locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: /^Fight$/ }) }).first().click();
   await page.waitForSelector(".fight-hud", { timeout: 45000 });
 
   const firstClock = await page.locator(".fh-clock").textContent();
@@ -507,6 +498,11 @@ try {
   // It also exercises the camera director's handover: the director holds the
   // camera during a cut and gives it back afterwards, and a handover that
   // failed to re-enable the controls would leave a drag doing nothing at all.
+  // First person drives the camera from the eyes, so orbiting is a
+  // third-person feature: switch with V, check, and switch back.
+  await page.keyboard.press("v");
+  await page.waitForTimeout(900);
+  const thirdShot = decodePng(await page.screenshot());
   const stageBox = await page.locator("canvas").first().boundingBox();
   const ox = stageBox.x + stageBox.width / 2;
   const oy = stageBox.y + stageBox.height / 2;
@@ -516,13 +512,14 @@ try {
   await page.mouse.up();
   await page.waitForTimeout(700);
   const orbited = decodePng(await page.screenshot());
-  const moved = differenceRatio(shot, orbited);
+  const moved = differenceRatio(thirdShot, orbited);
   check(
     "the fight camera orbits with the mouse",
     moved > 0.15,
     `${(moved * 100).toFixed(1)}% of the frame changed`
   );
   await page.screenshot({ path: `${OUT}/shell-fight-orbit.png` });
+  await page.keyboard.press("v");
   step(`saved ${OUT}/shell-fight-orbit.png`);
 
   await page.locator(".back-btn").click();
@@ -566,7 +563,7 @@ try {
     await guest.waitForSelector(".shell", { timeout: 45000 });
 
     const openLan = async (pg) => {
-      await pg.locator(".shell-row").filter({ hasText: "Same Network" }).first().click();
+      await pg.locator(".shell-row").filter({ hasText: "Play a Friend" }).first().click();
       await pg.waitForSelector(".vs", { timeout: 45000 });
     };
     await openLan(page);
@@ -698,7 +695,7 @@ try {
   await page.waitForSelector(".shell", { timeout: 45000 });
 
   // --- Stages ---
-  await rows.filter({ hasText: "Stages" }).first().click();
+  await rows.filter({ hasText: "Venue" }).first().click();
   await page.waitForSelector(".arena-view canvas", { timeout: 45000 });
   check(
     "both venues are offered",
@@ -736,12 +733,10 @@ try {
 
   let entered = 0;
   let escaped = 0;
-  const cameraTools = ["Tracking", "Phone Camera", "Punch Lab"];
+  const cameraTools = ["Camera Check"];
   for (const title of [...playable, ...cameraTools]) {
-    if (cameraTools.includes(title)) {
-      await page.getByRole("button", { name: "Settings", exact: true }).click();
-    }
-    await page.locator(".shell-row").filter({ hasText: title }).first().click();
+    if (cameraTools.includes(title)) await page.getByRole("button", { name: title, exact: true }).click();
+    else await page.locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: new RegExp(`^${title}$`) }) }).first().click();
     // Every mode puts a back button on screen, wherever it sits.
     await page.waitForSelector(".back-btn", { timeout: 30000 });
     entered += 1;
