@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LinkStatus } from "../net/peerLink";
 import type { SessionRole } from "../net/useSession";
 import "./versusPanel.css";
@@ -46,31 +46,31 @@ const STATE_LABEL: Record<LinkStatus["state"], string> = {
  * the moment most people would give up on the whole feature.
  */
 function CodeBox({ code, label }: { code: string; label: string }) {
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState("");
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => setStatus(""), [code]);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setStatus("Code copied.");
+    } catch {
+      codeRef.current?.focus();
+      codeRef.current?.select();
+      setStatus("Code selected. Copy it from your device’s menu.");
+    }
+  }
+
   return (
     <div className="vs-code">
       <label>
         {label}
-        <textarea readOnly value={code} rows={3} spellCheck={false} />
+        <textarea ref={codeRef} readOnly value={code} rows={3} spellCheck={false} />
       </label>
-      <button
-        type="button"
-        className="vs-copy"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(code);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          } catch {
-            // Clipboard access can be refused — an insecure origin, or a
-            // browser that wants a fresh gesture. The textarea is right there
-            // and selectable, so this is a missing convenience, not a dead end.
-            setCopied(false);
-          }
-        }}
-      >
-        {copied ? "Copied" : "Copy code"}
-      </button>
+      <div className="vs-copy-actions">
+        <button type="button" className="vs-copy" onClick={copyCode}>Copy code</button>
+        <span role="status">{status}</span>
+      </div>
     </div>
   );
 }
@@ -114,13 +114,14 @@ export function VersusPanel({
   onLeave,
 }: Props) {
   const [theirCode, setTheirCode] = useState("");
+  useEffect(() => setTheirCode(""), [role]);
   const connected = status.state === "open";
 
   return (
-    <section className="vs" aria-label="Same-network fight">
+    <section className="vs vs-friend" aria-label="Same-network fight">
       <header className="vs-head">
         <span className={`vs-dot vs-${status.state}`} aria-hidden="true" />
-        <strong>{STATE_LABEL[status.state]}</strong>
+        <strong role="status">{STATE_LABEL[status.state]}</strong>
         {connected && status.latency !== null && (
           <span className="vs-ping">{status.latency} ms</span>
         )}
@@ -139,37 +140,30 @@ export function VersusPanel({
         </>
       ) : !role ? (
         <>
-          <p className="vs-detail">
-            Host to get a code. If your friend sent you a code, paste it below to join.
-          </p>
-          <div className="vs-choice">
+          <button type="button" className="vs-btn vs-primary" onClick={onHost} disabled={busy}>Host a fight</button>
+          <p className="vs-detail">Start a fight and share the code with your friend.</p>
+          <div className="vs-join">
+            <label className="vs-field">
+              Their host code
+              <textarea
+                value={theirCode}
+                onChange={(e) => setTheirCode(e.target.value)}
+                rows={3}
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                placeholder="Paste your friend’s code"
+              />
+            </label>
             <button
               type="button"
-              className="vs-btn"
-              onClick={onHost}
-              disabled={busy}
-            >
-              Host a fight
-            </button>
-            <button
-              type="button"
-              className="vs-btn"
+              className="vs-btn vs-primary"
               onClick={() => onJoin(theirCode)}
               disabled={busy || theirCode.trim().length < 20}
             >
               Join with a code
             </button>
           </div>
-          <label className="vs-field">
-            Their host code
-            <textarea
-              value={theirCode}
-              onChange={(e) => setTheirCode(e.target.value)}
-              rows={3}
-              spellCheck={false}
-              placeholder="Paste the code your opponent sent you"
-            />
-          </label>
         </>
       ) : role === "host" ? (
         <>
@@ -183,12 +177,14 @@ export function VersusPanel({
               onChange={(e) => setTheirCode(e.target.value)}
               rows={3}
               spellCheck={false}
-              placeholder="Paste the reply they send back"
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder="Paste the reply code"
             />
           </label>
           <button
             type="button"
-            className="vs-btn"
+            className="vs-btn vs-primary"
             onClick={() => onComplete(theirCode)}
             disabled={busy || theirCode.trim().length < 20}
           >

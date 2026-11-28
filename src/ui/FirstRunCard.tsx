@@ -1,16 +1,22 @@
 ﻿import { useEffect, useRef } from "react";
 import { FIRST_RUN_STEPS, FIRST_RUN_TEXT } from "../onboarding/firstRun";
 import type { FirstRunState } from "../onboarding/useFirstRun";
+import { UiIcon } from "./BrandMark";
 import "./firstRunCard.css";
 
 const SETUP_LABELS = ["Frame", "Guard", "Punches"];
 
-export function FirstRunCard({ state, onDone }: { state: FirstRunState; onDone: () => void }) {
+export function FirstRunCard({ state, onDone, preview }: {
+  state: FirstRunState;
+  onDone: () => void;
+  preview?: { visible: boolean; onToggle: () => void };
+}) {
   const { step, hands } = state;
   const text = FIRST_RUN_TEXT[step];
   const ready = step === "ready";
   const index = FIRST_RUN_STEPS.indexOf(step);
   const actionRef = useRef<HTMLButtonElement>(null);
+  const previewRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     actionRef.current?.focus({ preventScroll: true });
@@ -23,8 +29,9 @@ export function FirstRunCard({ state, onDone }: { state: FirstRunState; onDone: 
         onDone();
       }
       if (!ready && event.key === "Tab") {
+        const next = document.activeElement === actionRef.current ? previewRef.current : actionRef.current;
         event.preventDefault();
-        actionRef.current?.focus();
+        (next ?? actionRef.current)?.focus();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -59,9 +66,17 @@ export function FirstRunCard({ state, onDone }: { state: FirstRunState; onDone: 
           ))}
         </div>
       )}
-      <button ref={actionRef} type="button" className={`firstrun-btn${ready ? " firstrun-go" : ""}`} onClick={onDone}>
-        {ready ? "Go to the menu" : <>Skip setup <kbd>Esc</kbd></>}
-      </button>
+      <div className="firstrun-actions">
+        {preview && (
+          <button ref={previewRef} type="button" className="firstrun-btn firstrun-preview"
+            aria-label="Camera preview" aria-pressed={preview.visible} onClick={preview.onToggle}>
+            <UiIcon name="camera" /> {preview.visible ? "Hide preview" : "Show preview"}
+          </button>
+        )}
+        <button ref={actionRef} type="button" className={`firstrun-btn${ready ? " firstrun-go" : ""}`} onClick={onDone}>
+          {ready ? "Go to the menu" : <>Skip setup <kbd>Esc</kbd></>}
+        </button>
+      </div>
     </section>
   );
 }
