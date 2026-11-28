@@ -27,7 +27,7 @@
 .fh-fighter-label { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-bottom: 5px; }
 .fh-right .fh-fighter-label { flex-direction: row-reverse; }
 .fh-name { font-size: clamp(.75rem, 1.1vw, 1rem); font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fh-health-value { color: #ebe0fc; font-size: clamp(.68rem, 1.1vw, .91rem); font-weight: 670; font-variant-numeric: tabular-nums; }
+.fh-health-value { color: #ebe0fc; font-size: clamp(.72rem, 1.1vw, .91rem); font-weight: 670; font-variant-numeric: tabular-nums; }
 .fh-health, .fh-stamina { width: 100%; overflow: hidden; background: #ffffff2b; border-radius: 4px; }
 .fh-health { height: 10px; }
 .fh-stamina { height: 5px; width: 74%; margin-top: 5px; }
@@ -40,7 +40,7 @@
 .fh-fighter[data-critical="true"] .fh-health > span { background: var(--ui-danger); }
 
 .fh-centre { min-width: clamp(55px, 9vw, 106px); text-align: center; padding: 6px clamp(6px, 1.4vw, 18px) 8px; color: #ffffff; }
-.fh-round { white-space: nowrap; font-size: clamp(.65rem, .9vw, .82rem); font-weight: 750; color: #e8dbff; }
+.fh-round { white-space: nowrap; font-size: clamp(.72rem, .9vw, .82rem); font-weight: 750; color: #e8dbff; }
 .fh-clock { font-size: clamp(1.22rem, 3vw, 2.2rem); line-height: 1.04; font-weight: 850; font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
 .fh-clock.is-low { color: var(--ui-danger); }
 .fh-phase { color: #e1c9ff; font-size: .76rem; font-weight: 750; }

@@ -267,3 +267,9 @@ html .stagepage {
 @media (prefers-reduced-motion: reduce) {
   .brand-mark, .gate-light, .app .panel > * { animation: none !important; }
 }
+
+/* Floor for touch: every control at least 44 px tall (HIG, Buttons). */
+.app .back-btn,
+.app .panel button,
+.app .panel .toggle { min-height: 44px; }
+.app .panel .toggle { display: flex; align-items: center; gap: 8px; }

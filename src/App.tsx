@@ -585,7 +585,7 @@ export default function App() {
             mirrored
             showRaw={showRaw}
           />
-          {camClass.startsWith("cam-inset") && (
+          {camClass !== "cam-hidden" && (
             <button
               type="button"
               className="cam-toggle"
@@ -670,7 +670,7 @@ export default function App() {
               their own body in two seconds - and a channel that is silently
               dead otherwise looks identical to one they are not moving
               enough to trigger. */}
-          {stage3d && boxerDebug && <BodyChannels body={boxerDebug.body} />}
+          {showDiagnostics && stage3d && boxerDebug && <BodyChannels body={boxerDebug.body} />}
 
           {(showDiagnostics || screen === "tracking") && (
             <>
