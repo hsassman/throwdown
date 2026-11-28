@@ -55,7 +55,8 @@ On a phone the game runs edge to edge:
 - **A CPU opponent that boxes.** Separate attack, footwork and head-movement
   state machines, a visible wind-up before every punch, punches thrown with the
   shoulders, slips that beat straights but not hooks.
-- **Two-player fights.** Online matchmaking or a private code. The guest's
+- **Two-player fights.** Online matchmaking, or a friend joins with a
+  four-character code or by scanning a QR code. The guest's
   defence counts, both ends see the same result, and a rematch keeps the link.
 - **Career and training.** Four-opponent career, a learning target drill that
   separates camera setup error from technique.

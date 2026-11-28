@@ -15,6 +15,8 @@ interface Props {
   preferences: UiPreferences;
   onPreference: (key: keyof UiPreferences) => void;
   onLaunch: (id: string) => void;
+  /** Opens on the camera choice for this mode, as a scanned join link does. */
+  pickFor?: string | null;
 }
 
 const FEATURED_IDS = new Set(["dummy", "cpu", "internet"]);
@@ -40,16 +42,18 @@ const CARD_ART: Record<string, string> = {
   career: "career", fighter: "kit", stages: "venue", lan: "network",
 };
 
-export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused = false, preferences, onPreference, onLaunch }: Props) {
+export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraProblem, pointerPaused = false, preferences, onPreference, onLaunch, pickFor = null }: Props) {
+  const lastView = preferences.thirdPerson ? VIEW_THIRD : VIEW_FIRST;
+  const startPick = pickFor && VIEW_MODES.has(pickFor) ? pickFor : null;
   const [settings, setSettings] = useState(false);
-  const [focusId, setFocusId] = useState(PLAY_ORDER[0]);
+  const [focusId, setFocusId] = useState(startPick ? lastView : PLAY_ORDER[0]);
   const [rejected, setRejected] = useState<string | null>(null);
   /** The fight mode waiting on a camera choice. */
-  const [pickView, setPickView] = useState<string | null>(null);
+  const [pickView, setPickView] = useState<string | null>(startPick);
   const targets = useRef(new Map<string, HTMLElement>());
   const scrollRef = useRef<HTMLDivElement>(null);
   const drawerFocus = useRef(false);
-  const viewFocus = useRef<string | null>(null);
+  const viewFocus = useRef<string | null>(startPick ? lastView : null);
 
   const activate = useCallback((id: string) => {
     if (pickView) {
@@ -83,14 +87,13 @@ export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraP
       return;
     }
     if (VIEW_MODES.has(id)) {
-      const view = preferences.thirdPerson ? VIEW_THIRD : VIEW_FIRST;
-      viewFocus.current = view;
-      setFocusId(view);
+      viewFocus.current = lastView;
+      setFocusId(lastView);
       setPickView(id);
       return;
     }
     onLaunch(id);
-  }, [onLaunch, onPreference, pickView, preferences.thirdPerson, settings]);
+  }, [lastView, onLaunch, onPreference, pickView, preferences.thirdPerson, settings]);
 
   const camera = useCameraMenu({
     poseRef,

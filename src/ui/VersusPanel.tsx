@@ -3,19 +3,10 @@ import type { LinkStatus } from "../net/peerLink";
 import type { SessionRole } from "../net/useSession";
 import "./versusPanel.css";
 
-// Setting up a fight against a person.
-// WHY THE PLAYERS COPY A CODE
-//
-// Shadow Box is a static build with no server behind it. WebRTC connects two
-// browsers directly, and the only thing it genuinely needs from the outside
-// world is one blob of text handed from one end to the other, once. So the
-// players do that themselves, through whatever they already use to talk to
-// each other.
-//
-// It is clumsy for thirty seconds and then it is a direct connection with
-// nobody in the middle. The alternative is a signalling server - the same
-// thirty seconds of clumsiness moved into infrastructure somebody has to run,
-// pay for and keep up.
+// Play a Friend without the server: the fallback when no server with rooms is
+// reachable (see RoomPanel.tsx for the usual way in). WebRTC needs one blob of
+// text handed from each end to the other, once, so the players pass the codes
+// themselves through whatever they already use to talk to each other.
 
 interface Props {
   status: LinkStatus;

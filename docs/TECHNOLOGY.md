@@ -197,8 +197,16 @@ the measurements behind each decision.
 ## 9. Multiplayer
 
 - **Transport.** WebRTC data channels, peer to peer. Offer and answer travel
-  either through codes the players paste to each other (Play a Friend) or
-  through the SignalR matchmaking hub (Online).
+  through the SignalR matchmaking hub, which pairs players from the queue
+  (Online) or by room code (Play a Friend). With no server that has rooms
+  (`/health` reports `rooms: true`), Play a Friend falls back to codes the
+  players paste to each other.
+- **Rooms.** `HostRoom` returns a four-character code from an alphabet without
+  I, O, 0 or 1; `JoinRoom` pairs the caller with that room's host once. The
+  creator is the offerer, so it hosts the fight. The QR code (qrcode-generator,
+  loaded only when hosting) encodes `?join=<code>`, which goes through the
+  camera gate and the view choice and then joins. A connection is cut off after
+  ten wrong codes.
 - **Wire format** (`net/protocol.ts`, version 4). Pose frames are binary: a tag,
   a float64 timestamp and four float32s per landmark, about 340 bytes at pose
   rate (about 5 KB/s). Everything else is small JSON: hello and ping, strike,
@@ -216,7 +224,7 @@ the measurements behind each decision.
 
 | Piece | .NET feature |
 | --- | --- |
-| Matchmaking | SignalR hub over WebSockets: `JoinQueue`, `Matched`, `OpponentLeft`. |
+| Matchmaking | SignalR hub over WebSockets: `JoinQueue`, `HostRoom`, `JoinRoom`, `Matched`, `OpponentLeft`. |
 | Signalling relay | `RelayOffer`, `RelayAnswer`, `RelayIceCandidate`, only between a matched pair. |
 | HTTP API | Minimal APIs: `/health`, `/ice-servers`, `/leaderboard`. |
 | Scoreboard | `ILeaderboardStore` with Postgres (Npgsql, Supabase) or in-memory implementations, chosen by dependency injection. |

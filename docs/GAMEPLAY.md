@@ -11,7 +11,7 @@ slips, ducks, your guard and your footwork.
 | **Fight** | Three three-minute rounds against a CPU opponent, in first person. |
 | **Career** | Four opponents in order. Win to advance; a draw or a loss means a rematch. Your record is saved on the device. |
 | **Online** | Matchmaking: the server pairs you with the next player in the queue, then the fight runs peer to peer. |
-| **Play a Friend** | A private match. The host sends a code, the guest pastes it and sends a reply code back. Works best on the same network. |
+| **Play a Friend** | A private match. The host gets a four-character code and a QR code; the friend types the code or scans the QR with their phone's camera. |
 | **Training** | A dummy with ten lit target zones, scored on accuracy, power and timing. |
 | **Your Fighter** | Skin tone, hairstyle, kit colour, finish, boot laces and soles, glove wraps. Previewed live in 3D and saved for every fight. |
 | **Venue** | The cage (a regulation octagon, 30 feet across the flats) or the ring (20 feet inside the ropes). |
@@ -97,6 +97,18 @@ Every on-screen control also works with a tap or a click.
 ## Two players
 
 ![Two-player fight](images/two-player.webp)
+
+**Play a Friend.** Press **Host a fight** and the screen shows a code such as
+`K7P2` and a QR code. Your friend either scans the QR code with their phone's
+camera, which opens the game straight into your fight after the camera
+permission and the view choice, or opens ShadowBox, chooses Play a Friend and
+types the code. The code works once and closes if you cancel or leave. Same
+Wi-Fi always works; across different networks most connections work, but some
+mobile networks need a relay server (TURN) that is not set up yet. If the
+server is unreachable, or does not support rooms yet, Play a Friend falls back
+to exchanging longer connection codes by hand.
+
+**Online.** **Find a match** pairs you with the next player in the queue.
 
 The host's browser runs the fight. Each player's own camera measures their own
 punches and their own defence, so the guest sends its punches and its guard and

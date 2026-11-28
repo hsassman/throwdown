@@ -65,7 +65,8 @@ app.UseCors();
 app.UseRateLimiter();
 
 app.MapGet("/", () => "Hello World!");
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// `rooms` tells the game this server can pair friends by code (HostRoom/JoinRoom).
+app.MapGet("/health", () => Results.Ok(new { status = "ok", rooms = true }));
 app.MapHub<MatchmakingHub>("/hubs/matchmaking");
 
 app.MapGet("/ice-servers", (IOptions<IceServerOptions> options) =>

@@ -13,6 +13,8 @@ public class HealthTests
         var response = await client.GetAsync("/health");
 
         Assert.True(response.IsSuccessStatusCode);
-        Assert.Contains("ok", await response.Content.ReadAsStringAsync());
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("ok", body);
+        Assert.Contains("\"rooms\":true", body);
     }
 }

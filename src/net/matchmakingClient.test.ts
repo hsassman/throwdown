@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { MatchmakingClient, type HubConnectionLike } from "./matchmakingClient";
+import { MatchmakingClient, explain, type HubConnectionLike } from "./matchmakingClient";
 
 // A fake good enough to drive the state machine: it records what was invoked
 // and lets a test fire the handler MatchmakingClient registered for a given
@@ -21,9 +21,11 @@ class FakeConnection implements HubConnectionLike {
     this.stopCalled = true;
   }
 
+  replies = new Map<string, unknown>();
+
   async invoke<T = void>(methodName: string, ...args: unknown[]): Promise<T> {
     this.invoked.push({ method: methodName, args });
-    return undefined as T;
+    return this.replies.get(methodName) as T;
   }
 
   on(methodName: string, callback: (...args: unknown[]) => void): void {
@@ -48,6 +50,33 @@ class FakeConnection implements HubConnectionLike {
 }
 
 describe("MatchmakingClient", () => {
+  it("hosts a room and waits for the friend", async () => {
+    const conn = new FakeConnection();
+    conn.replies.set("HostRoom", "K7P2");
+    const client = new MatchmakingClient(conn);
+
+    expect(await client.hostRoom()).toBe("K7P2");
+    expect(conn.invoked).toEqual([{ method: "HostRoom", args: [] }]);
+    expect(client.state).toBe("waiting");
+  });
+
+  it("joins a room by code and reports a wrong one", async () => {
+    const conn = new FakeConnection();
+    conn.replies.set("JoinRoom", false);
+    const client = new MatchmakingClient(conn);
+
+    expect(await client.joinRoom("ZZZZ")).toBe(false);
+    expect(conn.invoked).toEqual([{ method: "JoinRoom", args: ["ZZZZ"] }]);
+  });
+
+  it("puts server and network failures in plain words", () => {
+    expect(explain(new Error("Failed to invoke 'HostRoom' due to an error on the server. HubException: Method does not exist.")))
+      .toMatch(/updating/);
+    expect(explain(new Error("Failed to invoke 'JoinRoom' due to an error on the server. HubException: Too many wrong codes. Reload and try again.")))
+      .toBe("Too many wrong codes. Reload and try again.");
+    expect(explain(new Error("Failed to complete negotiation with the server: TypeError: Failed to fetch"))).toMatch(/reach the fight server/);
+  });
+
   it("starts idle", () => {
     const client = new MatchmakingClient(new FakeConnection());
     expect(client.state).toBe("idle");

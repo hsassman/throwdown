@@ -1,7 +1,7 @@
 // Drives the MatchmakingHub (server/Throwdown.Server/MatchmakingHub.cs): joins
-// the queue, reports when another player is found, and relays the two SDP
-// codes PeerLink produces. It does not touch WebRTC at all - see
-// useOnlineSession.ts for where this and PeerLink meet.
+// the queue or a friend's room, reports when the other player is found, and
+// relays the two SDP codes PeerLink produces. It does not touch WebRTC at all -
+// see useOnlineSession.ts for where this and PeerLink meet.
 
 export type MatchmakingState =
   | "idle"
@@ -97,14 +97,19 @@ export class MatchmakingClient {
   }
 
   async findMatch(): Promise<void> {
-    this.set("connecting");
-    try {
-      await this.connection.start();
-      await this.connection.invoke("JoinQueue");
-    } catch (err) {
-      this.set("failed", err instanceof Error ? err.message : "Could not connect.");
-      throw err;
-    }
+    await this.enter(() => this.connection.invoke("JoinQueue"));
+  }
+
+  /** Opens a room for a friend to join and returns its code. */
+  async hostRoom(): Promise<string> {
+    const code = await this.enter(() => this.connection.invoke<string>("HostRoom"));
+    this.set("waiting");
+    return code;
+  }
+
+  /** Joins a friend's room. False when no room has that code. */
+  async joinRoom(code: string): Promise<boolean> {
+    return this.enter(() => this.connection.invoke<boolean>("JoinRoom", code));
   }
 
   async relayOffer(targetConnectionId: string, sdp: string): Promise<void> {
@@ -120,8 +125,31 @@ export class MatchmakingClient {
     this.set("closed");
   }
 
+  private async enter<T>(step: () => Promise<T>): Promise<T> {
+    this.set("connecting");
+    try {
+      await this.connection.start();
+      return await step();
+    } catch (err) {
+      this.set("failed", explain(err));
+      throw err;
+    }
+  }
+
   private set(state: MatchmakingState, detail: string | null = null): void {
     this.status = { state, detail };
     this.statusCb?.(this.status);
   }
+}
+
+/** A failure in words for the player rather than the SignalR client's. */
+export function explain(err: unknown): string {
+  const message = err instanceof Error ? err.message : "";
+  const fromServer = message.match(/HubException: (.*)$/s)?.[1];
+  if (fromServer === "Method does not exist.") return "The fight server is updating. Try again in a minute.";
+  if (fromServer) return fromServer;
+  if (/negotiat|fetch|network|WebSocket/i.test(message)) {
+    return "Couldn't reach the fight server. Check your connection and try again.";
+  }
+  return message || "Could not connect.";
 }

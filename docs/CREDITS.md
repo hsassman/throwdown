@@ -37,7 +37,7 @@ Attribution strings as Openverse gives them:
 | [React](https://react.dev) | MIT |
 | [React Bits](https://github.com/DavidHDev/react-bits) Spotlight Card (vendored in `src/ui/react-bits`) | MIT + Commons Clause, see `public/ui/react-bits-LICENSE.txt` |
 | [Microsoft SignalR client](https://github.com/dotnet/aspnetcore) | MIT |
-| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | MIT |
+| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (Play a Friend and stage QR codes) | MIT |
 | Meta MHR body model (the fighter mesh) | Apache 2.0 |
 
 Generated art (menu cards, textures, crowd) was made for this project; see `docs/GENERATED-ART.md`.

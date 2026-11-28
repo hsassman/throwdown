@@ -1,5 +1,5 @@
-// End-to-end test of online play: the real .NET matchmaking server and two
-// headless browsers, each pressing "Find a match".
+// End-to-end test of online play: the real .NET matchmaking server and
+// headless browsers pressing "Find a match", and Play a Friend by room code.
 
 import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
@@ -72,7 +72,7 @@ const errors = [];
 // could not reach each other" is otherwise invisible in a CI log.
 const rtcLog = [];
 const players = [];
-async function openPlayer(label) {
+async function openPlayer(label, params = "mode=internet") {
   const context = await browser.newContext({
     permissions: WITH_CAMERA ? ["camera"] : [],
     viewport: { width: 1280, height: 800 },
@@ -98,14 +98,29 @@ async function openPlayer(label) {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(`${label} console: ${m.text()}`);
   });
-  // Straight to the Online screen by URL, so a menu redesign cannot break this test.
-  await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0&mode=internet", { waitUntil: "networkidle" });
+  // Straight to the screen by URL, so a menu redesign cannot break this test.
+  await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0&" + params, { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
+  // A join link stops at the camera choice first.
+  if (params.startsWith("join=")) await page.locator('[data-view="view-first"]').click({ timeout: TIMEOUT });
   await page.waitForSelector(".vs", { timeout: TIMEOUT });
   return { page, context };
 }
 
 const findMatch = (page) => page.locator(".vs-btn", { hasText: "Find a match" }).click();
+const hostRoom = async (page) => {
+  await page.locator(".vs-btn", { hasText: "Host a fight" }).click();
+  await page.waitForFunction(() => /^[A-HJ-NP-Z2-9]{4}$/.test(document.querySelector(".room-code")?.textContent ?? ""), undefined, { timeout: TIMEOUT });
+  return page.locator(".room-code").textContent();
+};
+const joinRoom = async (page, code) => {
+  await page.locator(".room-input").fill(code);
+  await page.locator(".vs-btn", { hasText: /^Join$/ }).click();
+};
+const roomSays = (page, pattern) =>
+  page.waitForFunction((source) => [...document.querySelectorAll(".vs-room .vs-detail")]
+    .map((el) => el.textContent ?? "").find((text) => new RegExp(source).test(text)) ?? "", pattern.source, { timeout: TIMEOUT })
+    .then((h) => h.jsonValue()).catch(() => "(never said)");
 const headline = (page) => page.locator(".vs-head strong").first().textContent();
 const connected = async (page) => {
   await page.waitForSelector(".vs-chip .vs-dot.vs-open", { timeout: TIMEOUT });
@@ -196,6 +211,43 @@ try {
   const dHead = await headline(d.page);
   check("a player who left the queue is not matched", /Finding an opponent/.test(dHead ?? ""), dHead ?? "");
   await d.context.close();
+
+  // --- Play a Friend: the host gets a code, the friend types it ---------------
+  const host = await openPlayer("H", "mode=lan");
+  const code = await hostRoom(host.page);
+  check("hosting shows a four-character code", /^[A-HJ-NP-Z2-9]{4}$/.test(code ?? ""), code ?? "");
+  check("and a QR code", await host.page.waitForSelector(".room-qr svg path", { timeout: TIMEOUT }).then(() => true, () => false));
+  const friend = await openPlayer("F", "mode=lan");
+  await joinRoom(friend.page, code.toLowerCase());
+  const roleHost = await connected(host.page);
+  const roleFriend = await connected(friend.page);
+  check("the friend joins with the code, and whoever hosted hosts", roleHost === "Host" && roleFriend === "Guest", `${roleHost} / ${roleFriend}`);
+  const roomClocks = [await clockMoves(host.page).catch((e) => `stuck (${e.message.split("\n")[0]})`),
+    await clockMoves(friend.page).catch((e) => `stuck (${e.message.split("\n")[0]})`)];
+  check("the friends' fight clock runs on both ends", roomClocks.every((c) => !c.startsWith("stuck")), roomClocks.join(" / "));
+  await host.page.screenshot({ path: `${OUT}/room-host.png` });
+  await friend.context.close();
+  await host.context.close();
+
+  // --- The QR code: a link that joins the room --------------------------------
+  const qrHost = await openPlayer("Q", "mode=lan");
+  const qrCode = await hostRoom(qrHost.page);
+  const scanner = await openPlayer("S", `join=${qrCode}`);
+  const qrRoles = [await connected(qrHost.page), await connected(scanner.page)];
+  check("opening the QR code's link joins the fight", qrRoles.join("/") === "Host/Guest", qrRoles.join(" / "));
+  await scanner.context.close();
+  await qrHost.context.close();
+
+  // --- A wrong code, and a cancelled room -------------------------------------
+  const gone = await openPlayer("X", "mode=lan");
+  const goneCode = await hostRoom(gone.page);
+  await gone.page.locator(".vs-btn", { hasText: "Cancel" }).click();
+  const late = await openPlayer("L", "mode=lan");
+  await joinRoom(late.page, goneCode);
+  const lateSays = await roomSays(late.page, /No fight with that code/);
+  check("a cancelled room's code no longer joins", /No fight with that code/.test(lateSays), lateSays);
+  await gone.context.close();
+  await late.context.close();
 
   // --- A player whose opponent left can search again --------------------------
   await findMatch(b.page);

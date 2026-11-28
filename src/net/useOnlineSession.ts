@@ -5,12 +5,16 @@ import { fetchIceServers } from "./iceServers";
 import { NET_CONFIG } from "../config/tuning";
 import { NO_SERVER_MESSAGE } from "./leaderboard";
 import { usePeerChannel, type PeerChannelOptions } from "./usePeerChannel";
+import { serverHasRooms } from "./roomSupport";
 
-// Online: the matchmaking hub pairs two queued players and relays the same
-// offer and answer the Play a Friend codes carry.
+// The matchmaking hub pairs two players, from the queue (Online) or by a room
+// code (Play a Friend), and relays the offer and answer that connect them.
 
 const UNREACHABLE = "Could not reach the other fighter.";
 const NO_LINK: LinkStatus = { state: "idle", latency: null, detail: null };
+
+/** How a session finds its opponent. */
+type Entry = { kind: "queue" } | { kind: "host" } | { kind: "join"; code: string };
 
 export function useOnlineSession(options: PeerChannelOptions) {
   const channel = usePeerChannel(options);
@@ -20,6 +24,8 @@ export function useOnlineSession(options: PeerChannelOptions) {
   const [matchStatus, setMatchStatus] = useState<MatchmakingStatus>({ state: "idle", detail: null });
   const [linkStatus, setLinkStatus] = useState<LinkStatus>(NO_LINK);
   const [role, setRole] = useState<"host" | "guest" | null>(null);
+  /** The code of the room this end is hosting. */
+  const [roomCode, setRoomCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const clearConnectTimer = () => {
@@ -46,9 +52,9 @@ export function useOnlineSession(options: PeerChannelOptions) {
     [dropMatch]
   );
 
-  const findMatchRef = useRef<() => Promise<void>>(async () => {});
+  const connectRef = useRef<(entry: Entry) => Promise<void>>(async () => {});
 
-  const findMatch = useCallback(async () => {
+  const connect = useCallback(async (entry: Entry) => {
     const serverUrl = NET_CONFIG.matchmakingUrl;
     if (!serverUrl) {
       setMatchStatus({ state: "failed", detail: NO_SERVER_MESSAGE });
@@ -59,6 +65,7 @@ export function useOnlineSession(options: PeerChannelOptions) {
     // left queued or paired on the server.
     await dropMatch();
     setLinkStatus(NO_LINK);
+    setRoomCode(null);
     // No automatic reconnect: a new connection id has no slot in the queue.
     // withCredentials false: different origins, no cookies, and the server
     // does not send Access-Control-Allow-Credentials.
@@ -76,16 +83,21 @@ export function useOnlineSession(options: PeerChannelOptions) {
 
     client.onOpponentLeft(() => {
       if (clientRef.current !== client || fought) return;
-      // Paired with someone already gone (the server hears of a closed tab a
-      // little late): back into the queue rather than back to the menu.
-      void findMatchRef.current();
+      // From the queue this is someone already gone (the server hears of a
+      // closed tab a little late): back into the queue, not back to the menu.
+      if (entry.kind === "queue") void connectRef.current(entry);
+      else void abandonMatch("Your friend left before the fight started.");
     });
 
     client.onMatched(({ opponentConnectionId, isOfferer }) => {
       clearConnectTimer();
       connectTimerRef.current = setTimeout(() => {
         if (clientRef.current !== client || linkRef.current?.state === "open") return;
-        void abandonMatch("Couldn't connect to your opponent. Their network may block it. Find another match.");
+        void abandonMatch(
+          entry.kind === "queue"
+            ? "Couldn't connect to your opponent. Their network may block it. Find another match."
+            : "Couldn't connect to your friend. Try again with both devices on the same Wi-Fi."
+        );
       }, NET_CONFIG.connectTimeoutMs);
 
       linkReady = (async () => {
@@ -137,14 +149,22 @@ export function useOnlineSession(options: PeerChannelOptions) {
     });
 
     try {
-      await client.findMatch();
+      if (entry.kind === "queue") await client.findMatch();
+      else if (entry.kind === "host") setRoomCode(await client.hostRoom());
+      else if (!(await client.joinRoom(entry.code))) {
+        await abandonMatch("No fight with that code. Check it with your friend.");
+      }
     } catch {
       // MatchmakingClient has already reported the failure.
     } finally {
       setBusy(false);
     }
   }, [linkRef, attach, reset, abandonMatch, dropMatch]);
-  findMatchRef.current = findMatch;
+  connectRef.current = connect;
+
+  const findMatch = useCallback(() => connect({ kind: "queue" }), [connect]);
+  const hostRoom = useCallback(() => connect({ kind: "host" }), [connect]);
+  const joinRoom = useCallback((code: string) => connect({ kind: "join", code }), [connect]);
 
   const leave = useCallback(() => {
     clearConnectTimer();
@@ -152,6 +172,7 @@ export function useOnlineSession(options: PeerChannelOptions) {
     clientRef.current?.leave();
     clientRef.current = null;
     setRole(null);
+    setRoomCode(null);
     setMatchStatus({ state: "idle", detail: null });
   }, [detach]);
 
@@ -159,6 +180,10 @@ export function useOnlineSession(options: PeerChannelOptions) {
   useEffect(() => {
     if (!options.enabled && (linkRef.current || clientRef.current)) leave();
   }, [options.enabled, linkRef, leave]);
+  // A free-tier server sleeps; wake it while the player reads the screen.
+  useEffect(() => {
+    if (options.enabled) void serverHasRooms();
+  }, [options.enabled]);
   useEffect(
     () => () => {
       clearConnectTimer();
@@ -168,5 +193,5 @@ export function useOnlineSession(options: PeerChannelOptions) {
     [linkRef]
   );
 
-  return { ...channel, matchStatus, linkStatus, role, busy, findMatch, leave };
+  return { ...channel, matchStatus, linkStatus, role, roomCode, busy, findMatch, hostRoom, joinRoom, leave };
 }

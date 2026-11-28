@@ -38,6 +38,9 @@ import type { PoseFrame } from "./pose/poseTypes";
 import { useSession } from "./net/useSession";
 import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
+import { RoomPanel } from "./ui/RoomPanel";
+import { joinCodeFrom } from "./net/roomCode";
+import { useRoomSupport } from "./net/roomSupport";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
@@ -76,6 +79,19 @@ export default function App() {
     const id = new URLSearchParams(window.location.search).get("mode");
     return id && ITEM_BY_ID.has(id) ? id : null;
   });
+  // ?join=<code> is a scanned QR code: through the gate and the view choice,
+  // then into the friend's room. Taken off the address so a reload does not
+  // try to rejoin a room that has gone.
+  const [joinCode, setJoinCode] = useState(() => {
+    const code = joinCodeFrom(window.location.search);
+    if (code) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("join");
+      window.history.replaceState(null, "", url);
+    }
+    return code;
+  });
+  const clearJoinCode = useCallback(() => setJoinCode(null), []);
   const [appearance, setAppearance] = useState(loadFighterAppearance);
   const [draftAppearance, setDraftAppearance] = useState<FighterAppearance | null>(null);
   const previewAppearance = useDeferredValue(draftAppearance ?? appearance);
@@ -117,8 +133,10 @@ export default function App() {
   const toggleFightView = useCallback(() => changePreference("thirdPerson"), [changePreference]);
 
   // The first-run walkthrough, over the menu, once the camera is tracking.
+  // Not on the way into a friend's fight: they are waiting.
   const [firstRunPending, setFirstRunPending] = useState(
     () =>
+      !joinCode &&
       !(isDemoMode() && DEMO_PRESET.skipFirstRun) &&
       shouldShowFirstRun(window.location.search, safeStorage())
   );
@@ -183,9 +201,18 @@ export default function App() {
   /** Which venue the Stages screen is showing. */
   const [stage, setStage] = useState<StageId>("octagon");
 
-  /** The link to another player, when there is one. */
+  /** The link to another player, when there is one. Play a Friend joins by
+   *  room code through the server; without a server that has rooms it falls
+   *  back to pasting connection codes by hand. */
+  const roomSupport = useRoomSupport(onLan);
+  const rooms = roomSupport === true;
   const session = useSession({
-    enabled: onLan,
+    enabled: onLan && !rooms,
+    poseRef,
+    subscribe: strike.subscribe,
+  });
+  const roomSession = useOnlineSession({
+    enabled: onLan && rooms,
     poseRef,
     subscribe: strike.subscribe,
   });
@@ -194,12 +221,14 @@ export default function App() {
     poseRef,
     subscribe: strike.subscribe,
   });
-  const net = onInternet ? onlineSession : session;
+  const lanNet = rooms ? roomSession : session;
+  const lanStatus = rooms ? roomSession.linkStatus : session.status;
+  const net = onInternet ? onlineSession : lanNet;
   const netOpen =
-    (onLan && session.status.state === "open") ||
+    (onLan && lanStatus.state === "open") ||
     (onInternet && onlineSession.linkStatus.state === "open");
-  const netRole = onLan ? session.role : onInternet ? onlineSession.role : null;
-  const netStatus = onInternet ? onlineSession.linkStatus : session.status;
+  const netRole = onLan ? lanNet.role : onInternet ? onlineSession.role : null;
+  const netStatus = onInternet ? onlineSession.linkStatus : lanStatus;
   // CPU fights restart here; networked ones once both players have asked.
   const [cpuRematchKey, setCpuRematchKey] = useState(0);
 
@@ -481,6 +510,7 @@ export default function App() {
               preferences={preferences}
               onPreference={changePreference}
               onLaunch={launch}
+              pickFor={joinCode ? "lan" : null}
             />
           </Suspense>
         )}
@@ -620,7 +650,31 @@ export default function App() {
             />
           )}
 
-          {onLan && (
+          {onLan && rooms && (
+            <RoomPanel
+              matchStatus={roomSession.matchStatus}
+              linkStatus={roomSession.linkStatus}
+              roomCode={roomSession.roomCode}
+              busy={roomSession.busy}
+              onHost={roomSession.hostRoom}
+              onJoin={roomSession.joinRoom}
+              onLeave={roomSession.leave}
+              autoJoin={joinCode}
+              onAutoJoin={clearJoinCode}
+            />
+          )}
+
+          {onLan && roomSupport === null && (
+            <section className="vs vs-friend" aria-label="Play a friend">
+              <header className="vs-head">
+                <span className="vs-dot vs-connecting" aria-hidden="true" />
+                <strong role="status">Connecting to the fight server…</strong>
+              </header>
+              <p className="vs-detail">A sleeping server can take up to half a minute to wake.</p>
+            </section>
+          )}
+
+          {onLan && roomSupport === false && (
             <VersusPanel
               status={session.status}
               role={session.role}
