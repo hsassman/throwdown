@@ -32,7 +32,11 @@ const QUERY =
 
 await mkdir(OUT, { recursive: true });
 
-const browser = await chromium.launch({
+// A browser per player. Two software-rendered pages in one browser share its
+// GPU and network processes, and on a two-core CI runner that starved both:
+// the offer and answer crossed, yet ICE never started checking inside the
+// connect timeout (seen in CI annotations: A stable, B still have-local-offer).
+const launchOptions = {
   channel: process.env.PW_CHANNEL || undefined,
   executablePath: process.env.PW_EXECUTABLE || undefined,
   headless: true,
@@ -49,7 +53,8 @@ const browser = await chromium.launch({
     // pages on one runner able to see each other's address.
     "--disable-features=WebRtcHideLocalIpsWithMdns",
   ],
-});
+};
+const browsers = [];
 
 let failures = 0;
 /** In GitHub Actions, also as an annotation: those show on the commit without a login, the log does not. */
@@ -73,9 +78,12 @@ const errors = [];
 const rtcLog = [];
 const players = [];
 async function openPlayer(label, params = "mode=internet") {
+  const browser = await chromium.launch(launchOptions);
+  browsers.push(browser);
   const context = await browser.newContext({
     permissions: WITH_CAMERA ? ["camera"] : [],
-    viewport: { width: 1280, height: 800 },
+    // Small: every pixel is drawn in software on CI.
+    viewport: { width: 960, height: 600 },
   });
   const page = await context.newPage();
   players.push({ label, page });
@@ -289,6 +297,6 @@ const real = errors.filter(
 );
 check("no runtime errors", real.length === 0, real.slice(0, 5).join(" | "));
 
-await browser.close();
+await Promise.all(browsers.map((b) => b.close()));
 console.log(failures === 0 ? "\nONLINE SMOKE OK" : `\nONLINE SMOKE FAILED (${failures})`);
 process.exit(failures === 0 ? 0 : 1);
