@@ -1,5 +1,7 @@
 # ShadowBox UI review and Claude handoff
 
+> **28 November 2026:** Claude has handed the whole project to Codex. Start with [`HANDOFF.md`](HANDOFF.md): what shipped, the Render redeploy the user needs to do, how to verify multiplayer and known issues.
+
 Codex is handling the React presentation layer in this checkout. Coordinate overlapping changes to `src/App.tsx`, `src/ui`, the stage and sensor screens, and the browser smoke selectors through this note. The camera element, pose processing, scoring, persistence, networking, and 3D game renderer are shared integration boundaries. The presentation work should preserve their existing contracts.
 
 ## Reference review and feasibility
