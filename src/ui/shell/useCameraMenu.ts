@@ -29,6 +29,7 @@ export interface CameraMenuOptions {
   onConfirm: (id: string) => void;
   /** Ids that may be hovered but never activated. */
   disabledIds?: readonly string[];
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export interface CameraMenuHandle {
@@ -47,7 +48,7 @@ export interface CameraMenuHandle {
 }
 
 export function useCameraMenu(options: CameraMenuOptions): CameraMenuHandle {
-  const { poseRef, enabled, onConfirm, disabledIds } = options;
+  const { poseRef, enabled, onConfirm, disabledIds, scrollRef } = options;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cursorRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +76,7 @@ export function useCameraMenu(options: CameraMenuOptions): CameraMenuHandle {
   useEffect(() => {
     if (!enabled) {
       pointerRef.current?.reset();
+      if (cursorRef.current) cursorRef.current.style.opacity = "0";
       setHoverId(null);
       setTracked(false);
       return;
@@ -93,20 +95,34 @@ export function useCameraMenu(options: CameraMenuOptions): CameraMenuHandle {
       // --- One layout read, batched, before any writes. ---
       const box = container.getBoundingClientRect();
       if (box.width === 0 || box.height === 0) return;
+      const scroll = scrollRef.current;
+      const scrollBox = scroll?.getBoundingClientRect();
+      const canScrollUp = !!scroll && scroll.scrollTop > 1;
+      const canScrollDown = !!scroll && scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop > 1;
+      const topEdge = 32;
       const targets: PointerTarget[] = [];
       for (const [id, el] of rowsRef.current) {
         const r = el.getBoundingClientRect();
+        const clips = scrollBox && scroll?.contains(el);
+        const top = clips ? Math.max(r.top, scrollBox.top + (canScrollUp ? topEdge : 0)) : r.top;
+        const bottom = clips ? Math.min(r.bottom, scrollBox.bottom - (canScrollDown ? topEdge : 0)) : r.bottom;
+        if (bottom <= top || r.width === 0) continue;
         targets.push({
           id,
           x: (r.left - box.left) / box.width,
-          y: (r.top - box.top) / box.height,
+          y: (top - box.top) / box.height,
           w: r.width / box.width,
-          h: r.height / box.height,
+          h: (bottom - top) / box.height,
           disabled: cbs.current.disabledIds?.includes(id) ?? false,
         });
       }
 
       const state = pointer.update(poseRef.current, targets, performance.now());
+      if (state.tracked && scroll && scrollBox) {
+        const y = box.top + state.y * box.height;
+        if (canScrollUp && y >= scrollBox.top && y < scrollBox.top + topEdge) scroll.scrollTop -= 8;
+        if (canScrollDown && y <= scrollBox.bottom && y > scrollBox.bottom - topEdge) scroll.scrollTop += 8;
+      }
 
       // --- Writes. ---
       const cursor = cursorRef.current;
@@ -145,7 +161,7 @@ export function useCameraMenu(options: CameraMenuOptions): CameraMenuHandle {
     };
     tick();
     return () => cancelAnimationFrame(rafId);
-  }, [enabled, poseRef]);
+  }, [enabled, poseRef, scrollRef]);
 
   return { containerRef, cursorRef, registerRow, hoverId, tracked, reason };
 }

@@ -1,5 +1,7 @@
 # Handoff to local Claude
 
+The current frontend design work and browser evidence are tracked in [UI-REVIEW.md](UI-REVIEW.md).
+
 Read this first, then `docs/PLAN.md`, `docs/ARCHITECTURE.md` and `README.md`.
 This session started in the cloud. Continue it on the local machine from the
 `plan-dotnet-matchmaking` branch.

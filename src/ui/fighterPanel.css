@@ -34,3 +34,6 @@
 .fighter-save { border: 1px solid #f8d2a0; background: #f0bc73; color: #20140d; font-weight: 750; }
 .fighter-reset { border: 1px solid #425168; color: #eef4fd; background: #161f2c; }
 .fighter-notice { color: #f0cb98; }
+.fighter-trim { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: .55rem; }
+.fighter-trim label { display: grid; min-width: 0; gap: .22rem; font-size: .8rem; }
+.fighter-trim select { width: 100%; min-height: 44px; padding: .35rem; font: inherit; }

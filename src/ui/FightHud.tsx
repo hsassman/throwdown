@@ -38,7 +38,7 @@ function Bars({
   stamina: number;
 }) {
   return (
-    <div className={`fh-fighter fh-${side}`}>
+    <div className={`fh-fighter fh-${side}`} data-critical={health <= 25}>
       <div className="fh-fighter-label">
         <span className="fh-name">{name}</span>
         <span className="fh-health-value" aria-hidden="true">{Math.round(health)}%</span>
@@ -127,24 +127,25 @@ export function FightHud({ hud, showWindup = true }: Props) {
 
       {over && (
         <div className="fh-result" role="status">
-          {hud.log[0] ?? "Fight over"}
+          <p className="fh-result-label">Fight result</p>
+          <strong className="fh-result-title">{hud.log[0] ?? "Fight over"}</strong>
           <div className="fh-cards">
             {Object.entries(hud.cards).map(([id, score]) => (
               <span key={id}>
-                {id === "player" ? "You" : "Opponent"} {score}
+                {id === "player" ? "You" : "Opponent"} <strong>{score}</strong>
               </span>
             ))}
           </div>
         </div>
       )}
 
-      <ul className="fh-log" aria-live="polite">
-        {hud.log.slice(0, 5).map((line, i) => (
+      {!over && <ul className="fh-log" aria-live="polite">
+        {hud.log.slice(0, 3).map((line, i) => (
           <li key={`${line}-${i}`} style={{ opacity: 1 - i * 0.18 }}>
             {line}
           </li>
         ))}
-      </ul>
+      </ul>}
     </div>
   );
 }

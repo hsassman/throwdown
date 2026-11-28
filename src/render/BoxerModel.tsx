@@ -41,8 +41,9 @@ import { buildArenaLighting, buildOctagon } from "./arena/Octagon";
 import { buildRing } from "./arena/Ring";
 import { buildCrowd, type Crowd } from "./arena/crowd";
 import { artTexture } from "./arena/artTextures";
-import { DEFAULT_APPEARANCE, FIGHTER_OPTIONS, type FighterAppearance } from "../menu/fighterAppearance";
-import { applyScalp } from "./texturing/scalp";
+import { DEFAULT_APPEARANCE, FIGHTER_OPTIONS, trimColour, type FighterAppearance } from "../menu/fighterAppearance";
+import { applyHeadDetail } from "./texturing/scalp";
+import { styleKitDetail, type KitTrim } from "./texturing/kitDetail";
 import { buildBloodDecals } from "./arena/bloodDecals";
 import { buildTrainingRoom } from "./arena/trainingRoom";
 import { RING, platformHalfSpan } from "./arena/ringSpec";
@@ -736,11 +737,12 @@ export function BoxerModel({
      */
     const gloveGrain = artTexture("glove-grain", 3);
     const trunksGrain = artTexture("shorts-weave", 4);
+    const skinGrain = artTexture("skin-grain", 2);
     const hairGrain = artTexture("hair-grain");
     const matteGlove = appearance.finish === "matte" ? artTexture("kit-matte", 3) : null;
     const ribbedTrunks = appearance.finish === "matte" ? artTexture("kit-ribbed", 4) : null;
     const croppedHair = appearance.hair === "crop" ? artTexture("hair-crop") : null;
-    for (const grain of [gloveGrain, trunksGrain, matteGlove, ribbedTrunks]) {
+    for (const grain of [gloveGrain, trunksGrain, skinGrain, matteGlove, ribbedTrunks]) {
       if (grain) {
         grain.colorSpace = THREE.NoColorSpace;
         grain.flipY = false;
@@ -749,7 +751,7 @@ export function BoxerModel({
     const selectedColour = FIGHTER_OPTIONS.colour.find(option => option.id === appearance.colour)?.colour ?? KIT.player.glove;
     const playerKit = {
       skin: FIGHTER_OPTIONS.skin.find(option => option.id === appearance.skin)?.colour ?? KIT.player.skin,
-      hair: appearance.hair === "shaved" ? undefined : KIT.player.hair,
+      hair: KIT.player.hair,
       glove: selectedColour,
       trunks: appearance.colour === "red" ? KIT.player.trunks : `#${new THREE.Color(selectedColour).multiplyScalar(0.67).getHexString()}`,
       boots: appearance.colour === "red" ? KIT.player.boots : `#${new THREE.Color(selectedColour).multiplyScalar(0.42).getHexString()}`,
@@ -762,6 +764,7 @@ export function BoxerModel({
       kit: Record<"glove" | "trunks" | "boots", string>,
       retired: Set<THREE.Material>,
       matte = false,
+      trim: KitTrim = { laces: "#ded9e6", soles: "#171d2a", wraps: "#343a5d" },
     ) => {
       figure.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
@@ -771,13 +774,15 @@ export function BoxerModel({
         const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const m of old) if (m) retired.add(m);
         const detail = slot === "trunks" ? (matte ? ribbedTrunks : trunksGrain) : (matte ? matteGlove : gloveGrain);
-        mesh.material = new THREE.MeshStandardMaterial({
+        const material = new THREE.MeshStandardMaterial({
           color: new THREE.Color(kit[slot]),
           bumpMap: mesh.geometry.hasAttribute("uv") ? detail : null,
           bumpScale: slot === "trunks" ? 0.005 : 0.006,
           roughness: matte ? Math.min(0.95, KIT_ROUGHNESS[slot] + 0.22) : KIT_ROUGHNESS[slot],
           metalness: 0,
         });
+        styleKitDetail(material, mesh.geometry, slot, trim, obj.name.endsWith("_R"));
+        mesh.material = material;
       });
     };
 
@@ -790,7 +795,7 @@ export function BoxerModel({
        * under the second, which still points at it. */
       retired: Set<THREE.Material>,
       hair = hairGrain,
-      cropped = false,
+      hairStyle: FighterAppearance["hair"] = "buzz",
     ): BodyTexture | null => {
       // The body, not whichever skinned mesh traversal happens to end on.
       // The figure now carries eyeballs too, and texturing one of those would
@@ -809,10 +814,11 @@ export function BoxerModel({
       // nothing but suggest to a reader that it is doing something.
       const material = new THREE.MeshStandardMaterial({
         map: body.map,
+        bumpMap: skinGrain,
+        bumpScale: 0.002,
         roughness: 0.78,
         metalness: 0.0,
       });
-      if (hair && kit.hair) applyScalp(material, mesh.geometry, dominant, boneNames, hair, kit.hair, cropped);
       const old = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of old) if (m) retired.add(m);
       mesh.material = material;
@@ -838,12 +844,16 @@ export function BoxerModel({
       };
       const eyeL = bindPos("l_eye");
       const eyeR = bindPos("r_eye");
+      const eyes = eyeL && eyeR ? { left: eyeL, right: eyeR } : null;
+      if (hair && kit.hair) {
+        applyHeadDetail(material, mesh.geometry, dominant, boneNames, hair, kit.hair, hairStyle, eyes);
+      }
 
       const features = locateFaceFeatures(
         mesh.geometry,
         boneNames,
         dominant,
-        eyeL && eyeR ? { left: eyeL, right: eyeR } : null
+        eyes
       );
       if (features) {
         const painter = createFacePainter({
@@ -904,9 +914,13 @@ export function BoxerModel({
           // would share one map, so bruises on the target would appear on the
           // player as well.
           const retired = new Set<THREE.Material>();
-          playerSkin = textureFigure(model, playerKit, retired, croppedHair ?? hairGrain, appearance.hair === "crop");
+          playerSkin = textureFigure(model, playerKit, retired, croppedHair ?? hairGrain, appearance.hair);
           targetSkin = textureFigure(opponent, opponentKit, retired);
-          tintKit(model, playerKit, retired, appearance.finish === "matte");
+          tintKit(model, playerKit, retired, appearance.finish === "matte", {
+            laces: trimColour(appearance.laces),
+            soles: trimColour(appearance.soles),
+            wraps: trimColour(appearance.wraps),
+          });
           tintKit(opponent, opponentKit, retired);
           for (const m of retired) m.dispose();
 
@@ -1354,6 +1368,8 @@ export function BoxerModel({
         const clone = (m: THREE.Material) => {
           if (glowing.has(m)) return m;
           const c = m.clone();
+          c.onBeforeCompile = m.onBeforeCompile;
+          c.customProgramCacheKey = m.customProgramCacheKey;
           glowing.add(c);
           if ((c as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
             glowMats.add(c as THREE.MeshStandardMaterial);
@@ -1881,6 +1897,7 @@ export function BoxerModel({
       targetSkin?.dispose();
       gloveGrain?.dispose();
       trunksGrain?.dispose();
+      skinGrain?.dispose();
       hairGrain?.dispose();
       matteGlove?.dispose();
       ribbedTrunks?.dispose();

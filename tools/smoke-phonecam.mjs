@@ -59,6 +59,7 @@ laptop.on("pageerror", (e) => console.log("[laptop pageerror]", e.message));
 await laptop.goto(`${BASE}/?firstrun=0`, { waitUntil: "networkidle" });
 await laptop.locator(".gate-btn").click();
 await laptop.waitForSelector(".shell");
+await laptop.getByRole("button", { name: "Settings", exact: true }).click();
 await laptop.locator(".shell-row").filter({ hasText: "Phone Camera" }).last().click();
 await laptop.getByRole("button", { name: "Connect a phone" }).click();
 const offerQr = laptop.getByRole("img", { name: "QR code for the phone" });

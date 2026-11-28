@@ -1,301 +1,144 @@
-/* In-fight overlay. Sits above the 3D stage and must never eat pointer events
-   - the player is moving in front of a camera, not clicking. */
-
 .fight-hud {
   position: absolute;
   inset: 0;
+  color: var(--ui-ink);
   pointer-events: none;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #eef1f5;
   z-index: 3;
 }
 
 .fh-top {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: clamp(0.5rem, 2vw, 1.5rem);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: start;
-  padding: clamp(0.5rem, 2vw, 1rem);
-  background: linear-gradient(180deg, rgba(5, 7, 10, 0.78), transparent);
+  gap: clamp(7px, 1.4vw, 18px);
+  padding: 8px clamp(8px, 2vw, 24px) 14px;
+  background: linear-gradient(180deg, #0b091595, transparent);
 }
 
-.fh-fighter {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.fh-right {
-  align-items: flex-end;
-}
-
-.fh-name {
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #9aa3b1;
-}
-
-.fh-health,
-.fh-stamina {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.09);
-  overflow: hidden;
-}
-.fh-health {
-  height: 12px;
-}
-/* Thinner, and below. Health is glanced at constantly; stamina is consulted
-   when deciding whether to commit. Different jobs, different weights. */
-.fh-stamina {
-  height: 4px;
-}
-
-.fh-health > span,
-.fh-stamina > span {
-  display: block;
-  height: 100%;
-  transition: width 0.18s linear;
-}
-.fh-health > span {
-  background: linear-gradient(90deg, #d8332f, #f26b3a);
-}
-.fh-stamina > span {
-  background: #4f9ad8;
-}
-/* The right fighter's bars drain toward the centre, mirroring the left. */
-.fh-right .fh-health,
-.fh-right .fh-stamina {
-  transform: scaleX(-1);
-}
-
+.fh-fighter,
 .fh-centre {
-  text-align: center;
-  min-width: 4.5rem;
-}
-.fh-round {
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  color: #9aa3b1;
-}
-.fh-clock {
-  font-size: clamp(1.2rem, 3vw, 1.8rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.fh-clock.is-low {
-  color: #f0563f;
-}
-.fh-phase {
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #d7a53c;
+  box-sizing: border-box;
+  background: #130f22ef;
+  box-shadow: 0 8px 20px #0004, inset 0 1px #ffffff26;
+  border-radius: 13px;
 }
 
-/* The telegraph. Deliberately loud - the CPU's readability is the entire basis
-   of the defensive game, and 260ms is not long enough to notice something
-   subtle while you are also moving. */
+.fh-fighter { min-width: 0; padding: 9px clamp(7px, 1.15vw, 16px) 10px; }
+.fh-fighter-label { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-bottom: 5px; }
+.fh-right .fh-fighter-label { flex-direction: row-reverse; }
+.fh-name { font-size: clamp(.75rem, 1.1vw, 1rem); font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fh-health-value { color: #ebe0fc; font-size: clamp(.68rem, 1.1vw, .91rem); font-weight: 670; font-variant-numeric: tabular-nums; }
+.fh-health, .fh-stamina { width: 100%; overflow: hidden; background: #ffffff2b; border-radius: 4px; }
+.fh-health { height: 10px; }
+.fh-stamina { height: 5px; width: 74%; margin-top: 5px; }
+.fh-right .fh-stamina { margin-left: auto; }
+.fh-right :is(.fh-health, .fh-stamina) { transform: scaleX(-1); }
+.fh-health > span, .fh-stamina > span { display: block; height: 100%; transition: width 145ms linear; }
+.fh-health > span { background: #f1e8ff; }
+.fh-right .fh-health > span { background: #e8b9ff; }
+.fh-stamina > span { background: #a996e8; }
+.fh-fighter[data-critical="true"] .fh-health > span { background: var(--ui-danger); }
+
+.fh-centre { min-width: clamp(55px, 9vw, 106px); text-align: center; padding: 6px clamp(6px, 1.4vw, 18px) 8px; color: #ffffff; }
+.fh-round { white-space: nowrap; font-size: clamp(.65rem, .9vw, .82rem); font-weight: 750; color: #e8dbff; }
+.fh-clock { font-size: clamp(1.22rem, 3vw, 2.2rem); line-height: 1.04; font-weight: 850; font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.fh-clock.is-low { color: var(--ui-danger); }
+.fh-phase { color: #e1c9ff; font-size: .76rem; font-weight: 750; }
+
 .fh-windup {
   position: absolute;
   left: 50%;
-  top: 22%;
-  width: min(42vw, 320px);
-  height: 5px;
+  top: max(90px, 22%);
+  width: min(34vw, 240px);
+  height: 7px;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  border-radius: 3px;
+  background: #211520;
+  box-shadow: 0 0 0 2px #eab2ad45;
 }
-.fh-windup > span {
-  display: block;
-  height: 100%;
-  background: #f0563f;
-  transform-origin: left center;
+.fh-windup > span { display: block; height: 100%; background: #ffb0a8; transform-origin: left; }
+
+.fh-result, .fh-count {
+  position: absolute;
+  left: 50%;
+  text-align: center;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  box-shadow: 0 12px 35px #0008;
+  animation: hud-enter .24s var(--ui-ease) both;
 }
 
 .fh-result {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  transform: translate(-50%, -50%);
-  text-align: center;
+  top: 45%;
+  translate: -50% -50%;
   box-sizing: border-box;
-  width: min(28rem, calc(100% - 32px));
-  background: linear-gradient(#080d15b8, #080d15f5), url('/art/results-art.webp') center / cover;
-  border: 1px solid #d3a76d;
-  border-radius: 6px;
-  box-shadow: 0 18px 60px #0008;
-  padding: 1rem 1.6rem;
-  font-size: clamp(1rem, 2.6vw, 1.5rem);
+  width: min(27rem, calc(100% - 32px));
+  padding: clamp(14px, 3vw, 28px);
+  background: linear-gradient(115deg, #151023f5, #191227e0), url('/ui/venue.webp') center / cover;
 }
-.fh-cards {
-  display: flex;
-  gap: 1.2rem;
-  justify-content: center;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: #9aa3b1;
-}
+.fh-result-label { margin: 0 0 6px; color: #ddc9fb; font-size: .88rem; font-weight: 750; }
+.fh-result-title { display: block; font-size: clamp(1.4rem, 4vw, 2.6rem); line-height: 1; letter-spacing: -.042em; }
+.fh-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 15px; }
+.fh-cards > span { display: grid; padding: 8px; border-radius: 8px; color: #efe4ff; background: #ffffff14; font-size: .78rem; }
+.fh-cards strong { color: white; font-size: 1.45rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+.fh-count { top: 88px; translate: -50% 0; display: grid; justify-items: center; gap: 3px; padding: 10px 20px 13px; width: max-content; max-width: calc(100% - 36px); background: #1d1427ef; }
+.fh-count > strong { color: #fff1f5; font-size: clamp(2.6rem, 7vw, 5rem); font-weight: 860; line-height: .9; font-variant-numeric: tabular-nums; }
+.fh-count > span { color: #ffd0dc; font-size: .85rem; font-weight: 750; }
+.fh-getup { display: grid; justify-items: center; gap: 5px; margin-top: 4px; }
+.fh-getup em { font-style: normal; font-size: .88rem; font-weight: 750; color: #eee3ff; }
+.fh-getup i { display: block; width: 130px; height: 6px; border-radius: 3px; overflow: hidden; background: #ffffff30; }
+.fh-getup b { display: block; height: 100%; background: #d7bdff; transform-origin: left; transition: transform 100ms linear; }
 
 .fh-log {
   position: absolute;
-  left: clamp(0.5rem, 2vw, 1rem);
-  bottom: clamp(0.5rem, 2vw, 1rem);
+  left: clamp(8px, 2vw, 20px);
+  bottom: max(46px, calc(12px + env(safe-area-inset-bottom)));
+  max-width: min(25rem, 63%);
   margin: 0;
   padding: 0;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
   list-style: none;
-  font-size: 0.74rem;
-  color: #c3cad6;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  max-width: 60%;
+  font-size: clamp(.7rem, 1vw, .86rem);
+  color: #f3effb;
 }
-.fh-log li {
-  line-height: 1.5;
+.fh-log:empty { display: none; }
+.fh-log li { max-width: 100%; padding: 2px 7px; border-radius: 5px; background: #100d19dd; }
+
+@keyframes hud-enter { from { opacity: 0; scale: .97; } to { opacity: 1; scale: 1; } }
+@media (max-width: 650px) {
+  .fh-fighter { padding: 7px 6px; }
+  .fh-top { padding-top: 6px; }
+  .fh-log li:nth-child(n + 3) { display: none; }
+  .fh-count { top: 77px; }
 }
 
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-immersive .fh-top {
+    grid-template-columns: minmax(0, 1fr) min(24vw, 240px) minmax(0, 1fr);
+    padding-top: 0;
+  }
+  .app-immersive .fh-centre {
+    justify-self: center;
+    min-width: 64px;
+    padding: 4px 9px 5px;
+    translate: 0 -45px;
+  }
+  .app-immersive .fh-clock { font-size: 1.35rem; }
+  .app-immersive .fh-fighter { padding-block: 6px; }
+  .app-immersive .fh-count { top: 58px; padding-block: 8px; }
+}
+
+[data-ui-contrast] :is(.fh-fighter, .fh-centre, .fh-count, .fh-result, .fh-log li) {
+  background: #100d18;
+  box-shadow: inset 0 0 0 1px #ffffff70;
+}
+[data-ui-reduced] :is(.fh-health > span, .fh-stamina > span, .fh-getup b) { transition: none; }
+[data-ui-reduced] :is(.fh-result, .fh-count) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .fh-health > span,
-  .fh-stamina > span {
-    transition: none;
-  }
-}
-
-/* The referee's count.
- *
- * Centred and very large, because it is the one moment in a fight when the
- * player should stop looking at their opponent. Placed below the clock rather
- * than over the middle of the stage, so it never covers the fighter it is
- * counting - which, during a knockdown, is the thing worth seeing. */
-.fh-count {
-  position: absolute;
-  /* Just under the clock, not over the middle of the stage. During a
-     knockdown the fighter on the canvas is the thing worth seeing, and the
-     first version of this put a 132px numeral across their back. */
-  top: 104px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 10px 26px 12px;
-  border-radius: 14px;
-  /* Its own ground, so the number stays legible against a pale canvas or a
-     fighter's skin rather than depending on what happens to be behind it. */
-  background: radial-gradient(
-    ellipse at center,
-    rgba(10, 6, 6, 0.82) 0%,
-    rgba(10, 6, 6, 0.55) 55%,
-    rgba(10, 6, 6, 0) 100%
-  );
-  pointer-events: none;
-  animation: fh-count-in 160ms ease-out;
-}
-.fh-count strong {
-  font-size: clamp(44px, 7vw, 86px);
-  font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-  color: #fff;
-  text-shadow:
-    0 0 28px rgba(255, 90, 60, 0.75),
-    0 4px 22px rgba(0, 0, 0, 0.85);
-  font-variant-numeric: tabular-nums;
-}
-.fh-count span {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #ffd9cf;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-}
-@keyframes fh-count-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) scale(1.25);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .fh-count {
-    animation: none;
-  }
-}
-
-/* Broadcast plate. Dark behind the bars, where legibility is needed, and
-   fading out below them: a solid plate here was a 100px opaque band across
-   the top of the stage, and the fighters' heads - the target of half the
-   punches in the game - were drawn underneath it. */
-.fh-top {
-  padding-top: clamp(0.35rem, 1.2vw, 0.6rem);
-  padding-bottom: clamp(0.9rem, 3vw, 1.6rem);
-  background: linear-gradient(180deg, rgba(10, 11, 14, 0.9) 0%, rgba(10, 11, 14, 0.62) 60%, rgba(10, 11, 14, 0) 100%);
-  border-top: 2px solid #c79556;
-}
-.fh-name { color: #e2caa6; font-weight: 700; }
-.fh-fighter-label {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px;
-  width: 100%;
-}
-.fh-right .fh-fighter-label { flex-direction: row-reverse; }
-.fh-health-value {
-  color: #e7edf6;
-  font-size: .72rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.fh-centre {
-  padding: .2rem .5rem .4rem;
-  border: 1px solid #b88d5555;
-  border-radius: 4px;
-  background: #0b111c;
-}
-.fh-fighter { min-width: 0; }
-.fh-health, .fh-stamina { box-sizing: border-box; border-radius: 3px; }
-.fh-cards { flex-wrap: wrap; }
-.fh-health { height: 14px; border: 1px solid #ffffff24; }
-.fh-health > span { background: #dc6e52; }
-.fh-right .fh-health > span { background: #67aed2; }
-
-/* FPS Mode's get-up prompt, under the count. */
-.fh-getup {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-.fh-getup em {
-  font-style: normal;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-  animation: fh-getup-pulse 700ms ease-in-out infinite alternate;
-}
-.fh-getup i {
-  display: block;
-  width: 180px;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.2);
-}
-.fh-getup b {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ffcf4a, #ff7a3c);
-  transform-origin: left center;
-  transition: transform 100ms linear;
-}
-@keyframes fh-getup-pulse {
-  from { opacity: 0.7; }
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .fh-getup em { animation: none; }
+  .fh-health > span, .fh-stamina > span, .fh-getup b { transition: none; }
+  .fh-result, .fh-count { animation: none; }
 }
