@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove } from "./fpsCamera";
+import { FPS_CAMERA, SHOULDER_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove } from "./fpsCamera";
 
 const hFov = (v: number, aspect: number) => (2 * Math.atan(Math.tan((v * Math.PI) / 360) * aspect) * 180) / Math.PI;
 
@@ -33,6 +33,30 @@ describe("fpsCameraPose", () => {
     const p = fpsCameraPose(eye, opp, FPS_CAMERA, 0.1);
     expect(p.position.x).toBeCloseTo(-0.1, 5);
     expect(p.target.x).toBeCloseTo(-0.1 * FPS_CAMERA.leanTargetShare, 5);
+  });
+});
+
+describe("third person", () => {
+  const head = { x: 0, y: 1.6, z: 0 };
+  const opp = { x: 0, y: 1.6, z: 0.96 };
+
+  it("sits behind and above the head, looking past it at the opponent", () => {
+    const p = fpsCameraPose(head, opp, SHOULDER_CAMERA);
+    expect(p.position.z).toBeCloseTo(SHOULDER_CAMERA.forward, 5);
+    expect(p.position.y).toBeCloseTo(1.6 + SHOULDER_CAMERA.up, 5);
+    expect(p.target).toEqual({ x: 0, y: 1.6 - SHOULDER_CAMERA.lookDown, z: 0.96 });
+  });
+
+  it("keeps the player see-through enough to see the opponent", () => {
+    expect(SHOULDER_CAMERA.playerOpacity).toBeGreaterThan(0.1);
+    expect(SHOULDER_CAMERA.playerOpacity).toBeLessThan(0.5);
+  });
+
+  it("widens on a portrait phone so the shoulders fit", () => {
+    expect(fpsFov(16 / 9, SHOULDER_CAMERA)).toBe(SHOULDER_CAMERA.fov);
+    const v = fpsFov(9 / 19.5, SHOULDER_CAMERA);
+    expect(v).toBeLessThanOrEqual(SHOULDER_CAMERA.maxFov);
+    expect(v).toBeGreaterThan(SHOULDER_CAMERA.fov);
   });
 });
 

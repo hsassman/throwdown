@@ -1,5 +1,22 @@
-// First-person camera: seated at the player's eyes, looking at the opponent.
-// Plain vectors in and out so it can be tested without WebGL.
+// The two fight cameras. First person sits at the player's eyes; third person
+// sits just behind and above their head with their fighter drawn see-through.
+// Both look at the opponent. Plain vectors in and out, testable without WebGL.
+
+/** Placement, field of view and dodge lean of a fight camera. */
+export interface ViewCamera {
+  forward: number;
+  up: number;
+  lookDown: number;
+  fov: number;
+  minHFov: number;
+  maxFov: number;
+  tau: number;
+  leanSide: number;
+  leanSideMax: number;
+  leanRoll: number;
+  leanRollMax: number;
+  leanTargetShare: number;
+}
 
 export const FPS_CAMERA = {
   /** Offset from the midpoint of the eye bones toward the opponent, metres. */
@@ -32,6 +49,28 @@ export const FPS_CAMERA = {
   windupGlow: 0xff7a1a,
 } as const;
 
+/** Third person: behind the player's head (the head bone, not the eyes). */
+export const SHOULDER_CAMERA = {
+  /** Far enough back that the see-through fighter shows from about the hips
+   *  up at the bottom of the frame, with the opponent beyond. */
+  forward: -1.35,
+  /** A touch above eye line, so the gloves read in front of the face. */
+  up: 0.2,
+  /** Aim just below the opponent's chin: head and gloves in the upper half. */
+  lookDown: 0.18,
+  fov: 50,
+  minHFov: 62,
+  maxFov: 90,
+  tau: 0.06,
+  leanSide: 0.45,
+  leanSideMax: 0.32,
+  leanRoll: 0.16,
+  leanRollMax: 0.12,
+  leanTargetShare: 0.5,
+  /** The player's body, so the opponent shows through it. Gloves stay solid. */
+  playerOpacity: 0.28,
+} as const;
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -48,7 +87,7 @@ export interface CameraPose {
  * horizontal, so a duck lowers the view instead of tilting it. `side` slides
  * the camera to screen right (positive) for the dodge lean.
  */
-export function fpsCameraPose(eye: Vec3, opponentHead: Vec3, cfg = FPS_CAMERA, side = 0): CameraPose {
+export function fpsCameraPose(eye: Vec3, opponentHead: Vec3, cfg: ViewCamera = FPS_CAMERA, side = 0): CameraPose {
   let dx = opponentHead.x - eye.x;
   let dz = opponentHead.z - eye.z;
   const len = Math.hypot(dx, dz);
@@ -77,7 +116,7 @@ export function fpsCameraPose(eye: Vec3, opponentHead: Vec3, cfg = FPS_CAMERA, s
 }
 
 /** Vertical field of view for `aspect` (width / height), degrees. */
-export function fpsFov(aspect: number, cfg = FPS_CAMERA): number {
+export function fpsFov(aspect: number, cfg: ViewCamera = FPS_CAMERA): number {
   const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
   const fromH = (2 * Math.atan(Math.tan((cfg.minHFov * Math.PI) / 360) / a) * 180) / Math.PI;
   return Math.min(cfg.maxFov, Math.max(cfg.fov, fromH));
@@ -87,7 +126,7 @@ export function fpsFov(aspect: number, cfg = FPS_CAMERA): number {
  * Dodge lean for a slip of `lateral` torso units (positive toward the
  * player's right): sideways slide in world units and roll in radians.
  */
-export function fpsLean(lateral: number, cfg = FPS_CAMERA): { side: number; roll: number } {
+export function fpsLean(lateral: number, cfg: ViewCamera = FPS_CAMERA): { side: number; roll: number } {
   const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
   const l = Number.isFinite(lateral) ? lateral : 0;
   return {

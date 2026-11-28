@@ -38,7 +38,7 @@ slips, ducks, your guard and your footwork.
 | Guard | Hands up at the chin covers the head; hands at the ribs covers the body. A blocked punch does a fraction of the damage and costs the blocker stamina. |
 | Slip | Move your head and shoulders sideways. A slip beats a straight or rising punch, but not a hook, which curves around to where your head went. |
 | Duck | Drop your head. A duck gets under any head punch and does nothing about a body shot. |
-| Step | Step towards or away from the camera (third-person fights only; in first person the CPU sets the distance). |
+| Step | Step towards or away from the camera (Play a Friend and Online; against the CPU it sets the distance). |
 | Get up | When knocked down in a CPU fight, hold both gloves up at your face to rise early. |
 | Rematch | When a fight ends, raise both hands over your head and hold them there. |
 | Menu | Point your hand at a card and hold it still until the ring fills. |
@@ -69,9 +69,10 @@ Every on-screen control also works with a tap or a click.
   your gloves are at the bottom of the screen. The fighters stay on one line:
   the CPU stands off at its preferred distance between exchanges and steps in
   to throw, then back out, so the fight is about timing, defence and the guard.
-- **Third person.** Choose it before the match, press `V`, or turn it on in Settings. The camera sits behind
-  your fighter and both fighters move: the CPU circles, steps in to throw and
-  backs out again, and your real steps change the range.
+- **Third person.** Choose it before the match, press `V`, or turn it on in
+  Settings. The camera sits just behind your head and your fighter is drawn
+  see-through, gloves solid, so the opponent is always visible. The fight is
+  the same one as in first person: same line, same CPU.
 - **The CPU telegraphs.** Every CPU punch has a visible wind-up: 0.55 s at
   Rookie, 0.38 s at Contender, 0.26 s at Champion. In first person its gloves
   glow orange through the wind-up. The punch lands when the glove arrives, about

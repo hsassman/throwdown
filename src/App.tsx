@@ -220,10 +220,10 @@ export default function App() {
     send: net.send,
     rttMs: netStatus.latency,
     restartKey: netOpen ? net.rematchKey : cpuRematchKey,
-    // First person holds both fighters on one line and lets a downed player
-    // get up by raising their gloves. CPU fights only.
-    getUp: firstPerson,
-    locked: firstPerson,
+    // Both views hold the fighters on one line and let a downed player get up
+    // by raising their gloves. CPU fights only.
+    getUp: true,
+    locked: true,
   });
 
   const fightOver = inFight && !!fight.hud?.result;

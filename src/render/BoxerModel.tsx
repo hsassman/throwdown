@@ -1,6 +1,6 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
 import { SlowDetector } from "./slowDetector";
-import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove, type CameraPose as FpsPose } from "./fpsCamera";
+import { FPS_CAMERA, SHOULDER_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove, type CameraPose as FpsPose } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
@@ -1117,15 +1117,17 @@ export function BoxerModel({
       }
     };
 
-    // --- First person ------------------------------------------------------
+    // --- Fight cameras -----------------------------------------------------
     //
-    // The camera rides at the player's eyes. The head bone is collapsed while
+    // First person rides at the player's eyes. The head bone is collapsed while
     // it does, because from inside the head the mouth and eye sockets face the
-    // camera. It is restored whenever anything else holds the camera.
+    // camera. It is restored whenever anything else holds the camera. Third
+    // person rides just behind the head with the player's fighter see-through.
     const BASE_FOV = camera.fov;
     let fpsActive = false;
     let fpsScanAt = -Infinity;
     let fpsCam: FpsPose | null = null;
+    let fpsFirst: boolean | null = null;
     let playerEyes: [THREE.Object3D, THREE.Object3D] | null = null;
     let playerHead: THREE.Object3D | null = null;
     let opponentHead: THREE.Object3D | null = null;
@@ -1176,12 +1178,60 @@ export function BoxerModel({
       for (const m of glowMats) m.emissive.copy(glowColor).multiplyScalar(k);
     };
 
+    // The player's materials are cloned before fading: the opponent is a clone
+    // of the same asset and shares material objects with it.
+    const ghostOriginals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    const ghosted = new WeakSet<THREE.Material>();
+    const ghostMaterial = (m: THREE.Material): THREE.Material => {
+      if (ghosted.has(m)) return m;
+      // Lambert: the faded body covers much of the screen over the opponent,
+      // and at this opacity a standard material's specular detail is invisible.
+      // Same texture and colour, so bruises still show.
+      const src = m as THREE.MeshStandardMaterial;
+      const g = new THREE.MeshLambertMaterial({
+        map: src.map ?? null,
+        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+        side: m.side,
+        transparent: true,
+        opacity: SHOULDER_CAMERA.playerOpacity,
+        // Otherwise the body hides its own far half in patches.
+        depthWrite: false,
+      });
+      ghosted.add(g);
+      return g;
+    };
+
+    /** Fades the player's fighter, gloves excepted, or restores it. Rescanned
+     *  because skins and appearance changes swap materials after load. */
+    const syncGhost = (on: boolean, rescan = true) => {
+      if (!playerRoot) return;
+      if (!on) {
+        for (const [mesh, orig] of ghostOriginals) {
+          const now = mesh.material;
+          (Array.isArray(now) ? now : [now]).forEach((x) => ghosted.has(x) && x.dispose());
+          mesh.material = orig;
+        }
+        ghostOriginals.clear();
+        return;
+      }
+      if (!rescan) return;
+      playerRoot.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        // Where your fists are is the one thing you must always see.
+        if (!mesh.isMesh || isGlove([mesh.name, mesh.parent?.name ?? ""])) return;
+        const mat = mesh.material;
+        if (Array.isArray(mat) ? mat.every((x) => ghosted.has(x)) : ghosted.has(mat)) return;
+        ghostOriginals.set(mesh, mat);
+        mesh.material = Array.isArray(mat) ? mat.map(ghostMaterial) : ghostMaterial(mat);
+      });
+    };
+
     // The next getWorldPosition or render picks the new scale up.
     const setOwnHead = (shown: boolean) => playerHead?.scale.setScalar(shown ? 1 : 1e-4);
 
-    /** Places the first-person camera. False when it can't (no opponent yet,
-     *  the director holds the camera, the model isn't loaded). */
-    const placeFpsCamera = (dt: number): boolean => {
+    /** Places the fight camera, at the eyes or behind the head. False when it
+     *  can't (no opponent yet, the director holds the camera, no model). */
+    const placeFpsCamera = (dt: number, first: boolean): boolean => {
       const duel = showTargetRef.current || dummyRef.current;
       if (!duel || directorOwns || !playerRoot || !opponentRoot?.visible) {
         setOwnHead(true);
@@ -1194,33 +1244,41 @@ export function BoxerModel({
       }
       playerHead ??= playerRoot.getObjectByName("c_head") ?? null;
       opponentHead ??= opponentRoot.getObjectByName("c_head") ?? null;
-      if (!playerEyes || !opponentHead) return false;
-      // Eyes read with the head at full size, then the head collapses for the render.
+      if (!playerEyes || !playerHead || !opponentHead) return false;
+      // A view switch starts fresh rather than sweeping through the head.
+      if (fpsFirst !== first) fpsCam = null;
+      fpsFirst = first;
+      const cfg = first ? FPS_CAMERA : SHOULDER_CAMERA;
+      // Read with the head at full size; first person then collapses it for the render.
       setOwnHead(true);
-      playerEyes[0].getWorldPosition(_head);
-      playerEyes[1].getWorldPosition(_eyeR);
-      _head.add(_eyeR).multiplyScalar(0.5);
-      setOwnHead(false);
+      if (first) {
+        playerEyes[0].getWorldPosition(_head);
+        playerEyes[1].getWorldPosition(_eyeR);
+        _head.add(_eyeR).multiplyScalar(0.5);
+        setOwnHead(false);
+      } else {
+        playerHead.getWorldPosition(_head);
+      }
       opponentHead.getWorldPosition(_oppHead);
       const motion = driverRef.current?.bodyMotion;
-      const lean = fpsLean(motion?.tracked ? motion.lateral : 0);
+      const lean = fpsLean(motion?.tracked ? motion.lateral : 0, cfg);
       // The fighters face each other down one fixed line, so the camera looks
       // straight down it: their slips move them across the frame, the
       // player's own slips move the camera.
       if (lineLockedHolder.current?.current ?? true) _oppHead.x = _head.x;
-      const goal = fpsCameraPose(_head, _oppHead, FPS_CAMERA, lean.side);
+      const goal = fpsCameraPose(_head, _oppHead, cfg, lean.side);
       fpsCam = fpsCam
         ? {
-            position: approach(fpsCam.position, goal.position, dt, FPS_CAMERA.tau),
-            target: approach(fpsCam.target, goal.target, dt, FPS_CAMERA.tau),
+            position: approach(fpsCam.position, goal.position, dt, cfg.tau),
+            target: approach(fpsCam.target, goal.target, dt, cfg.tau),
           }
         : goal;
       camera.position.set(fpsCam.position.x, fpsCam.position.y, fpsCam.position.z);
       controls.target.set(fpsCam.target.x, fpsCam.target.y, fpsCam.target.z);
       camera.lookAt(controls.target);
-      fpsRoll += (lean.roll - fpsRoll) * (1 - Math.exp(-dt / FPS_CAMERA.tau));
+      fpsRoll += (lean.roll - fpsRoll) * (1 - Math.exp(-dt / cfg.tau));
       camera.rotateZ(-fpsRoll);
-      const fov = fpsFov(camera.aspect);
+      const fov = fpsFov(camera.aspect, cfg);
       if (Math.abs(camera.fov - fov) > 1e-3) {
         camera.fov = fov;
         camera.updateProjectionMatrix();
@@ -1233,8 +1291,10 @@ export function BoxerModel({
       fpsCam = null;
       fpsRoll = 0;
       fpsScanAt = -Infinity;
+      fpsFirst = null;
       setOwnHead(true);
       syncGlow(null);
+      syncGhost(false);
       controls.enabled = true;
       if (camera.fov !== BASE_FOV) {
         camera.fov = BASE_FOV;
@@ -1251,13 +1311,8 @@ export function BoxerModel({
     let lastTargetShown = showTargetRef.current;
     const governor = new ResolutionGovernor(MIN_PIXEL_RATIO, pixelRatio);
 
-    // FPS Mode on a phone: the ?demo speed settings that can change while
-    // running - resolution capped at 1x, no shadow pass, no crowd. A phone
-    // draws the scene and runs pose tracking on one GPU, and in FPS Mode any
-    // lag is right in front of you as your own gloves trailing your punches.
-    // Laptops keep the full picture.
-    const onPhone =
-      typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    // Lite: the ?demo speed settings that can change while running -
+    // resolution capped at 1x, no shadow pass, no crowd.
     let liteOn = false;
     // Any machine, any fight mode: if the scene is visibly starving pose
     // tracking, the same extras come off for the rest of the session. See
@@ -1576,21 +1631,21 @@ export function BoxerModel({
 
       stepDirector(dt);
       if (driver) {
-        driver.lockDepth = fpsRef.current;
+        // A line-locked fight ignores the player's steps, so the figure does too.
+        driver.lockDepth = fpsRef.current || (lineLockedHolder.current?.current ?? false);
         // In a fight (or on the punching dummy) the legs stand planted rather
         // than copying the camera's guesses at the player's legs.
         driver.plantLegs = !!(showTargetRef.current || dummyRef.current);
         driver.steadyBody = driver.plantLegs;
       }
-      const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
       const inBout = !!(showTargetRef.current || dummyRef.current);
-      // Every fight - FPS Mode included - runs light: no shadow pass, no crowd,
-      // resolution capped at 1x, so the GPU goes to pose tracking and your
-      // fighter keeps up with you. The slowness detector still covers any
-      // other view.
-      const wantLite = inBout || (wantFps && onPhone) || slowness.slow;
+      const first = fpsRef.current;
+      // Every fight runs light: no shadow pass, no crowd, resolution capped at
+      // 1x, so the GPU goes to pose tracking and your fighter keeps up with
+      // you. The slowness detector still covers any other view.
+      const wantLite = inBout || slowness.slow;
       if (wantLite !== liteOn) setLite(wantLite);
-      if (wantFps) {
+      if (inBout) {
         fpsActive = true;
         // The camera is driven every frame; dragging it would fight that.
         // Re-asserted each frame because the knockdown director re-enables
@@ -1602,7 +1657,9 @@ export function BoxerModel({
         const rescan = nowMs - fpsScanAt >= 250;
         if (rescan) fpsScanAt = nowMs;
         syncGlow(opponentHolder.current?.current?.windup ?? 0, rescan);
-        if (!placeFpsCamera(dt) && !directorOwns) {
+        // Solid again while the director shows the player from outside.
+        syncGhost(!first && !directorOwns, rescan);
+        if (!placeFpsCamera(dt, first) && !directorOwns) {
           followOpponent(dt);
           controls.update();
         }

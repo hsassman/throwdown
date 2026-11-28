@@ -511,35 +511,26 @@ try {
   const colours = colourCount(shot, 0, 120, 1440, 760);
   check("the fight scene is lit and modelled", colours > 200, `${colours} colours`);
 
-  // --- Mouse navigation: orbiting the fight camera -------------------------
+  // --- V switches between the two fight cameras ------------------------------
   //
-  // The third input this game claims to support, and the one nothing checked.
-  // It also exercises the camera director's handover: the director holds the
-  // camera during a cut and gives it back afterwards, and a handover that
-  // failed to re-enable the controls would leave a drag doing nothing at all.
-  // First person drives the camera from the eyes, so orbiting is a
-  // third-person feature: switch with V, check, and switch back.
+  // Third person rides behind the head with the player's fighter see-through;
+  // first person sits at the eyes. Both are driven by the fight, so V must
+  // visibly change the picture, and switching back must restore it.
+  const firstShot = decodePng(await page.screenshot());
   await page.keyboard.press("v");
   await page.waitForTimeout(900);
   const thirdShot = decodePng(await page.screenshot());
-  const stageBox = await page.locator("canvas").first().boundingBox();
-  const ox = stageBox.x + stageBox.width / 2;
-  const oy = stageBox.y + stageBox.height / 2;
-  await page.mouse.move(ox, oy);
-  await page.mouse.down();
-  for (let i = 1; i <= 24; i++) await page.mouse.move(ox - i * 8, oy - i);
-  await page.mouse.up();
-  await page.waitForTimeout(700);
-  const orbited = decodePng(await page.screenshot());
-  const moved = differenceRatio(thirdShot, orbited);
+  const switched = differenceRatio(firstShot, thirdShot);
   check(
-    "the fight camera orbits with the mouse",
-    moved > 0.15,
-    `${(moved * 100).toFixed(1)}% of the frame changed`
+    "V switches to the camera behind the fighter",
+    switched > 0.15 && (await page.locator(".app[data-fight-camera]").count()) === 0,
+    `${(switched * 100).toFixed(1)}% of the frame changed`
   );
-  await page.screenshot({ path: `${OUT}/shell-fight-orbit.png` });
+  await page.screenshot({ path: `${OUT}/shell-fight-third.png` });
+  step(`saved ${OUT}/shell-fight-third.png`);
   await page.keyboard.press("v");
-  step(`saved ${OUT}/shell-fight-orbit.png`);
+  await page.waitForTimeout(500);
+  check("and V switches back", (await page.locator('.app[data-fight-camera="first"]').count()) === 1);
 
   await page.locator(".back-btn").click();
   await page.waitForSelector(".shell", { timeout: 45000 });
@@ -734,6 +725,19 @@ try {
   );
   await page.screenshot({ path: `${OUT}/stage-ring.png` });
   step(`saved ${OUT}/stage-ring.png`);
+
+  // Mouse navigation: the venue camera orbits with a drag.
+  const venueShot = decodePng(await page.screenshot());
+  const stageBox = await page.locator("canvas").first().boundingBox();
+  const ox = stageBox.x + stageBox.width / 2;
+  const oy = stageBox.y + stageBox.height / 2;
+  await page.mouse.move(ox, oy);
+  await page.mouse.down();
+  for (let i = 1; i <= 24; i++) await page.mouse.move(ox - i * 8, oy - i);
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  const orbited = differenceRatio(venueShot, decodePng(await page.screenshot()));
+  check("the venue camera orbits with the mouse", orbited > 0.15, `${(orbited * 100).toFixed(1)}% of the frame changed`);
   await page.locator(".back-btn").click();
   await page.waitForSelector(".shell", { timeout: 45000 });
 

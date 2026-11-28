@@ -145,7 +145,13 @@ the measurements behind each decision.
   screens so the horizontal view never drops below 70° (capped at 100°). A slip
   slides and rolls the camera slightly on top of the head's own movement.
   Smoothing is 35 ms: in first person, lag reads as motion sickness.
-- **Third person.** Over the shoulder, turning with the fight as the CPU circles.
+- **Third person** (`SHOULDER_CAMERA`). 1.35 m behind and 0.2 m above the
+  head bone, looking down the same fight line with a 50° view (widened on
+  portrait screens so the horizontal view stays at 62° or more). The player's
+  fighter is drawn at 28% opacity in cloned Lambert materials with depth
+  writes off, so the opponent always shows through; the gloves stay solid. It
+  turns solid again whenever the knockdown camera shows the player from
+  outside.
 - **Director.** Takes the camera for knockdowns, the bell and the decision, never
   during a live exchange, and eases back to exactly where it found it.
 
