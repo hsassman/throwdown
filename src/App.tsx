@@ -17,6 +17,7 @@ import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
 import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
 import { useFight } from "./sim/useFight";
+import { useHandsUp } from "./sim/useHandsUp";
 import { DEFAULT_RULES } from "./sim/fightState";
 import { unlockAudio } from "./audio/sharedContext";
 import { useWakeLock } from "./ui/useWakeLock";
@@ -38,7 +39,6 @@ import { useSession } from "./net/useSession";
 import { useOnlineSession } from "./net/useOnlineSession";
 import { FindMatchPanel } from "./ui/FindMatchPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
-import type { NetFightState } from "./net/protocol";
 import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
@@ -221,28 +221,17 @@ export default function App() {
     poseRef,
     subscribe: strike.subscribe,
   });
+  const net = onInternet ? onlineSession : session;
   const netOpen =
     (onLan && session.status.state === "open") ||
     (onInternet && onlineSession.linkStatus.state === "open");
   const netRole = onLan ? session.role : onInternet ? onlineSession.role : null;
-  // Depends on `session.send`, not on `session`.
-  //
-  // The hook returns a fresh object every render, so `[session]` rebuilt this
-  // callback every time - and the fight effect lists it, so the whole
-  // simulation was torn down and restarted on every render. The visible
-  // symptom was the round clock frozen at 2:59 in all modes, including the
-  // CPU fight that has nothing to do with networking. `send` is a useCallback
-  // with no dependencies, so it is stable for the life of the session.
-  const sendToPeer = onInternet ? onlineSession.send : session.send;
-  const publishState = useCallback(
-    (state: NetFightState) => sendToPeer({ kind: "state", state }),
-    [sendToPeer]
-  );
+  const netStatus = onInternet ? onlineSession.linkStatus : session.status;
+  // CPU fights restart here; networked ones once both players have asked.
+  const [cpuRematchKey, setCpuRematchKey] = useState(0);
 
   const fight = useFight({
-    // A networked fight does not start until the two ends are actually
-    // connected. Starting the clock on a connection that never completes would
-    // run a round against nobody.
+    // A networked fight starts once the two ends are connected.
     enabled: inFight && (!(onLan || onInternet) || netOpen),
     rules: DEFAULT_RULES,
     difficulty: careerFightOpponentRef.current?.difficulty ?? "contender",
@@ -250,14 +239,34 @@ export default function App() {
     subscribe: strike.subscribe,
     bodyRef,
     mode: netOpen ? (netRole === "host" ? "host" : "guest") : "cpu",
-    remoteStrikeRef: onInternet ? onlineSession.remoteStrikeQueueRef : session.remoteStrikeQueueRef,
-    remoteStateRef: onInternet ? onlineSession.remoteStateRef : session.remoteStateRef,
-    publishState,
+    remoteStrikeRef: net.remoteStrikeQueueRef,
+    remoteDefenceRef: net.remoteDefenceRef,
+    remoteStateRef: net.remoteStateRef,
+    remoteEventRef: net.remoteEventQueueRef,
+    // `send` is stable for the life of a session; the hook object is not.
+    send: net.send,
+    rttMs: netStatus.latency,
+    restartKey: netOpen ? net.rematchKey : cpuRematchKey,
     // First person holds both fighters on one line and lets a downed player
     // get up by raising their gloves. CPU fights only.
     getUp: firstPerson,
     locked: firstPerson,
   });
+
+  const fightOver = inFight && !!fight.hud?.result;
+  const rematch = useCallback(() => {
+    if (netOpen) {
+      net.requestRematch();
+      return;
+    }
+    if (inCareer) {
+      careerFightOpponentRef.current = currentOpponent(careerProfile);
+      careerRecordedRef.current = false;
+      setCareerOutcome(null);
+    }
+    setCpuRematchKey((k) => k + 1);
+  }, [netOpen, net, inCareer, careerProfile]);
+  useHandsUp(bodyRef, fightOver && !(netOpen && net.rematch.local), rematch);
 
   // Re-snapshot the opponent and reset the double-record guard each time the
   // career screen is (re-)entered - not on every profile change, so a fight
@@ -364,6 +373,20 @@ export default function App() {
       if (frames.length > 600) frames.shift();
     });
   }, [subscribeStrikePose]);
+
+  // Read-only view and pairing for tools/ (two-browser smoke tests).
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__shadowboxDebug = () => ({
+      hud: fight.hud,
+      netOpen,
+      role: netRole,
+      code: session.outgoingCode,
+      remoteDefence: net.remoteDefenceRef.current,
+      rematch: net.rematch,
+    });
+    w.__shadowboxNet = { host: session.startHost, join: session.join, complete: session.completeHost, rematch };
+  });
 
   if (!started) {
     return (
@@ -578,6 +601,7 @@ export default function App() {
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}
+            rematch={fightOver ? { onRematch: rematch, waiting: netOpen && net.rematch.local, opponentReady: netOpen && net.rematch.remote } : null}
             // No telegraph bar in a networked fight: it reads the CPU's wind-up,
             // and a person does not have one. Showing an empty meter would
             // suggest the opponent never commits to anything.

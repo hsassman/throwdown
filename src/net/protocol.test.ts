@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decode, encode, PROTOCOL_VERSION, type NetMessage } from "./protocol";
+import { decode, encode, mirrorEvent, PROTOCOL_VERSION, type NetMessage } from "./protocol";
 import { ALL_POSE_KEYS, type PoseFrame } from "../pose/poseTypes";
 import {
   approachOf,
@@ -135,6 +135,7 @@ describe("control messages", () => {
       stamina: [0.7, 0.44] as [number, number],
       down: [0, 1] as [number, number],
       hurt: [0.2, 1] as [number, number],
+      landed: [12, 9] as [number, number],
       count: 4,
       countOn: "guest" as const,
     };
@@ -142,6 +143,67 @@ describe("control messages", () => {
       kind: "state",
       state,
     });
+  });
+});
+
+describe("gameplay messages", () => {
+  const impact = { lateral: 0, height: 1.3, depth: 0.1 };
+  const region = regionAt(impact);
+  const approach = approachOf(0, 0.2, 2.5);
+  const strike: StrikeEvent = {
+    hand: "left",
+    zone: coarseZone(impact),
+    impact,
+    region,
+    approach,
+    damage: damageOf(region, 0.6, approach),
+    power: 0.6,
+    speed: 3.8,
+    contactReach: 1.29,
+    timestamp: 99,
+  };
+
+  it("round-trips the guest's defence, a fight event and a rematch request", () => {
+    for (const msg of [
+      { kind: "defence", defence: { guard: "high", evasion: "slipLeft" } },
+      { kind: "event", event: { type: "knockdown", target: "player", count: 1 }, strike },
+      { kind: "rematch" },
+    ] as NetMessage[]) {
+      expect(decode(encode(msg))).toEqual(msg);
+    }
+  });
+
+  it("drops a defence or event with values it does not know", () => {
+    const raw = (m: unknown) => {
+      const json = new TextEncoder().encode(JSON.stringify(m));
+      const out = new Uint8Array(1 + json.length);
+      out[0] = 2;
+      out.set(json, 1);
+      return out.buffer;
+    };
+    expect(decode(raw({ kind: "defence", defence: { guard: "up", evasion: "none" } }))).toBeNull();
+    expect(decode(raw({ kind: "defence" }))).toBeNull();
+    expect(decode(raw({ kind: "event", event: { type: "teleport" } }))).toBeNull();
+  });
+});
+
+describe("mirrorEvent", () => {
+  const m = (e: Parameters<typeof mirrorEvent>[0]) => mirrorEvent(e, "player", "opponent");
+
+  it("swaps who was hit, who fouled and who won", () => {
+    expect(m({ type: "land", target: "opponent", damage: 1, region: "chin", power: 0.5 })).toMatchObject({ target: "player" });
+    expect(m({ type: "foul", by: "player", region: "groin" })).toMatchObject({ by: "opponent" });
+    expect(m({ type: "stoppage", winner: "player", reason: "ko" })).toMatchObject({ winner: "opponent" });
+    expect(m({ type: "decision", winner: null, cards: { player: 29, opponent: 28 } })).toEqual({
+      type: "decision",
+      winner: null,
+      cards: { opponent: 29, player: 28 },
+    });
+  });
+
+  it("is its own inverse", () => {
+    const e = { type: "roundEnd" as const, round: 2, scores: { player: 10, opponent: 9 } };
+    expect(m(m(e))).toEqual(e);
   });
 });
 

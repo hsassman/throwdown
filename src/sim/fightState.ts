@@ -259,9 +259,32 @@ export class DefenceHistory {
     return null;
   }
 
+  /**
+   * The defence that best answers `strike` between `from` and `to`: the first
+   * one that evades or blocks it, else the one in force at `to`. Gives a remote
+   * defender, whose state arrives late, the benefit of the doubt.
+   */
+  bestAgainst(strike: StrikeEvent, from: number, to: number): DefenceSnapshot | null {
+    let inForce: DefenceSnapshot | null = null;
+    for (const { t, d } of this.samples) {
+      if (t > to) break;
+      if (t <= from) {
+        inForce = d;
+        continue;
+      }
+      if (inForce && answers(inForce, strike)) return inForce;
+      inForce = d;
+    }
+    return inForce;
+  }
+
   clear(): void {
     this.samples.length = 0;
   }
+}
+
+function answers(d: DefenceSnapshot, strike: StrikeEvent): boolean {
+  return (d.stunned <= 0 && evades(d.evasion, strike)) || guardCovers(d, strike);
 }
 
 function freshFighter(id: string, weightClass: WeightClass): FighterState {

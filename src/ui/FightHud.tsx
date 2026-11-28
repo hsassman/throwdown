@@ -18,6 +18,8 @@ interface Props {
    *  CPU's telegraph is legible to a player who is looking at the character
    *  rather than at an animation they have learned. */
   showWindup?: boolean;
+  /** Shown with the result. `waiting`: this player asked and the other has not. */
+  rematch?: { onRematch: () => void; waiting: boolean; opponentReady: boolean } | null;
 }
 
 function clock(seconds: number): string {
@@ -67,7 +69,7 @@ function Bars({
   );
 }
 
-export function FightHud({ hud, showWindup = true }: Props) {
+export function FightHud({ hud, showWindup = true, rematch = null }: Props) {
   const over = hud.phase === "stopped" || hud.phase === "decision";
 
   return (
@@ -135,6 +137,16 @@ export function FightHud({ hud, showWindup = true }: Props) {
               </span>
             ))}
           </div>
+          {rematch && (
+            <button type="button" className="fh-rematch" onClick={rematch.onRematch} disabled={rematch.waiting}>
+              {rematch.waiting
+                ? "Waiting for your opponent"
+                : rematch.opponentReady
+                  ? "Opponent wants a rematch: fight again"
+                  : "Fight again"}
+              <small>or raise both hands</small>
+            </button>
+          )}
         </div>
       )}
 

@@ -119,6 +119,12 @@ export const NET_CONFIG = {
    * the front of a conference room.
    */
   connectTimeoutMs: 20000,
+  /** The host holds its own punches at the guest for one round trip, within
+   *  these bounds, so the guest's defence (which arrives late) is judged fairly. */
+  defendWindowMinMs: 30,
+  defendWindowMaxMs: 150,
+  /** The guest restates its defence this often even when it has not changed, ms. */
+  defenceHeartbeatMs: 250,
 };
 
 /**

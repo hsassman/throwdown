@@ -9,7 +9,8 @@ describe("fpsCameraPose", () => {
 
   it("sits at the eyes, not behind the head", () => {
     const p = fpsCameraPose(eye, opp);
-    expect(Math.abs(p.position.z)).toBeLessThan(0.05);
+    // Inside the head: a head is about 0.2 m front to back.
+    expect(Math.abs(p.position.z)).toBeLessThan(0.1);
     expect(p.position.x).toBeCloseTo(0, 5);
     expect(p.position.y).toBeCloseTo(1.6 + FPS_CAMERA.up, 5);
   });

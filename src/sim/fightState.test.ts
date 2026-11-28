@@ -633,6 +633,25 @@ describe("lag compensation", () => {
     expect(history.at(990, 1000)).toBeNull();
   });
 
+  it("gives a remote defender the benefit of the doubt inside the window", () => {
+    const history = new DefenceHistory();
+    const open = { guard: "none" as const, evasion: "none" as const, stunned: 0 };
+    history.record(990, open);
+    history.record(1040, { ...open, evasion: "duck" });
+    history.record(1100, open);
+    // Ducked inside the window, even though open at both ends of it.
+    expect(history.bestAgainst(jab(), 1000, 1120)?.evasion).toBe("duck");
+    // A duck that came after the window does not count.
+    expect(history.bestAgainst(jab(), 1000, 1030)?.evasion).toBe("none");
+  });
+
+  it("does not credit a stunned defender's head movement", () => {
+    const history = new DefenceHistory();
+    history.record(990, { guard: "none", evasion: "duck", stunned: 1 });
+    history.record(1050, { guard: "none", evasion: "none", stunned: 0 });
+    expect(history.bestAgainst(jab(), 1000, 1100)?.evasion).toBe("none");
+  });
+
   it("shares one definition of a covering guard with the sim", () => {
     const head = hit(0, 1.35);
     const body = hit(0, 0.5);

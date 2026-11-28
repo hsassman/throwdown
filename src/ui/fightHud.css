@@ -111,6 +111,28 @@
   transform-origin: left center;
 }
 
+.fh-rematch {
+  display: block;
+  margin: 14px auto 0;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: #c8432f;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.fh-rematch:disabled {
+  background: #3a404c;
+  cursor: default;
+}
+.fh-rematch small {
+  display: block;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
 .fh-result {
   position: absolute;
   left: 50%;

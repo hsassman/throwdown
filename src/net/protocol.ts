@@ -1,45 +1,19 @@
-import {
-  ALL_POSE_KEYS,
-  type AnyPoseKey,
-  type Keypoint,
-  type PoseFrame,
-} from "../pose/poseTypes";
+import { ALL_POSE_KEYS, type AnyPoseKey, type Keypoint, type PoseFrame } from "../pose/poseTypes";
 import type { StrikeEvent } from "../perception/strikeResolver";
-import type { FightPhase } from "../sim/fightState";
+import type { Evasion, FightEvent, FightPhase, GuardPosture } from "../sim/fightState";
 
-// What two fighters send each other.
-// WHAT GOES OVER THE WIRE, AND WHY IT IS THE POSE
-//
-// The remote fighter is driven by their POSE FRAME, not by a summary of what
-// they did. Their frame goes into the same RigDriver that draws the local
-// player, so the figure on your screen ducks, slips, steps and throws exactly
-// as the person at the other end did — because it is running the identical
-// code on the identical input. Sending a digest instead ("they are slipping
-// left, guard high") would mean building a second, lossier animation path and
-// then maintaining the two in step.
-//
-// It is also small. Twenty-one landmarks at four floats each is 336 bytes, and
-// the pose stream runs at about 15 Hz, so a fighter costs roughly 5 KB/s.
-// AUTHORITY
-//
-// The HOST runs the simulation and the guest is told the result. This is not
-// rollback netcode and does not pretend to be — there is no prediction and no
-// reconciliation, so the guest sees the fight about one round-trip late.
-//
-// That is an honest arrangement for a first working version and a dishonest
-// one to describe as anything more. The CPU's seeded determinism was built with
-// rollback in mind and still is; what is missing is the input-history and
-// re-simulation machinery, not the determinism underneath it.
+// What two fighters send each other. Each end draws the other from their pose
+// frames, run through the same RigDriver as the local player. The host runs
+// the simulation; the guest sends its punches and its defence, and gets the
+// state and every fight event back.
 
-/**
- * Bumped whenever the shape of anything below changes.
- *
- * Checked in the handshake, because the failure it prevents is the nastiest
- * one available here: two builds that connect happily and then disagree about
- * where a punch landed. A refused connection is a message; a silently
- * mismatched one is a bug report about hit detection.
- */
-export const PROTOCOL_VERSION = 3;
+/** Bumped whenever a message shape changes. Checked in the handshake. */
+export const PROTOCOL_VERSION = 4;
+
+export interface NetDefence {
+  guard: GuardPosture;
+  evasion: Evasion;
+}
 
 export type NetMessage =
   | {
@@ -47,43 +21,57 @@ export type NetMessage =
       protocol: number;
       name: string;
       host: boolean;
-      /**
-       * True on a hello that WANTS a reply, false on the reply itself.
-       *
-       * Latency is measured by timing that exchange. Without the flag the only
-       * hello a peer ever saw was the other end's own scheduled one, so the
-       * number on screen was the time until their next ping — around half the
-       * ping interval on average, and up to all of it. The host happened to
-       * read 75 ms and the guest 1051 ms in the same session, which is the
-       * kind of number that is worse than showing none at all.
-       */
+      /** True on a hello that wants a reply; latency is timed on that exchange. */
       ping?: boolean;
     }
   | { kind: "pose"; frame: PoseFrame }
   | { kind: "strike"; strike: StrikeEvent }
   | { kind: "state"; state: NetFightState }
+  /** Guest to host: the guest's guard and head movement, from its own camera. */
+  | { kind: "defence"; defence: NetDefence }
+  /** Host to guest: a fight event, with the strike that caused it when there was one. */
+  | { kind: "event"; event: FightEvent; strike?: StrikeEvent }
+  /** Either way: this player wants another fight. */
+  | { kind: "rematch" }
   | { kind: "bye"; reason: string };
 
-/**
- * The host's view of the fight, as the guest needs to draw it.
- *
- * Deliberately NOT the whole FightSim. Only what the HUD and the figures read
- * is sent, so a change to the simulation's internals cannot quietly become a
- * change to the wire format.
- */
+/** The host's view of the fight, as the guest needs to draw it. Arrays are [host, guest]. */
 export interface NetFightState {
   round: number;
   clock: number;
   phase: FightPhase;
-  /** [host, guest] — always in that order, so neither end has to know which
-   *  one it is to read the array. */
   health: [number, number];
   stamina: [number, number];
   down: [number, number];
   hurt: [number, number];
+  landed: [number, number];
   count: number;
-  /** Who the count is against, or null. */
   countOn: "host" | "guest" | null;
+}
+
+/**
+ * A host event as the guest sees it. The host's sim names its own player
+ * `self` and the guest `other`; the guest's names are the other way round.
+ */
+export function mirrorEvent(e: FightEvent, self: string, other: string): FightEvent {
+  const swap = (id: string) => (id === self ? other : id === other ? self : id);
+  const swapKeys = (r: Record<string, number>) =>
+    Object.fromEntries(Object.entries(r).map(([k, v]) => [swap(k), v]));
+  switch (e.type) {
+    case "land":
+    case "block":
+    case "miss":
+    case "knockdown":
+      return { ...e, target: swap(e.target) };
+    case "foul":
+      return { ...e, by: swap(e.by) };
+    case "roundEnd":
+      return { ...e, scores: swapKeys(e.scores) };
+    case "stoppage":
+      return { ...e, winner: swap(e.winner) };
+    case "decision":
+      return { ...e, winner: e.winner === null ? null : swap(e.winner), cards: swapKeys(e.cards) };
+  }
 }
 
 /** 4 floats per landmark — x, y, z, confidence — matching the layout the pose
@@ -172,15 +160,30 @@ export function decode(buf: ArrayBuffer): NetMessage | null {
   return { kind: "pose", frame: frame as unknown as PoseFrame };
 }
 
-/** A peer is untrusted. Anything that does not look like a message we know is
- *  dropped rather than handed on to code that assumes its shape. */
+const GUARDS = new Set(["high", "low", "none"]);
+const EVASIONS = new Set(["none", "slipLeft", "slipRight", "duck"]);
+const EVENTS = new Set(["land", "block", "miss", "foul", "knockdown", "roundEnd", "stoppage", "decision"]);
+
+/** A peer is untrusted: anything that does not look like a known message is dropped. */
 function isMessage(m: unknown): m is NetMessage {
   if (!m || typeof m !== "object") return false;
-  const kind = (m as { kind?: unknown }).kind;
-  return (
-    kind === "hello" ||
-    kind === "strike" ||
-    kind === "state" ||
-    kind === "bye"
-  );
+  const msg = m as Record<string, unknown>;
+  switch (msg.kind) {
+    case "hello":
+    case "strike":
+    case "state":
+    case "rematch":
+    case "bye":
+      return true;
+    case "defence": {
+      const d = msg.defence as Record<string, unknown> | undefined;
+      return !!d && GUARDS.has(d.guard as string) && EVASIONS.has(d.evasion as string);
+    }
+    case "event": {
+      const e = msg.event as Record<string, unknown> | undefined;
+      return !!e && EVENTS.has(e.type as string);
+    }
+    default:
+      return false;
+  }
 }
