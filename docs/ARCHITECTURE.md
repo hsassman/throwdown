@@ -57,7 +57,7 @@ These are settled. Re-opening one needs a strong reason.
 - **Client-side only, with one narrow exception.** The fight itself (pose,
   simulation, rendering) never touches a server. A small ASP.NET Core service
   exists only for online matchmaking: pairing two players and relaying their
-  WebRTC offer/answer over a SignalR hub (see `docs/PLAN.md`). Same-network
+  WebRTC offer/answer over a SignalR hub (see `docs/TECHNOLOGY.md`). Same-network
   play still has no server at all - two players exchange the WebRTC offer and
   answer by pasting a code to each other.
 - **Video never crosses the network.** Pose landmarks do.

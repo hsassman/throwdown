@@ -89,17 +89,9 @@ async function openPlayer(label) {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(`${label} console: ${m.text()}`);
   });
-  // firstrun=0: the walkthrough card would sit over the rows this clicks.
-  await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0", { waitUntil: "networkidle" });
+  // Straight to the Online screen by URL, so a menu redesign cannot break this test.
+  await page.goto(BASE + "/" + (QUERY ? QUERY + "&" : "?") + "firstrun=0&mode=internet", { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
-  await page.waitForSelector(".shell", { timeout: TIMEOUT });
-  // By the row's title, not its description: the description is copy and
-  // changes (the UI pass turned "Fight a stranger..." into "Find an opponent
-  // over the internet."), which broke this test without breaking the game.
-  await page
-    .locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: /^Online$/ }) })
-    .first()
-    .click();
   await page.waitForSelector(".vs", { timeout: TIMEOUT });
   return { page, context };
 }
