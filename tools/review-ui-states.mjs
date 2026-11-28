@@ -106,6 +106,7 @@ async function gameReview() {
     await dialog.waitFor({ state: "hidden" });
 
     await mode(page, "dummy").tap();
+    await page.locator(".stage .boxer-model canvas").waitFor();
     await page.locator(".stage .thud-target-label").waitFor();
     assert.ok(await page.locator(".stage .thud-target").evaluate((el) => {
       const stage = el.closest(".stage").getBoundingClientRect();
@@ -134,6 +135,15 @@ async function gameReview() {
     await shot(page, "refined-phone-career");
     await button(page, "Main menu").tap();
 
+    await mode(page, "stages").tap();
+    const ring = button(page, "The Ring");
+    await ring.tap();
+    assert.equal(await ring.getAttribute("aria-pressed"), "true");
+    await page.locator(".arena-view canvas").waitFor();
+    assert.ok(await page.getByText("Drag the arena to rotate the preview").isVisible());
+    await shot(page, "refined-phone-venue");
+    await button(page, "Main menu").tap();
+
     await mode(page, "cpu").tap();
     await page.locator(".fh-clock").waitFor();
     const camera = button(page, "Switch camera to third person");
@@ -145,9 +155,13 @@ async function gameReview() {
       await page.keyboard.press("v");
       await camera.waitFor();
       assert.equal(await page.evaluate(() => localStorage.getItem("shadowbox.view")), "first");
+      assert.ok(await page.locator(".cam-inset").evaluate((element) => {
+        const stage = element.closest(".stage").getBoundingClientRect();
+        return element.getBoundingClientRect().bottom < stage.top + stage.height * 2 / 3;
+      }), "First-person camera preview should stay above the gloves");
       await shot(page, "refined-phone-fight-camera");
     }
-    console.log("Verified camera setup, live drill, recap, restart and career in the game");
+    console.log("Verified camera setup, live drill, recap, restart, career and venue selection in the game");
   } finally {
     await page.close();
   }
@@ -156,6 +170,7 @@ async function gameReview() {
 try {
   await fixtureReview(portrait, "refined-portrait-fight");
   await fixtureReview(landscape, "refined-landscape-fight");
+  await fixtureReview({ width: 640, height: 320 }, "refined-compact-fight");
   await gameReview();
 } finally {
   await browser.close();

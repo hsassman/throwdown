@@ -198,6 +198,29 @@ button, input, textarea, select { font-family: inherit; }
 .app .panel :is(.report, .guide, .dodge) { background: #1b1526; border-color: var(--ui-border); }
 .app .vs-chip { background: #171122f4; border-color: var(--ui-border); color: var(--ui-ink); border-radius: 11px; }
 .app .framing-prompt { background: #231724f5; border-color: #e8abd36b; color: #ffd8ee; }
+.app[data-fight-camera="first"] {
+  --fight-preview-width: min(20vw, 146px);
+  --fight-preview-top: calc(var(--immersive-head, 0px) + 112px);
+}
+.app[data-fight-camera="first"] .stage .cam-inset {
+  top: var(--fight-preview-top);
+  bottom: auto;
+  width: var(--fight-preview-width);
+}
+.app[data-fight-camera="first"] .framing-prompt {
+  top: calc(var(--fight-preview-top) + var(--fight-preview-width) * .75 + 6px);
+  right: 10px;
+  bottom: auto;
+  left: auto;
+  max-width: min(29%, 176px);
+  text-align: end;
+}
+@media (max-height: 470px) and (orientation: landscape) {
+  .app[data-fight-camera="first"] {
+    --fight-preview-width: min(16vw, 112px);
+    --fight-preview-top: calc(var(--immersive-head, 0px) + 88px);
+  }
+}
 .app .stage-btn { background: #1b1428f5; border-radius: 13px; border-color: #ffffff3d; color: #fff; }
 .app .stage-btn[aria-pressed="true"] { border-color: #e3c7ff; box-shadow: 0 0 0 1px #e3c7ff; }
 .app .stage-btn-copy > span { color: var(--ui-muted); }

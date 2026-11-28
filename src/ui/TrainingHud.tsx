@@ -129,8 +129,8 @@ export function TrainingHud({ training, scored, onRestart }: Props) {
       )}
 
       <div className="thud-profile">
-        <span>{profile.totalStrikes} punches recorded</span>
-        <span>{profile.rounds} rounds</span>
+        <span>{profile.totalStrikes} {profile.totalStrikes === 1 ? "punch" : "punches"} recorded</span>
+        <span>{profile.rounds} {profile.rounds === 1 ? "round" : "rounds"}</span>
         {profile.bestRoundScore > 0 && <span>Best round {pct(profile.bestRoundScore)}</span>}
       </div>
       {storageError && <p className="thud-err" role="status">{storageError}</p>}
