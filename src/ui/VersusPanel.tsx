@@ -13,7 +13,7 @@ import "./versusPanel.css";
 // each other.
 //
 // It is clumsy for thirty seconds and then it is a direct connection with
-// nobody in the middle. The alternative is a signalling server — the same
+// nobody in the middle. The alternative is a signalling server - the same
 // thirty seconds of clumsiness moved into infrastructure somebody has to run,
 // pay for and keep up.
 
@@ -78,8 +78,8 @@ function CodeBox({ code, label }: { code: string; label: string }) {
 /**
  * The connected state, small enough to float over the fight.
  *
- * Once the two ends are talking there is nothing left to read — the codes have
- * done their job — and a full side panel for three lines of text was taking a
+ * Once the two ends are talking there is nothing left to read - the codes have
+ * done their job - and a full side panel for three lines of text was taking a
  * quarter of the screen away from the one thing the player is looking at. What
  * is left is what they might actually want mid-fight: whether the link is
  * still up, how far behind it is, and a way out that does not need a keyboard.

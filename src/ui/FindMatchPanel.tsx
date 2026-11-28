@@ -5,7 +5,7 @@ import type { LinkStatus } from "../net/peerLink";
 import "./versusPanel.css";
 
 // "Find a match": the online counterpart to VersusPanel.tsx. Much simpler,
-// because there is no code to paste — the only choices are "start looking"
+// because there is no code to paste - the only choices are "start looking"
 // and "give up looking". Reuses versusPanel.css's classes rather than adding
 // a new stylesheet for what is visually the same card.
 

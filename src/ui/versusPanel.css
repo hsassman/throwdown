@@ -1,4 +1,4 @@
-/* Setting up a same-network fight — same visual language as careerPanel.css
+/* Setting up a same-network fight - same visual language as careerPanel.css
    and systemPanel.css, so the side column reads as one thing. */
 
 .vs {
@@ -20,7 +20,7 @@
   font-size: 0.95rem;
 }
 
-/* The status light. Colour alone never carries the state — the label beside it
+/* The status light. Colour alone never carries the state - the label beside it
    always says the same thing in words, because about one man in twelve cannot
    tell the red one from the green one. */
 .vs-dot {
@@ -155,7 +155,7 @@
 .vs-chip {
   position: absolute;
   /* Clear of the health and stamina bars, which run the full width under the
-     header — at +44 the chip clipped the left end of the stamina bar. */
+     header - at +44 the chip clipped the left end of the stamina bar. */
   top: calc(var(--immersive-head, 52px) + 88px);
   left: 16px;
   z-index: 6;
