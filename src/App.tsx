@@ -12,7 +12,7 @@ import { STAGES } from "./menu/shellModel";
 import type { TargetDebugState } from "./render/TrainingTarget";
 import { useStrikeTraining } from "./perception/useStrikeTraining";
 import { useDummyTraining } from "./training/useDummyTraining";
-import { TrainingHud } from "./ui/TrainingHud";
+import { TrainingHud, TrainingTargetHud } from "./ui/TrainingHud";
 import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
 import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
@@ -117,6 +117,7 @@ export default function App() {
   const [thirdPerson, setThirdPerson] = useState(
     () => new URLSearchParams(window.location.search).get("view") === "third" || safeStorage()?.getItem(VIEW_KEY) === "third"
   );
+  const toggleFightView = useCallback(() => setThirdPerson((view) => !view), []);
   useEffect(() => {
     try {
       safeStorage()?.setItem(VIEW_KEY, thirdPerson ? "third" : "first");
@@ -318,13 +319,13 @@ export default function App() {
       }
       // V for the camera, but not while typing a connection code.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]");
-      if ((e.key === "v" || e.key === "V") && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setThirdPerson((v) => !v);
+      if ((e.key === "v" || e.key === "V") && !e.repeat && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        toggleFightView();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [screen, goMenu]);
+  }, [screen, goMenu, toggleFightView]);
 
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__shadowboxPose = () =>
@@ -421,6 +422,7 @@ export default function App() {
   // Same Network or Online, not yet connected: the panel is the screen, and
   // the stage behind it has nobody to show yet. See .app-connect in App.css.
   const connecting = (onLan || onInternet) && !netOpen;
+  const nextView = firstPerson ? "Third person" : "First person";
 
   /* The header is identical either way; only where it sits changes. Rendering
      it twice would be two things to keep in step, and the back button is the
@@ -431,6 +433,13 @@ export default function App() {
         <UiIcon name="back" /><span>Main menu</span>
       </button>
       <h2 className="screen-title">{item?.title ?? screen}</h2>
+      {inFight && !connecting && (
+        <button type="button" className="screen-view" onClick={toggleFightView}
+          aria-label={`Switch camera to ${nextView.toLowerCase()}`} title={`Switch to ${nextView.toLowerCase()} (V)`}>
+          <UiIcon name="camera" />
+          <span>{nextView}</span>
+        </button>
+      )}
       {/* The two keys that work on every screen. Escape especially: a
           camera-driven UI needs a guaranteed way out that does not depend on
           the camera working, and a player who cannot be seen is exactly the
@@ -565,6 +574,7 @@ export default function App() {
             </>
           </Suspense>
         )}
+        {onDummy && <TrainingTargetHud training={training} />}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
         {!inMenu && <FramingPrompt issue={framingIssue} />}
         {inFight && fight.hud && (

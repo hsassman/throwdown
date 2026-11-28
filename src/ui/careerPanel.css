@@ -1,88 +1,43 @@
-/* The career ladder's side panel — same visual language as systemPanel.css. */
-
-.cpanel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  background: rgba(8, 10, 16, 0.82);
-  color: #e8eef7;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+﻿.cpanel {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
 }
+
+.cpanel-poster {
+  display: grid;
+  align-items: end;
+  min-height: 126px;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 11px;
+  background: linear-gradient(0deg, #181220 5%, #21172ccb 40%, #22183549 96%), url('/ui/career.webp') center 42% / cover;
+}
+
+.cpanel-poster-copy p { margin: 0 0 4px; color: #ead6ff; font-size: .8rem; font-weight: 750; }
+.cpanel-name { margin: 0; color: var(--ui-ink); font-size: clamp(1.35rem, 3vw, 1.75rem); line-height: 1.08; letter-spacing: -.04em; }
+.cpanel-blurb { margin: 0; color: var(--ui-muted); font-size: .87rem; line-height: 1.4; }
 
 .cpanel-record {
-  display: flex;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.cpanel-w {
-  color: #4ade80;
-}
-.cpanel-l {
-  color: #f87171;
-}
-.cpanel-d {
-  color: #facc15;
-}
-
-.cpanel-outcome {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 0.82rem;
-  background: rgba(255, 255, 255, 0.06);
-}
-.cpanel-outcome.cpanel-win {
-  color: #4ade80;
-}
-.cpanel-outcome.cpanel-loss {
-  color: #f87171;
-}
-.cpanel-outcome.cpanel-draw {
-  color: #facc15;
 }
 
-.cpanel-next {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
+.cpanel-record > div { display: grid; gap: 2px; padding: 7px 5px; border-radius: 8px; background: #ffffff0d; text-align: center; }
+.cpanel-record dt { color: var(--ui-muted); font-size: .78rem; }
+.cpanel-record dd { grid-row: 1; margin: 0; color: var(--ui-ink); font-size: 1.42rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.cpanel-outcome { margin: 0; padding: 7px 9px; border-radius: 8px; background: #ffffff12; color: var(--ui-ink); font-size: .82rem; }
+.cpanel-outcome[data-outcome="win"] { color: #e8cfff; }
+.cpanel-outcome[data-outcome="loss"] { color: var(--ui-danger); }
 
-.cpanel-rank {
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
+.cpanel-roster h4 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 3px 8px; margin: 0 0 5px; color: var(--ui-ink); font-size: .9rem; }
+.cpanel-roster h4 span { color: var(--ui-muted); font-size: .73rem; font-weight: 520; }
+.cpanel-roster ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.cpanel-roster li { display: flex; align-items: baseline; justify-content: space-between; gap: 5px; padding: 6px 8px; border-radius: 7px; color: var(--ui-muted); background: #ffffff06; font-size: .8rem; }
+.cpanel-roster li[aria-current="step"] { color: var(--ui-ink); background: #453359; font-weight: 750; }
+.cpanel-roster li small { flex: none; font-size: .73rem; }
 
-.cpanel-name {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.cpanel-blurb {
-  margin: 0;
-  font-size: 0.82rem;
-  opacity: 0.75;
-}
-
-.cpanel {
-  border-radius: 6px;
-  border-color: #d8ae6e4d;
-  border-top: 2px solid #d8ae6e;
-  background: #111214;
-}
-
-.cpanel-art {
-  display: block;
-  width: 100%;
-  height: clamp(72px, 9vw, 120px);
-  object-fit: cover;
-  object-position: 75% 65%;
-  border-radius: 3px;
-  border-bottom: 1px solid #d8ae6e70;
-}
+[data-ui-contrast] :is(.cpanel-poster, .cpanel-record > div, .cpanel-roster li) { box-shadow: inset 0 0 0 1px var(--ui-border); }
+[data-ui-contrast] .cpanel-poster { background: #16111f; }

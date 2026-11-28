@@ -1,12 +1,11 @@
 # Shadow Box
 
 **A boxing game you play with your body.** Stand in front of a webcam, throw
-real punches, slip and duck real punches. The browser tracks your pose in real
-time and turns it into the fight. No controller, no wearables, no install.
+real punches, slip and duck real punches. The browser tracks your pose and
+turns it into the fight. No controller, no wearables, no install.
 
-Everything runs **client-side**. Video never leaves the machine. In a
-same-network fight your pose landmarks - not the picture - go directly to your
-opponent, and to nobody else.
+Everything runs client-side. Video never leaves the machine. In a two-player
+fight your pose landmarks, not the picture, go directly to your opponent.
 
 ![The ring](docs/images/ring.png)
 
@@ -29,218 +28,118 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (787). |
+| `npm test` | Web unit tests (749). |
 | `dotnet test server/Throwdown.slnx` | Server tests (23). |
 | `npm run lint` | oxlint. |
 | `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
+| `node tools/smoke-versus.mjs [s]` | Two browsers, one Play a Friend fight: checks defence, events, clock sync and rematch. |
+| `node tools/fight-burst.mjs [mode] [video]` | Screenshots a live fight with the fake player as the camera. |
+| `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight: pose rate, render fps, long tasks. |
+| `node tools/fake-player.mjs` | Renders the boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
 | `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
-| `node tools/fake-player.mjs` | Renders the game's boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
-| `node tools/fight-burst.mjs` | Screenshots a live CPU fight with the fake player as the camera, for reviewing how it looks. |
-| `node tools/smoke-phonecam.mjs [s]` | Pairs a headless "laptop" and "phone" through both QR codes, streams for `s` seconds and prints the link numbers. |
-| `node tools/first-run-shots.mjs` | Screenshots each step of the first-run walkthrough at laptop and phone size (needs the high-guard fake player; see the file). |
-| `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight with the fake player as the camera: pose rate, render fps, main-thread long tasks. No person needed. |
 
-The smoke run needs `npm run preview` in another terminal.
+The browser tools need `npm run preview` in another terminal. `?mode=<id>`
+opens a mode directly (`cpu`, `career`, `internet`, `lan`, `dummy`, `fighter`,
+`stages`, `tracking`) and `?view=third` starts fights in third person.
 
 ---
 
 ## What it does
 
-### Camera-driven everything
+### Modes
 
-The menu is navigated with your body. Your hand moves a cursor; holding it over
-a row fills a ring and confirms. **Four independent defences** stop an
-accidental press: a dwell time, a movement tolerance, a re-arm after each press,
-and a dead zone on first hover. Escape always returns to the menu, because a
-camera-driven UI needs one way out that does not depend on the camera.
+**Fight** (three rounds against the CPU), **Career** (four opponents in order),
+**Online** (matchmaking), **Play a Friend** (private match by code),
+**Training** (the scored dummy), **Your Fighter** (look and kit), **Venue**
+(ring or cage) and **Camera Check** (what the camera can see).
 
-**First run.** A new browser gets a three-step walkthrough over the menu:
-step back until head to hips are in view, put your guard up, throw one punch
-with each hand. The camera confirms each step; there is no Next button. It uses
-the fight's own guard rule and strike resolver, so what it accepts is what a
-fight counts. Skip with the button or Escape; `?firstrun=1` shows it again,
-`?firstrun=0` hides it.
+The menu is navigated with your body: your hand moves a cursor and holding it
+over a card confirms. Keyboard, touch and mouse work too, and Escape always
+returns to the menu. A new browser gets a three-step walkthrough (frame, guard,
+one punch each hand) that the camera confirms; `?firstrun=0` skips it.
 
-### Training: the punching dummy
+### First person
 
-A torso on a stand, with **ten lit target zones**. It scores accuracy (radial
-miss distance, smooth rather than pass/fail), power (resolved damage) and timing
-(reaction latency).
+Fights open with the camera at your fighter's eyes, your gloves at the bottom
+of the frame and the opponent in front of you. The head bone is collapsed while
+the camera is inside it, so only arms and gloves show. The field of view widens
+on portrait screens so the opponent's shoulders stay in frame. Both fighters
+hold the neutral gap, so defence is slips, ducks and the guard, and a downed
+player gets up early by holding their gloves up. **V** switches to the camera
+behind your fighter (and frees the footwork); the choice is remembered.
 
-It **learns**. A persistent profile keeps per-zone exponential moving averages
-and separates two things that look identical in raw numbers:
+### The CPU opponent
 
-- **Setup error** - a consistent bias, the same direction on every zone. That is
-  the camera's framing or your stance, and it is corrected for you.
-- **Your technique** - what is left once the common-mode bias is removed.
+Three state machines on independent clocks: attack, footwork and head
+movement. Every punch has a visible wind-up (down to 260 ms at the hardest
+difficulty), and the gloves glow through it in first person. A slip beats a
+straight but not a hook; a duck gets under any arc and does nothing about a
+body shot. Evading costs stamina. Every random choice is seeded, so a fight is
+reproducible.
 
-Bias is estimated with median/MAD statistics across zones, so one bad zone
-cannot drag the correction. Misses update your accuracy but contribute nothing
-to the bias estimate, and means are taken over landed targets only - so standing
-still can never report 100%.
+### Two players
 
-### Fighting: a CPU opponent that moves
+Peer-to-peer over WebRTC, found by matchmaking (Online) or by pasting codes
+(Play a Friend). The remote fighter is drawn from their own live pose through
+the same retargeting as yours.
 
-The opponent runs **three state machines on independent clocks** - attack,
-footwork and head movement - because a fighter whose feet stop between punches
-is obviously a state machine.
+The host runs the fight. The guest sends its punches and its guard and head
+movement, measured from its own camera, and gets the state and every fight
+event back, so both ends see the same result, words and sounds. Because the
+guest's defence arrives late, the host holds its own punches at the guest for
+one round trip (30-150 ms) and counts a slip or block made inside that window.
+When the fight ends, both players asking (button or both hands raised) starts a
+rematch on the same connection.
 
-- **It manages range.** It circles, steps in to throw and backs out again, and
-  it will not throw from outside its own reach.
-- **It telegraphs.** Every punch has a visible wind-up, down to 260ms at the
-  hardest difficulty. That is the entire basis of the genre, and it is doubly
-  necessary here because your own input arrives through a webcam at ~19 FPS.
-- **It slips, ducks and blocks, and they are different moves.** A slip beats a
-  straight or rising punch that has committed to a line; it does **not** beat a
-  hook, which curves around the outside and arrives where the head has just
-  moved to. A duck gets under any arc and does nothing at all about a body shot.
-  Evading costs stamina, so slipping everything gasses a fighter out.
-- **It is deterministic.** Every random choice comes from a seeded generator, so
-  a fight is reproducible - a hard prerequisite for the rollback netcode.
+This is not rollback netcode: the guest sees the fight about one round trip
+late. Fine on a LAN; online it depends on the connection.
 
-It cannot read your mind: it defends the side you have *been* going to, which is
-the same information a person in front of you would have.
+### Training
 
-### Fighting a person: same network or online
-
-Peer-to-peer over WebRTC. Two ways to connect:
-
-- **Same network**, with no server: one player hosts and sends a code, the
-  other joins and sends a reply back.
-- **Online, "Find a match"**: a small ASP.NET Core server (see
-  [Online server](#online-server)) pairs two queued players and passes the
-  connection details between them.
-
-Either way, once connected the two browsers talk directly. Video and pose data
-never go through the server.
-
-The remote fighter is drawn from **their own live pose**, through the same
-retargeting that draws your character, so they duck, step and throw exactly as
-they did. The host owns the round clock and the scoring, because evasion is
-measured from each player's own camera and neither end can see the other's
-body - two independent simulations would disagree about which punches missed
-within seconds.
-
-It is **not rollback netcode** and does not pretend to be: no prediction, no
-reconciliation, so the guest sees the fight about one round trip late. Fine on
-a LAN, unmeasured over anything slower.
+A torso on a stand with ten lit target zones, scored on accuracy, power and
+timing. A persistent profile separates setup error (the same bias on every
+zone, corrected for you) from technique (what is left), using median/MAD
+statistics so one bad zone cannot drag the correction.
 
 ### Feel
 
-A landed power shot freezes the struck figure for 30-90 ms (hit-stop), and a
-knockdown plays out in slow motion while the camera cuts to it. Both are render
-time only: the round clock, the simulation and hit detection never slow down,
-and the player's own figure is never frozen, because it follows their real body
-and freezing it would feel like input lag. Words over the fight each get their
-own row, so a fast exchange stays readable.
+Hit-stop on power shots, a slow-motion knockdown with a camera cut, impact
+words in their own rows, seated crowd silhouettes with camera flashes. All
+render-time only: the clock, the sim and hit detection never slow down.
 
-The fighters can no longer stand closer than their guards allow. The minimum
-gap is set from the rig itself (glove front plus face front, in a high guard)
-and a test re-measures it against the shipped model.
+### Venues
 
-### Stages
-
-A regulation **octagon** (30 feet across the flats, derived from the 750 sq ft
-floor figure rather than guessed) and a championship **boxing ring** (20 feet
-inside the ropes, four ropes, corner posts). Both are procedural - no asset to
-licence, and both rescale from a single number. A seated crowd fills the dark
-around them: silhouettes in one instanced draw, with camera flashes that burst
-on a knockdown (off under reduced motion).
+A regulation octagon (30 feet across the flats) and a championship ring (20
+feet inside the ropes). Both are procedural and rescale from one number.
 
 ---
 
 ## Tracking
 
-Five whole-body channels, all from x/y only.
+MediaPipe PoseLandmarker (lite), GPU first with a CPU fallback, cropped to the
+player before inference. The crop follows a sideways step or slip at once and
+widens immediately when the player is lost, so tracking recovers within a
+frame or two. Skeleton constraints, one-euro smoothing and forward prediction
+run after it; a separate fixed low-lag filter feeds hit detection.
 
-| Channel | How it is measured |
-| --- | --- |
-| Slip | Shoulder-midpoint travel, torso-normalised. |
-| Rise | Same, vertical. |
-| Step | Apparent torso **size**: `Δ = D·(1 − s₀/s)`. |
-| Turn | Shoulder-line foreshortening: `\|yaw\| = acos(w/w₀)`. |
-| Crouch | Derived from the vertical channel. |
+Five whole-body channels, all from x/y only: slip, rise, step (apparent torso
+size), turn (shoulder foreshortening) and crouch. **MediaPipe's `z` is never
+read**; a test poisons every `z` and asserts the output is identical.
 
-**MediaPipe's `z` is never read.** It degrades exactly along the axis a punch
-travels. A test poisons every `z` value and asserts the output is identical.
-
-Two honest limits are written into the code rather than papered over. The
-camera distance `D` cannot be measured by an uncalibrated webcam, so it is
-stated as an assumption and acts purely as that channel's gain - wrong by a
-factor of two and the character steps half or twice as far, but never the wrong
-way. And the **sign** of a torso turn is not observable from the front at all:
-turning left and right narrow the shoulder line identically. It is taken from
-stance instead, because a boxer does not turn both ways.
-
-### Depth map
-
-`?depth=1`, or **D** during the dummy or a fight, adds a live depth map of the
-player from a second network: Depth Anything V2 Small (Apache-2.0), run in the
-browser with ONNX Runtime Web on WebGPU, falling back to the CPU. The weights
-(19-27 MB) are fetched from a commit-pinned Hugging Face URL on first use and
-kept in Cache Storage; nothing downloads until depth is switched on.
-
-The panel shows the map (near is warm, far is cool) and how far each fist is
-in front of the chest. Depth Anything's output has an unknown scale and offset
-per frame, so that reading is a ratio of differences against the far wall,
-which cancels both. Two lessons from building it against the fake player:
-sample the chest rather than the shoulders, because a guard covers them, and
-read the fist as the nearest surface around the wrist, because a pose and a
-depth frame are never from quite the same instant.
-
-**It does not decide hits.** On the development machine it runs at ~1.5-2 Hz
-(~500 ms per inference, sharing the GPU with pose and the renderer) and costs
-~20% of the pose rate. A punch lasts ~250 ms, so most would fall between depth
-frames. It is a view and a measured signal for now, not an input.
-
-### Phone as a second camera (step 1)
-
-**Phone Camera** in Camera tools pairs a phone with the laptop, with no
-server and no typing. The laptop shows a QR code; the phone opens it
-(`?sensor#<offer>`), runs its own pose tracking and shows a reply QR code;
-the laptop reads that off its own webcam. Both codes are compact - the six
-fields a data channel needs, ~100-130 characters instead of ~2 KB
-(`src/net/compactSignal.ts`) - so a webcam reads the reply at arm's length.
-
-The phone then streams pose frames, never video, and the laptop measures the
-link: clock offset (NTP-style, from the fastest round trip), frame age, how
-far the phone trails the laptop's own tracking, frame rate, loss and stalls
-(`src/sensor/`). **Nothing is fused into the fight yet.** This step exists
-to find out whether the delay allows it. In a headless run with both ends
-on one machine it streams at ~14 fps with no loss and trails the laptop's own
-tracking by ~50 ms (p95 ~75 ms); real phones on real Wi-Fi are the next
-measurement.
-
-### The pipeline tunes itself, visibly
-
-A tracking monitor grades the signal continuously and adjusts smoothing and
-prediction to match it. Because something that changes how the game responds
-without being asked must be able to say what it changed, `TrackingPanel` shows
-the grade, every metric, the weakest landmark by name, and what it adjusted.
-
-**Nothing that decides whether a punch landed may be auto-tuned.** The monitor
-exposes exactly two knobs, and a test asserts it exposes only those two.
+A tracking monitor grades the signal and adjusts smoothing and prediction, and
+Camera Check shows the grade, every metric and what it changed. **Nothing that
+decides whether a punch landed may be auto-tuned.** On phones, first person
+renders at 1x resolution with no shadows or crowd, because the scene and pose
+tracking share one GPU.
 
 ---
 
 ## The character
 
 A 0.40 MB rigged mesh, 18 driven joints, generated offline from Meta's MHR body
-model and driven live by the same landmarks the game already tracks.
-
-Ducking is a real duck: the knees bend, the waist folds, and the root drops by
-**exactly** the height the knees gave up, computed from the bones' own measured
-lengths - so the feet stay on the canvas instead of the figure sinking through
-it with its legs straight.
-
-Bruises paint where the strike resolved, fresh red darkening to purple over 2.5s
-and fading over 22s. Head snap and jaw drop are bone-driven using the 14 facial
-bones already in the mesh, so they cost nothing in download size.
-
-Anything that could be *solved* is solved rather than hardcoded: finger curl
-axes, finger adduction, the jaw hinge, the knee-bend direction. Each one is a
-coin flip that renders as a subtly broken character and would need re-checking
-by hand on every re-export.
+model and driven by the same landmarks. Ducking bends the knees and drops the
+root by exactly the height they gave up. Bruises and facial swelling paint
+where strikes resolved. Kit colours, trim, hair and skin are customisable.
 
 ---
 
@@ -248,31 +147,23 @@ by hand on every re-export.
 
 | | |
 | --- | --- |
-| Pose | `@mediapipe/tasks-vision` PoseLandmarker, GPU delegate with CPU fallback |
-| UI | React 19 + TypeScript 6 |
+| Pose | `@mediapipe/tasks-vision` PoseLandmarker |
+| UI | React 19 + TypeScript 6, React Bits Spotlight Card (vendored) |
 | 3D | three.js r185 |
 | Build | Vite 8 (rolldown) |
-| Test | Vitest - unit tests plus Playwright end-to-end |
+| Test | Vitest, plus Playwright end-to-end |
 | Lint | oxlint |
 | Character | Meta MHR (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
-
-**No Python in the runtime path.** The asset pipeline is offline and one-time;
-it ships a static `.glb`. The one optional extra network, depth, is opt-in
-(see [Depth map](#depth-map)).
 
 ---
 
 ## Ground rules
 
-- Perception never reads the character mesh. What you hit must not depend on how
-  you are drawn.
+- Perception never reads the character mesh.
 - MediaPipe `z` is never read for classification.
 - No threshold that decides whether a punch landed may be auto-tuned.
-- Video never crosses the network. Pose landmarks do, but only peer-to-peer to
-  an opponent you chose, and only while a fight is open. This replaced an
-  earlier rule of "discrete events only": driving the remote fighter from their
-  real pose is what makes them move like the person rather than like a
-  summary, and it costs about 5 KB/s.
+- Video never crosses the network. Pose landmarks do, peer-to-peer, only to an
+  opponent you chose and only while a fight is open (about 5 KB/s).
 - Licence-clean only. No copyleft models, no ripped game assets.
 
 These are enforced by tests, not convention.
@@ -281,70 +172,45 @@ These are enforced by tests, not convention.
 
 ## Status
 
-Honest about what is proven and what is not.
+**Working:** first-person fights against the CPU, career, training, the
+camera-driven menu, both venues, five-channel body tracking, damage and
+knockdowns with a referee's count, and two-player fights with defence, shared
+results and rematch, verified by two real browsers (`tools/smoke-versus.mjs`).
 
-**Working:** the dummy training system and its learning loop, the camera-driven
-menu, the CPU opponent, both stages built into the fight itself, five-channel
-body tracking, the self-tuning pipeline, damage and bruising, knockdowns with a
-referee's count, a camera director that cuts on knockdowns and the bell but
-never during a live exchange, and same-network multiplayer.
+**Not done:** punch *type* is not classified; hits are judged by reach and
+zone, which a front camera measures far better. No TURN relay is running, so
+some online pairings behind strict NATs will fail to connect. The server is
+built and tested but not deployed.
 
-**Measured:** ~19 FPS median pose rate on the development machine, against a
-hard inference ceiling of ~27.8 FPS. Torso tracking follows 99% of requested
-lean between 5° and 45°.
-
-**Not solved:** four-way punch *type* classification (jab / cross / hook /
-uppercut) from a single frontal camera sits at ~19% detection and is the
-project's core open risk. Hit resolution deliberately does not depend on it -
-reach and zone are a far easier measurement than punch type, and tying the two
-together would have made every hit inherit that number.
-
-**Rough:** same-network multiplayer works and is verified end to end by two
-real browsers in the smoke test, but it is host-authoritative with no lag
-compensation, and the connection codes are pasted by hand. Online play now
-exists too - a SignalR hub finds you an opponent automatically - but no TURN
-relay is running yet, so some pairings behind strict NATs will fail to connect.
-The server is built and tested but not deployed, and the leaderboard has no
-browser UI yet.
-
-**Not verified:** phone-camera framing has its own calibration to do, and no
-WCAG audit has been performed. This is a physical-movement game and has an
-inherent accessibility ceiling worth naming plainly.
+**Not verified:** real phones and live hand tracking on physical devices.
 
 ---
 
 ## Online server
 
-`server/` is a small **ASP.NET Core** service (C#, .NET 11; .NET 10 LTS is the
-fallback). It only helps players find each other and keeps scores. The game
-itself stays in the browser.
+`server/` is a small ASP.NET Core service (C#, .NET 11). It helps players find
+each other and keeps scores. The game itself stays in the browser.
 
 | Endpoint | What it does |
 | --- | --- |
-| `/hubs/matchmaking` (SignalR) | `JoinQueue` pairs two players. `RelayOffer`, `RelayAnswer` and `RelayIceCandidate` pass WebRTC details, only between the two matched players. |
-| `GET /ice-servers` | STUN/TURN servers from configuration, so TURN credentials stay off the client. The browser falls back to public STUN if this fails. |
+| `/hubs/matchmaking` (SignalR) | `JoinQueue` pairs two players. `RelayOffer`, `RelayAnswer` and `RelayIceCandidate` pass WebRTC details, only between the matched pair. |
+| `GET /ice-servers` | STUN/TURN servers from configuration, so TURN credentials stay off the client. |
 | `GET /leaderboard?top=N` | Top scores (default 10, max 50). |
 | `POST /leaderboard` | Submit `{ name, score }`. Validated and limited to 10 per minute per IP. |
-| `GET /health` | Health check for the host. |
+| `GET /health` | Health check. |
 
 | Setting | Purpose |
 | --- | --- |
-| `Cors:AllowedOrigins` | Browser origins allowed to connect (must include the Vercel domain). |
-| `ConnectionStrings:Leaderboard` | Supabase Postgres connection string. Set as an environment variable on the host, never committed. Without it, scores are kept in memory. |
+| `Cors:AllowedOrigins` | Browser origins allowed to connect. |
+| `ConnectionStrings:Leaderboard` | Supabase Postgres connection string, set on the host. Without it, scores are kept in memory. |
 | `Ice:Servers` | STUN/TURN servers. |
-| `Telemetry:Console` / `Telemetry:OtlpEndpoint` | OpenTelemetry traces to the console or a collector. |
+| `Telemetry:Console` / `Telemetry:OtlpEndpoint` | OpenTelemetry traces. |
 
-The browser finds the server through `VITE_MATCHMAKING_URL`. A dev build
-falls back to `http://localhost:5160/hubs/matchmaking`; a production build
-without it has no server, and the Online screen and leaderboard say so. `server/Dockerfile` builds a
-container that listens on port 8080.
+The browser finds the server through `VITE_MATCHMAKING_URL`. A dev build falls
+back to `http://localhost:5160/hubs/matchmaking`; a production build without it
+says it has no server. Deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-**Limits, stated plainly:** scores are reported by the browser, so the
-leaderboard is not cheat-proof. No TURN server is running yet, so some
-pairings behind strict NATs will fail. The Postgres store has not yet been run
-against the real Supabase database, and the server is not deployed yet.
-
-Plan and remaining work: [`docs/PLAN.md`](docs/PLAN.md).
+Scores are reported by the browser, so the leaderboard is not cheat-proof.
 
 ---
 
@@ -353,20 +219,19 @@ Plan and remaining work: [`docs/PLAN.md`](docs/PLAN.md).
 ```
 src/
   capture/      camera
-  pose/         inference, smoothing, prediction, tracking quality
-  perception/   landmarks to meaning: strikes, body motion, dodges
-  sim/          health, stamina, scoring, the CPU opponent
-  net/          peer-to-peer link, wire format, session
-  training/     dummy drills, scoring, the persistent profile
-  menu/         modes and stages as data
-  render/       three.js
+  pose/         inference, crop, smoothing, prediction, tracking quality
+  perception/   landmarks to meaning: strikes, body motion, framing
+  sim/          the fight: health, stamina, scoring, the CPU, rematch
+  net/          peer-to-peer link, wire format, sessions
+  training/     dummy drills, career, the persistent profile
+  menu/         modes and fighter appearance as data
+  render/       three.js: fighters, cameras, venues
   ui/           React
   config/       every tunable constant
-docs/           architecture, plan, asset pipeline
+docs/           architecture, plan, deploy, UI review
 server/         ASP.NET Core service: matchmaking, leaderboard, ICE config
 blender/        offline kit authoring
-tools/          measurement and the end-to-end smoke test
+tools/          measurement and end-to-end tests
 ```
 
-More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
-[`docs/ASSET-PIPELINE.md`](docs/ASSET-PIPELINE.md).
+More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

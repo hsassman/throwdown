@@ -1,100 +1,96 @@
-.firstrun {
+﻿.firstrun {
   position: absolute;
-  top: 50%;
+  top: 47%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(520px, calc(100% - 32px));
-  box-sizing: border-box;
-  padding: 24px 26px 20px;
-  border-radius: 14px;
-  background: #0c1118;
-  border: 1px solid rgba(255, 216, 74, 0.45);
-  /* The second shadow dims the menu behind without catching clicks, so the
-     menu stays usable with a mouse or keyboard throughout. */
-  box-shadow: 0 0 0 100vmax #09090bc9;
-  color: #e8edf4;
-  text-align: center;
+  translate: -50% -50%;
   z-index: 9;
+  box-sizing: border-box;
+  width: min(470px, calc(100% - 30px));
+  max-height: calc(100% - 26px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(16px, 4vw, 26px);
+  border: 1px solid #ecd8ff42;
+  border-radius: 18px;
+  background: #21192e;
+  color: var(--ui-ink);
+  box-shadow: 0 0 0 100vmax #090711bf, 0 20px 55px #0007;
+  animation: first-run-enter .24s var(--ui-ease) both;
 }
 
-/* The camera picture, above the dim: half of the walkthrough is framing.
-   Doubled class: App.css loads after this file and sets .cam-inset's own. */
-.cam-inset.cam-coach {
-  z-index: 10;
+@keyframes first-run-enter { from { opacity: .7; scale: .975; } to { opacity: 1; scale: 1; } }
+.cam-inset.cam-coach { z-index: 10; }
+
+.firstrun-progress {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
 }
 
-.firstrun-title {
-  margin: 0 0 8px;
-  color: #ffd84a;
-  font-size: clamp(24px, 4vw, 34px);
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.firstrun-progress li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 35px;
+  border-radius: 7px;
+  background: #ffffff08;
+  color: var(--ui-muted);
+  font-size: clamp(.69rem, 2.7vw, .84rem);
 }
 
-.firstrun-body {
-  margin: 0 auto 16px;
-  max-width: 28rem;
-  color: #c4cedc;
-  font-size: clamp(15px, 2vw, 18px);
-  line-height: 1.5;
+.firstrun-progress li[aria-current="step"] {
+  background: #403055;
+  color: #ffffff;
+  font-weight: 780;
 }
+
+.firstrun-progress li[data-complete="true"] .firstrun-mark { color: var(--ui-accent); }
+.firstrun-mark { font-variant-numeric: tabular-nums; }
+.firstrun-title { margin: 0; font-size: clamp(1.55rem, 5vw, 2.3rem); line-height: 1.12; letter-spacing: -.045em; }
+.firstrun-body { margin: 8px 0 13px; color: var(--ui-muted); font-size: clamp(.89rem, 3.5vw, 1rem); line-height: 1.45; }
+.firstrun-instruction { animation: first-run-instruction .2s var(--ui-ease) both; }
+@keyframes first-run-instruction { from { opacity: .55; translate: 0 3px; } to { opacity: 1; translate: none; } }
 
 .firstrun-hands {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
-.firstrun-hands span {
-  min-width: 96px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #2f3a4d;
-  color: #9aa7ba;
-  font-weight: 700;
-}
-
-.firstrun-hands span[data-done="true"] {
-  border-color: #5fd08a;
-  color: #5fd08a;
-}
+.firstrun-hands > span { display: grid; padding: 6px 9px; border-radius: 8px; background: #ffffff0c; font-size: .85rem; }
+.firstrun-hands small { color: var(--ui-muted); font-size: .75rem; }
+.firstrun-hands > span[data-done="true"] small { color: var(--ui-accent); font-weight: 750; }
 
 .firstrun-btn {
   min-height: 44px;
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  border: 1px solid #2f3a4d;
-  background: #1b2430;
-  color: #c4cedc;
-  font-size: 0.95rem;
+  padding: 5px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: #3a2c4f;
+  color: var(--ui-ink);
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.firstrun-btn:hover {
-  background: #243043;
+.firstrun-btn:hover { background: #54406e; }
+.firstrun-btn kbd { margin-left: 7px; font-size: .74rem; color: #e3d5f5; }
+.firstrun-go { background: var(--ui-accent); color: #211630; }
+.firstrun-go:hover { background: #f4e7ff; }
+.firstrun-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (hover: none) { .firstrun-btn kbd { display: none; } }
+@media (max-height: 470px) and (orientation: landscape) {
+  .app .cam-inset.cam-coach { width: min(16vw, 132px); }
 }
-
-.firstrun-btn kbd {
-  margin-left: 6px;
-  font-size: 0.75rem;
-  opacity: 0.7;
-}
-
-.firstrun-go {
-  border-color: #ffd84a;
-  color: #ffd84a;
-  font-weight: 700;
-}
-
-/* No Escape key on a touchscreen. */
-@media (hover: none) {
-  .firstrun-btn kbd { display: none; }
-}
-
-
-.firstrun {
-  border-radius: 6px;
-  border-color: #d8ae6e80;
-  background: #141416;
+[data-ui-contrast] .firstrun { background: #181320; border-color: var(--ui-border); }
+[data-ui-reduced] :is(.firstrun, .firstrun-instruction) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .firstrun, .firstrun-instruction { animation: none; }
 }

@@ -75,21 +75,11 @@ These are settled. Re-opening one needs a strong reason.
   leaves either machine.
 - **Licence-clean stack.** MediaPipe is Apache-2.0. No copyleft models, no
   ripped game assets.
-- **No Python in the runtime path, and one network by default.** The character
-  asset pipeline is offline and one-time; it ships a static `.glb`.
-
-  Amended (Nov 2026) to allow a second, opt-in network: monocular depth
-  (Depth Anything V2 Small, Apache-2.0, via ONNX Runtime Web; `src/depth/`).
-  It is off unless asked for (`?depth=1`, or D in game), downloads nothing
-  until then, and decides nothing: it is a view and a measured signal. On the
-  development machine it ran at ~1.5-2 Hz against a ~250ms punch and cost
-  ~20% of the pose rate, so wiring it into hit resolution would make hits
-  depend on whether a depth frame happened to land mid-punch. Revisit on
-  hardware where it runs at pose rate.
+- **No Python in the runtime path, and one network.** The character asset
+  pipeline is offline and one-time; it ships a static `.glb`.
 - **MediaPipe `z` is never read for classification.** It degrades exactly along
   the axis a punch travels. Depth comes from apparent size and foreshortening,
   both x/y measurements. A test poisons every `z` and asserts identical output.
-  The depth network is a separate measurement and does not change this rule.
 - **No threshold that decides whether a punch landed may be auto-tuned.** The
   tracking monitor may adjust smoothing and prediction. Nothing else.
 
