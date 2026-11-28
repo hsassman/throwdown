@@ -1,18 +1,5 @@
 // A/B timing of the pose pipeline during a real CPU fight, with the fake
 // player (tools/fake-player.mjs) as the camera.
-//
-// Reports, per condition: the pose sample rate, the render frame rate, the
-// share of frames a body was found in, and main-thread long tasks - the
-// numbers that decide whether a change to where or how inference runs is a
-// win. Conditions are interleaved, as in perf-sweep.mjs, so background drift
-// is spread across all of them instead of landing on one.
-//
-// Usage:
-//   npm run dev                      # once, for the fake player renderer
-//   node tools/fake-player.mjs 2.4   # writes tools/out/fake-player.y4m
-//   npm run build && npm run preview
-//   node tools/perf-ab.mjs [seconds=15] [repeats=2] [query ...]
-// Each query is a condition, e.g. "worker=0" "worker=1". Defaults to those two.
 
 import { chromium } from "playwright-core";
 import { existsSync } from "node:fs";

@@ -6,11 +6,6 @@ import { MONITOR_CONFIG } from "../config/tuning";
 import { POSE_KEYS, type PoseFrame, type PoseKey } from "./poseTypes";
 
 // The loop that makes the tracking monitor do something.
-//
-// Until these knobs existed the monitor was a thermometer with nothing
-// attached: it measured the signal every frame, computed a correction, and
-// nothing read it. These tests cover the two things it is allowed to move, and
-// - just as importantly - that it still cannot move anything else.
 
 const BASE: Record<PoseKey, { x: number; y: number }> = {
   leftShoulder: { x: 0.58, y: 0.4 },

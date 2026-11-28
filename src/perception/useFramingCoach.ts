@@ -4,11 +4,6 @@ import { FRAMING_CONFIG } from "../config/tuning";
 import { assessFraming, FramingCoach, lumaOf, type FramingIssue, type LumaSample } from "./framingCheck";
 
 // Runs the framing check against the live camera. See framingCheck.ts.
-//
-// Brightness comes from the video itself, drawn into a tiny canvas twice a
-// second - a 32x24 readback is a few microseconds and nothing else in the
-// game needs it. The pose is read from the same ref everything else reads.
-// React state changes only when the prompt does.
 
 const SAMPLE_W = 32;
 const SAMPLE_H = 24;

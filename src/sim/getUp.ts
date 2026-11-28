@@ -1,12 +1,4 @@
 // Getting up off the canvas by putting your gloves up.
-//
-// Off by default; FPS Mode turns it on. Normally a knocked-down fighter waits
-// out the sim's whole knockdown window. With this on, the player can cut it
-// short: after a minimum time down, holding both gloves up at the face for a
-// moment fills a meter, and when it is full the player is back on their feet.
-//
-// It can only ever shorten a knockdown, never lengthen it, and it does nothing
-// for the opponent. The rules for when a knockdown happens are unchanged.
 
 import { FIGHT_CONFIG } from "../config/tuning";
 

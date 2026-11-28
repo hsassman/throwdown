@@ -23,39 +23,8 @@ import {
 // stream perception reads, but its output never feeds back into hit
 // resolution, punch classification, or the simulation.
 // How this works, and why the obvious approach doesn't
-//
-// Only the in-plane (screen x/y) direction of each limb is measurable. z is
-// never used - the project-wide rule from the gesture-classification notes, since
-// MediaPipe's depth is least reliable exactly along the axis punches travel.
-//
-// The naive fix - aim each bone at a direction with z forced to 0 - flattens
-// the character, because real bind directions carry a substantial out-of-plane
-// component (l_lowarm's is 0.557; the forearm genuinely angles forward). So
-// instead each bone keeps its bind-pose out-of-plane component and only its
-// in-plane azimuth is driven. That has a property worth stating: when the
-// measured in-plane direction equals the bind in-plane direction, the computed
-// target is exactly the bind direction, so the bone does not move at all. Rest
-// pose is preserved perfectly rather than approximately.
-//
-// The solve is done entirely in the bone's parent space, against the parent's
-// current world orientation, read fresh each frame. An earlier version cached
-// the parent orientation as a constant "because the parent is never itself
-// retargeted" - false for the forearms, whose parents are the driven upper
-// arms. That produced a forearm hinging off a stale shoulder, one of the
-// causes of the visibly broken first attempt. Bones are therefore solved in
-// DRIVEN_BONES order, parents first.
 
-/**
- * Where a bone should point. `x`/`y` are a unit 2D direction in world x/y.
- *
- * `z` is the out-of-plane component, and is optional: when omitted the bone
- * keeps its bind-pose depth (the safe default for joints we can't reason about
- *), and when present it overrides that. `x`/`y` are rescaled so the resulting
- * 3D direction stays unit length.
- *
- * Note this `z` is not MediaPipe's z landmark, which this project never reads.
- * It is recovered from foreshortening of x/y alone - see recoverDepth().
- */
+/** Where a bone should point. `x`/`y` are a unit 2D direction in world x/y. */
 export interface BoneTarget {
   x: number;
   y: number;
@@ -76,19 +45,6 @@ export type LimbLengths = Record<ArmBoneName, number>;
  * projection has shortened. A limb of known length L whose projection measures
  * P is angled out of the plane by acos(P/L), giving an out-of-plane unit
  * component of sqrt(1 - (P/L)^2).
- *
- * This is the one signal that makes a punch thrown AT the camera actually
- * extend toward the viewer instead of barely moving - the exact motion a
- * frontal webcam otherwise cannot see, and the one that matters most in a
- * boxing game.
- *
- * Two honest limitations:
- *  - Sign is ambiguous. A limb pointing away foreshortens identically to one
- *    pointing forward, so the caller decides; for boxing, forward is right
- *    nearly always, and that is what RigDriver assumes.
- *  - It degrades when the limb points almost straight down the camera axis:
- *    P approaches 0, and small landmark noise swings the result. The value is
- *    clamped, and RigDriver smooths it over time.
  */
 export function recoverDepth(projected: number, full: number): number {
   if (!(full > 1e-6) || !(projected >= 0)) return 0;
@@ -96,20 +52,7 @@ export function recoverDepth(projected: number, full: number): number {
   return Math.sqrt(Math.max(0, 1 - ratio * ratio));
 }
 
-/**
- * How far outside the frame a cosmetic landmark may sit before it is rejected.
- *
- * BlazePose does not report "absent" for a body part below the bottom of the
- * frame - it extrapolates one, often with a healthy visibility score. At a
- * seated desk webcam that is the normal state of the legs, so a confidence
- * gate alone is not enough: the character would stand on invented knees that
- * twitch with every torso wobble. Positions are normalized to [0,1] over the
- * image, so anything well outside that is a guess, not a measurement.
- *
- * Applied only to the optional (cosmetic) landmarks. The arm chain is
- * deliberately exempt: a punch thrown at the camera legitimately pushes a
- * wrist to the very edge of frame, and that is the motion the game is about.
- */
+/** How far outside the frame a cosmetic landmark may sit before it is rejected. */
 const OUT_OF_FRAME_MARGIN = 0.12;
 
 function inFrame(k: Keypoint): boolean {
@@ -134,10 +77,6 @@ function pointOf(pose: PoseFrame, key: AnyPoseKey, minConfidence: number): Keypo
  * Resolves a PointSpec against a pose: either one landmark or the midpoint of
  * two. Returns null when anything it needs is missing, below confidence, or
  * (for the cosmetic landmarks) outside the frame.
- *
- * The absence check is load-bearing rather than defensive: the leg and hand
- * landmarks genuinely are missing for most desk-webcam framings, and every
- * caller treats null as "leave this bone at rest".
  */
 function resolvePoint(
   pose: PoseFrame,
@@ -205,23 +144,7 @@ export function measureLimbs(
   return out;
 }
 
-/**
- * Head yaw and pitch, as raw normalized signals rather than angles.
- *
- * Yaw cannot come from a swing solve. Aiming a bone at a target fixes two
- * degrees of freedom and leaves rotation about that bone's own axis entirely
- * undetermined - and turning your head is exactly that rotation. So it is
- * measured separately here, from how the nose sits between the two ears:
- * face the camera and the nose is centred; turn away and it slides toward the
- * ear on the side you turned toward while that ear closes in behind the head.
- * The ratio is self-normalizing, so it needs no torso scale and holds at any
- * distance.
- *
- * Pitch is the nose's height relative to the ear line, in torso units. It
- * carries a per-person offset (where your nose sits relative to your ear
- * canals is anatomy, not posture), so the caller must subtract a learned
- * neutral - RigDriver does. Returns null if the head isn't tracked.
- */
+/** Head yaw and pitch, as raw normalized signals rather than angles. */
 export interface HeadSignals {
   /** -1 (turned fully one way) to +1. Positive = toward the character's left. */
   yaw: number;
@@ -495,18 +418,6 @@ const _worldRight = new THREE.Vector3(1, 0, 0);
 /**
  * Turns and nods the head. Angles are in radians, already calibrated and
  * clamped by the caller.
- *
- * This exists because a swing solve structurally cannot produce it: aiming a
- * bone at a point pins two degrees of freedom and leaves rotation about the
- * bone's own axis free, and head yaw is that rotation. So the head is the one
- * driven bone with no aim child (BONE_AIM_CHILD maps it to null) and is
- * rotated explicitly instead.
- *
- * Positive `yaw` turns the head toward the character's own left (+X); positive
- * `pitch` drops the chin. Both are built in world space - the character stands
- * upright, so world Y and X really are its turn and nod axes - then conjugated
- * into the head's parent frame, the same way applySpineBend() does, because
- * `c_neck` carries a bind rotation that would otherwise send the axes askew.
  */
 export function applyHeadOrientation(
   binds: Map<DrivenBoneName, BoneBindData>,
@@ -558,10 +469,6 @@ function scaleRotation(q: THREE.Quaternion, gain: number): void {
 /**
  * How much of a distributed bend survives to the visible torso chord, inverted
  * so it can be used as a gain.
- *
- * Each segment ends up rotated by the cumulative weight up to and including
- * it, and the chord is those segment directions averaged by length - so a
- * top-heavy weighting (which looks natural) systematically under-leans.
  */
 function chordCompensation(binds: Map<DrivenBoneName, BoneBindData>): number {
   let weighted = 0;

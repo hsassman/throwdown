@@ -1,13 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { decodeSignal, encodeSignal } from "./peerLink";
 
-// Only the code players copy is testable without a browser — RTCPeerConnection
+// Only the code players copy is testable without a browser - RTCPeerConnection
 // does not exist in this environment, so the connection itself is exercised in
 // the headless smoke, where two real pages connect to each other.
-//
-// The codec is worth its own tests anyway, because every one of its failures
-// lands on a player at the exact moment they are trying to start a fight with
-// a friend, and the only diagnostic they have is "it says that's not a code".
 
 const sdp = (type: "offer" | "answer") =>
   ({
@@ -29,7 +25,7 @@ describe("the code players copy", () => {
 
   it("uses an alphabet that survives being pasted", () => {
     // `+` and `/` are both characters other software feels entitled to
-    // rewrite — a chat client that linkifies, a URL, a QR code.
+    // rewrite - a chat client that linkifies, a URL, a QR code.
     const code = encodeSignal(sdp("offer"));
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
   });

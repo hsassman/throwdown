@@ -302,7 +302,7 @@ together would have made every hit inherit that number.
 **Rough:** same-network multiplayer works and is verified end to end by two
 real browsers in the smoke test, but it is host-authoritative with no lag
 compensation, and the connection codes are pasted by hand. Online play now
-exists too — a SignalR hub finds you an opponent automatically — but no TURN
+exists too - a SignalR hub finds you an opponent automatically - but no TURN
 relay is running yet, so some pairings behind strict NATs will fail to connect.
 The server is built and tested but not deployed, and the leaderboard has no
 browser UI yet.

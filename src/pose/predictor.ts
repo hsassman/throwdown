@@ -1,31 +1,4 @@
 // Latency compensation: draws the character where you are, not where you were.
-//
-// A landmark reaching the screen has already accumulated, on this machine:
-//
-//   camera exposure + transfer      ~16 ms
-//   inference                       ~36 ms  (measured)
-//   wait for the next video frame   ~16-33 ms
-//   one-euro filter group delay     ~20-40 ms
-//   render + present                ~16 ms
-//                                   ~105-140 ms
-//
-// That is about a fifth of a jab, and the character visibly trails the player.
-// Loosening the smoothing to fix it just trades lag for jitter, because they
-// are the two ends of one filter. Prediction is off that axis entirely:
-// estimate velocity, extrapolate by the measured age of the sample, and the
-// smoothing can stay as strong as it needs to be.
-//
-// Naive extrapolation overshoots on direction changes. Four things stop it:
-//
-//   1. Velocity is filtered far harder than position - it comes from samples
-//      66 ms apart and prediction multiplies its noise by the lead time.
-//   2. A deadband, so a resting hand is never predicted and its jitter never
-//      amplified.
-//   3. A hard cap on lead time, so a latency spike cannot become a lunge.
-//   4. A cap on displacement relative to the body, so a bad velocity estimate
-//      cannot fling a landmark off the figure.
-//
-// `z` is never read. Prediction is x/y only.
 
 import { ALL_POSE_KEYS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { PREDICT_CONFIG } from "../config/tuning";
@@ -54,12 +27,6 @@ export class PosePredictor {
   /**
    * Multiplier from the tracking monitor, 0..1. Pulled down when the signal is
    * gappy.
-   *
-   * Prediction extrapolates from a velocity estimate, and a velocity estimate
-   * built from a stream with holes in it is mostly noise. Leading on that noise
-   * flings landmarks around far more visibly than the latency it was correcting
-   * for - so when dropout rises, the right answer is to predict less and accept
-   * being a little behind.
    */
   private scale = 1;
 
@@ -138,12 +105,7 @@ export class PosePredictor {
     if (span > 1e-3) this.torso = span;
   }
 
-  /**
-   * The pose as it should be drawn now.
-   *
-   * `nowMs` must be on the same clock as the pose timestamps. Returns null
-   * before the first sample.
-   */
+  /** The pose as it should be drawn now. */
   predictAt(nowMs: number): PoseFrame | null {
     const pose = this.lastPose;
     if (!pose) return null;

@@ -7,26 +7,6 @@ import { TARGET_CONFIG } from "../config/tuning";
 import type { StrikeEvent } from "../perception/strikeResolver";
 
 // The second humanoid: a training target that reacts to being hit.
-//
-// It is the same mesh asset as the player's boxer, cloned. That is a deliberate
-// choice rather than a shortcut - a second 0.40MB download and a second set of
-// bind data would buy nothing while the only thing being tested is whether hits
-// register and read correctly. Tinting it apart is enough to tell them apart.
-//
-// Layering this respects
-//
-// Risk log 13: damage state belongs to the simulation, the appearance of damage
-// belongs to the render layer. Nothing here decides whether a hit landed - it
-// is told, via hit(), and only turns that into motion. It never reads the
-// player's mesh, and the player's hit resolution never reads this one.
-//
-// Why the reaction is bone-driven
-//
-// The shipped mesh carries 14 facial bones including `c_jaw` as a real skin
-// joint (established when the 117 morph targets were identified). So head snap
-// and jaw drop cost nothing in asset size - the 72 expression blendshapes,
-// at ~64KB each, are only needed for what bones genuinely cannot do, like a
-// wince or a squint. Bones first was the right order.
 
 /** Bones this reacts with. All present in the shipped mesh. */
 const REACT_HEAD: DrivenBoneName = "c_head";
@@ -37,9 +17,6 @@ const REACT_SPINE: DrivenBoneName = "c_spine2";
  * A static guard, applied once while the target still stands at identity so
  * the world-space aim solve is easy to reason about - the root is rotated to
  * face the player afterwards, and the baked local rotations come with it.
- *
- * Directions are world-space in-plane unit vectors, the same convention the
- * live retargeting uses.
  */
 const GUARD_POSE: Partial<Record<DrivenBoneName, { x: number; y: number }>> = {
   l_uparm: { x: 0.28, y: -0.96 },
@@ -48,19 +25,7 @@ const GUARD_POSE: Partial<Record<DrivenBoneName, { x: number; y: number }>> = {
   r_lowarm: { x: 0.42, y: 0.91 },
 };
 
-/**
- * Arms hanging at the sides, for the punching dummy.
- *
- * The mesh's bind pose is a T-pose, arms straight out sideways. Simply not
- * posing the dummy therefore leaves it standing like a scarecrow with its arms
- * through the space the player is punching into - which is worse than a guard,
- * not better. A real free-standing dummy has no arms at all; arms down at the
- * sides is the closest this mesh can get without cutting geometry out of a
- * skinned buffer.
- *
- * Slightly out from the body rather than dead vertical, so the upper arms do
- * not intersect the ribs.
- */
+/** Arms hanging at the sides, for the punching dummy. */
 const DUMMY_POSE: Partial<Record<DrivenBoneName, { x: number; y: number }>> = {
   l_uparm: { x: 0.2, y: -0.98 },
   l_lowarm: { x: 0.1, y: -0.99 },
@@ -77,13 +42,7 @@ const _local = new THREE.Quaternion();
 const _probe = new THREE.Quaternion();
 const _tmp = new THREE.Vector3();
 
-/**
- * Finds which way round an axis has to be to move `tip` in `desired`.
- *
- * The same measure-don't-assume trick the finger curl uses. The jaw's hinge
- * orientation is not something to guess at from bone names, and getting it
- * backwards clamps the mouth shut through the skull instead of opening it.
- */
+/** Finds which way round an axis has to be to move `tip` in `desired`. */
 function signedAxis(
   pivot: THREE.Vector3,
   tip: THREE.Vector3,
@@ -121,15 +80,7 @@ export class TrainingTarget {
 
   private hitCount = 0;
   private byZone: Record<string, number> = {};
-  /**
-   * Multiplier on the whole-body knockback. 0 for the punching dummy.
-   *
-   * Two reasons. A dummy is bolted to a weighted base - it rocks on its spring
-   * and does not slide backwards, so the stand's own spring is its whole-body
-   * reaction and a second one would double it. And the dummy's figure is
-   * parented inside a group turned to face the player, so local +Z is world
-   * -Z there: an unscaled knockback would shove it toward the punch.
-   */
+  /** Multiplier on the whole-body knockback. 0 for the punching dummy. */
   private knockbackScale: number;
 
   /**
@@ -276,14 +227,7 @@ export class TrainingTarget {
     );
   }
 
-  /**
-   * Applies a world-space rotation to one bone, on top of its bind rotation.
-   *
-   * Conjugated into the bone's own parent frame - the same requirement the
-   * spine bend has, and for the same reason: the figure is turned to face the
-   * player, so its bones' parent frames are nowhere near world axes and using
-   * the rotation directly would snap the head in a random direction.
-   */
+  /** Applies a world-space rotation to one bone, on top of its bind rotation. */
   private applyWorldRotation(
     name: DrivenBoneName,
     axis: THREE.Vector3,

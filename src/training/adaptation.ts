@@ -3,32 +3,6 @@ import { HIT_ZONES, ZONE_BY_ID, type HitZone } from "./hitZones";
 import type { TrainingProfile, ZoneRecord } from "./profile";
 
 // The learning loop: what the system does with everything it has recorded.
-//
-// Hard rule: no automatic process may adjust a threshold that decides whether
-// a punch landed. Otherwise the game quietly rewards a worse webcam, and a
-// player in bad light finds it getting easier with no way to know. This file
-// may only (1) correct a common-mode coordinate bias and (2) choose which
-// targets to show. It may not touch reachThreshold, the accuracy falloff,
-// zone radii or the damage table; adaptation.test.ts asserts the returned
-// shape structurally so adding a third knob breaks a test.
-//
-// Every landed punch yields a signed miss vector. Averaged per zone they
-// decompose into two things:
-//
-//   Common mode - the same on every zone. Landing 6cm low on temple, chin,
-//   liver and ribs alike is not four faults that agree, it is the frame of
-//   reference being off: camera mounted high, or torso scale running large.
-//   A setup error, not the player's, and correcting it is calibration.
-//
-//   Differential - what is left. Landing low on the liver while head shots are
-//   centred is technique. That is the player's to fix, so it is reported,
-//   never corrected.
-//
-// Getting the decomposition backwards would silently "fix" the player's
-// technique while leaving the camera error in place. Hence the guards below
-// and minDistinctZones. The common-mode estimate is the median of the
-// per-zone biases: one zone with a large real fault would drag a mean into
-// every other target's correction.
 
 export interface BiasEstimate {
   /** Median per-zone bias, torso units. */
@@ -71,13 +45,7 @@ function trustedZones(profile: TrainingProfile): [string, ZoneRecord][] {
   );
 }
 
-/**
- * Estimates the common-mode component of the player's miss.
- *
- * Reports its own confidence rather than returning a bare number, because the
- * caller genuinely needs to know the difference between "no bias detected" and
- * "not enough evidence to say" - they are the same number and opposite facts.
- */
+/** Estimates the common-mode component of the player's miss. */
 export function estimateBias(profile: TrainingProfile): BiasEstimate {
   const trusted = trustedZones(profile);
   const samples = trusted.reduce((n, [, r]) => n + r.biasSamples, 0);
@@ -105,17 +73,7 @@ export function estimateBias(profile: TrainingProfile): BiasEstimate {
   };
 }
 
-/**
- * The correction to apply to incoming impact points, bounded.
- *
- * Note the sign: the bias is where punches land relative to the target, so the
- * correction is its negation - if every punch reads 6cm low, impacts must be
- * shifted UP by 6cm to sit where the player actually put them.
- *
- * Deliberately under-corrects by `gain`. The estimate is noisy, and a
- * correction applied at full strength feeds back into the next estimate and
- * oscillates. At 0.6 it converges monotonically instead.
- */
+/** The correction to apply to incoming impact points, bounded. */
 export function calibrationFrom(profile: TrainingProfile): Calibration {
   const bias = estimateBias(profile);
   if (!bias.confident) return ZERO;
@@ -126,14 +84,7 @@ export function calibrationFrom(profile: TrainingProfile): Calibration {
   };
 }
 
-/**
- * How competent the player is on a zone, 0..1.
- *
- * Landing rate is folded in alongside accuracy, because they fail differently
- * and both matter: a player can be pinpoint on the three targets they answer
- * while ignoring the other nine, and an accuracy-only score would call that
- * mastery.
- */
+/** How competent the player is on a zone, 0..1. */
 export function zoneSkill(profile: TrainingProfile, zoneId: string): number {
   const r = profile.zones[zoneId];
   if (!r || r.presented === 0) return 0;
@@ -148,14 +99,7 @@ export function weakestZones(profile: TrainingProfile): HitZone[] {
   );
 }
 
-/**
- * Selection weights for the drill, favouring what the player is bad at.
- *
- * A weight floor of 1 is deliberate: even a mastered zone keeps appearing.
- * Drilling only weaknesses produces a player who has drilled away their
- * strengths, and it makes the session monotonous at exactly the moment the
- * player is struggling most.
- */
+/** Selection weights for the drill, favouring what the player is bad at. */
 export function zoneWeights(profile: TrainingProfile): Map<string, number> {
   const out = new Map<string, number>();
   for (const z of HIT_ZONES) {
@@ -165,15 +109,7 @@ export function zoneWeights(profile: TrainingProfile): Map<string, number> {
   return out;
 }
 
-/**
- * A `pick` function for `Drill`, weighted by the profile.
- *
- * This is how the drill gets smarter with use, and it is intentionally the
- * only place the profile changes what happens during a round. Scoring stays
- * identical no matter how much the player has trained - a 90% on the liver
- * means the same thing in session one and session fifty. A system that
- * silently raised its own standards would make improvement invisible.
- */
+/** A `pick` function for `Drill`, weighted by the profile. */
 export function adaptivePick(
   profile: TrainingProfile,
   rng: () => number = Math.random
@@ -200,14 +136,7 @@ export interface CoachingNote {
   kind: "setup" | "technique" | "progress";
 }
 
-/**
- * What the system has to say about the player's training.
- *
- * The `kind` field is the important part. A note that reads "you are landing
- * low" is actively harmful when the real cause is a high camera - the player
- * changes a technique that was fine. So the common-mode component is reported
- * as setup and the residual as technique, and the two are never mixed.
- */
+/** What the system has to say about the player's training. */
 export function coachingNotes(profile: TrainingProfile): CoachingNote[] {
   const notes: CoachingNote[] = [];
   const bias = estimateBias(profile);

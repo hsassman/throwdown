@@ -20,18 +20,6 @@ export function useWebcam(enabled: boolean) {
   /**
    * The live stream, kept so it can be Re-attached if the <video> element is
    * ever replaced.
-   *
-   * This exists because of a real bug. The stream is attached exactly once, to
-   * whatever element the ref held at that moment. If React unmounts that
-   * element and mounts another - which it does whenever the same <video> is
-   * written in two different branches of a tree - the ref silently points at a
-   * fresh element with no `srcObject`, while the old one keeps the camera.
-   * The result is a live camera, a green permission light, and a completely
-   * frozen picture, with no error anywhere.
-   *
-   * The App is also structured to keep one element mounted, which is the real
-   * fix. This is the belt to that pair of braces: a remount is a very easy
-   * mistake to reintroduce and an extremely confusing one to diagnose.
    */
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<WebcamStatus>("idle");

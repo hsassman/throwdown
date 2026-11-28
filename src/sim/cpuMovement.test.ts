@@ -17,22 +17,10 @@ import {
 import type { StrikeEvent } from "../perception/strikeResolver";
 
 // The opponent that moves.
-//
-// Two things are being checked here, and they are different in kind. The
-// `evades` rules are a small pure function and are pinned exactly. The CPU's
-// behaviour is stochastic, so it is checked statistically - "a champion slips
-// more often than a rookie" rather than "the third punch is slipped" - which
-// is the only kind of assertion that survives a tuning change without being
-// rewritten to match whatever the code now does.
 
 /**
  * A strike built from a landing point, so the fixture runs the same derivation
  * the live resolver does.
- *
- * This matters more than usual here: the whole evasion rule turns on the
- * relationship between `impact.lateral` and `zone.lane`, and a test that
- * hand-wrote both could not catch them disagreeing - which is exactly the bug
- * the mirror below is there to prevent.
  */
 function strike(
   impact: ImpactPoint,
@@ -249,19 +237,6 @@ describe("footwork", () => {
 
   it("does not walk into a player who steps in while it is advancing", () => {
     // The closed loop, with both halves of the gap moving.
-    //
-    // The CPU cannot close on its own: in the pocket it only circles or holds,
-    // and it advances only when the range is above `preferredRange`. But the
-    // gap has two owners - the CPU's `stance.depth` and the player's measured
-    // `depth` - and the player's half is not subject to any rule at all. So a
-    // player who charges forward while the CPU is mid-advance closes both
-    // halves at once, and the CPU's footwork state is held for up to 1.6
-    // seconds before it reconsiders. Its depth integrator was bounded only by
-    // `depthLimit` (1.4 torso units against a starting gap of 1.66), so it
-    // kept walking, and the two figures ended up inside one another.
-    //
-    // The player here steps in to 0.6 torso units, which on its own leaves a
-    // legal gap. Anything below the bar is therefore the CPU's doing.
     const STEP_SPEED = 1.1; // torso units per second, the player walking in
     const stepIn = (t: number) =>
       t < 3 ? -0.5 : Math.min(0.6, -0.5 + (t - 3) * STEP_SPEED);

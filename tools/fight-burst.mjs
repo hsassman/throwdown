@@ -1,14 +1,6 @@
 // Captures a burst of screenshots from a live CPU fight, with the fake player
 // (tools/fake-player.mjs) as the camera, so changes to how the fight looks can
 // be reviewed frame by frame instead of described.
-//
-// Usage (needs npm run build && npm run preview):
-//   node tools/fight-burst.mjs [mode] [video]      # mode id (default cpu), fake camera file
-//   ORBIT=420 node tools/fight-burst.mjs           # drag the camera round first
-// Writes tools/out/burst/f00.png ... f23.png (git-ignored).
-//
-// Screenshots are slow, so frames land ~0.3-0.5s apart: good for framing,
-// overlap and HUD layout, not for judging a single punch's motion.
 import { chromium } from "playwright-core";
 import { resolve } from "node:path";
 import { mkdirSync } from "node:fs";

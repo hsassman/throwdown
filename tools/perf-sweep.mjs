@@ -1,20 +1,6 @@
 // Sweeps the capture/inference settings that plausibly affect pose frame rate
 // and reports a ranked table, so the best configuration for this machine is
 // measured rather than guessed.
-//
-// Stand in frame of the webcam for the whole run. With no body present
-// BlazePose runs its whole-image detector every frame instead of the cheaper
-// tracking path, which times a different code path entirely. Each condition
-// reports its body-found ratio; treat any row below ~0.8 as not comparable.
-//
-// Conditions are interleaved rather than run in blocks, because inference cost
-// on this laptop drifts with background load (36ms to 51ms observed for the
-// same code path) and a block layout would attribute that drift to whichever
-// setting happened to run during it.
-//
-// Usage:
-//   npm run build && npx vite preview --port 4173
-//   node tools/perf-sweep.mjs [secondsPerCondition]
 
 import { chromium } from "playwright-core";
 
@@ -44,12 +30,6 @@ const CONDITIONS = [
   // whole point of this file is that the project does not get to claim a gain
   // it has not measured, and a sweep where two things change at once cannot
   // attribute the difference to either.
-  //
-  // `pipeline=0` restores the old "re-arm the video callback after inference"
-  // ordering. That ordering is what pinned the pose rate to the camera's frame
-  // grid, and the prediction is that turning it off drops the rate back to
-  // roughly one whole camera frame per inference. If it does not, the
-  // quantisation model in the risk log is wrong and should be corrected.
   {
     name: "baseline: no pipelining (old behaviour)",
     q: "camFps=60&camW=640&camH=480&delegate=gpu&pipeline=0&roi=0&constraints=0&predict=0",

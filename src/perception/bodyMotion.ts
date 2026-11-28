@@ -4,28 +4,6 @@ import type { Stance } from "./punchTypes";
 
 // Whole-body motion: where the player has moved to, and which way they are
 // facing.
-//
-// Separate from dodgeDetector.ts on purpose. That answers a gameplay question
-// ("slip or duck?") with thresholds; this is a continuous measurement that
-// drives the character. Folded together, either the character would only move
-// once a dodge threshold tripped, or the dodge rule would inherit a signal it
-// has no thresholds for.
-//
-// Five channels - lateral, vertical, depth, turn, crouch - all from x/y only.
-// MediaPipe's `z` is never read anywhere in perception; it degrades along the
-// axis a punch travels.
-//
-// Depth comes from apparent size. A torso at distance D measuring s measures
-// s' = s*D/(D-delta) after stepping delta closer, so delta = D*(1 - s/s').
-// Exact, except for D, which an uncalibrated webcam cannot measure. So D is an
-// assumption (BODY_CONFIG.cameraDistance) acting purely as this channel's
-// gain: wrong by a factor and the step is too big or too small, but never
-// backwards and never non-monotonic.
-//
-// Turn magnitude is measured (apparent shoulder width is W*cos(yaw)); the sign
-// is not. A frontal camera sees identical narrowing either way. So the sign
-// comes from the stance: an orthodox fighter blades left-shoulder-forward, a
-// southpaw mirrors it.
 
 export interface BodyMotion {
   /** False when the frame was unusable; every channel is then 0. */
@@ -40,20 +18,7 @@ export interface BodyMotion {
   turn: number;
   /** 0..1 crouch, from `vertical` against the learned standing height. */
   crouch: number;
-  /**
-   * Mean height of the two wrists above the hip line, torso units.
-   *
-   * Absolute, unlike every other channel here, and deliberately so: a guard is
-   * a posture rather than a displacement from wherever the player happened to
-   * be standing when tracking started. 0 is the belt and 1.0 the shoulder
-   * line, the same normalisation `ImpactPoint.height` uses.
-   *
-   * A wrist the camera cannot see contributes nothing and the other hand is
-   * used alone; with neither visible this reads 0. That is a deliberate false
-   * Negative - the camera is the only sensor, and hands it cannot see must not
-   * earn the player a block. The failure mode is losing a guard you had, never
-   * being credited with one you did not.
-   */
+  /** Mean height of the two wrists above the hip line, torso units. */
   guardHeight: number;
   /** 0..1, how much of the body the measurement could actually see. */
   confidence: number;
@@ -85,28 +50,9 @@ function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/**
- * Raw per-frame measurements, before any neutral is subtracted.
- *
- * Split out so the neutral-tracking and the geometry can be tested apart from
- * each other - the geometry is the part worth checking against hand-computed
- * numbers.
- */
+/** Raw per-frame measurements, before any neutral is subtracted. */
 export interface BodySample {
-  /**
-   * Position relative to the optical axis, divided by the torso scale.
-   *
-   * Not raw image position, and the difference matters. Stepping toward a
-   * camera magnifies the image about the optical axis, so the shoulders of
-   * anyone not standing dead centre visibly rise in frame as they step in. Raw
-   * image position reads that as the player standing taller, so a step forward
-   * leaked straight into the vertical channel - a test caught it.
-   *
-   * Dividing the axis-relative offset by the torso scale cancels it exactly:
-   * both the offset and the scale are multiplied by the same magnification, so
-   * the ratio is invariant to distance. Lateral and vertical then measure
-   * genuine translation and nothing else.
-   */
+  /** Position relative to the optical axis, divided by the torso scale. */
   px: number;
   py: number;
   scale: number;
@@ -146,15 +92,7 @@ export function sampleBody(pose: PoseFrame): BodySample | null {
   };
 }
 
-/**
- * Mean wrist height above the hip line, torso units.
- *
- * Averaged across the two hands rather than taken from the higher or the
- * lower of them. The higher alone would call a fighter guarded with one hand
- * dangling; the lower alone would drop the guard on every punch, since
- * throwing one means extending one. The mean says what a guard actually is -
- * how much of your head the pair of them is covering.
- */
+/** Mean wrist height above the hip line, torso units. */
 export function guardHeightOf(pose: PoseFrame, torsoScale: number): number {
   const min = PERCEPTION_CONFIG.minLandmarkConfidence;
   const hips = midpoint(pose.leftHip, pose.rightHip);
@@ -168,14 +106,7 @@ export function guardHeightOf(pose: PoseFrame, torsoScale: number): number {
   return heights.reduce((a, b) => a + b, 0) / heights.length;
 }
 
-/**
- * Tracks whole-body motion against a slowly-drifting neutral.
- *
- * The neutral drifts for the same reason the rig's does: a player who settles
- * into a slightly different stance over a round should not end up with a
- * character permanently leaning, crouched, or stepped back. The drift is slow
- * enough that a held crouch still reads as a crouch for many seconds.
- */
+/** Tracks whole-body motion against a slowly-drifting neutral. */
 export class BodyMotionTracker {
   private neutral: Neutral | null = null;
   private last: BodyMotion = { ...NEUTRAL_BODY_MOTION };
@@ -197,14 +128,7 @@ export class BodyMotionTracker {
     return this.last;
   }
 
-  /**
-   * Feeds one pose.
-   *
-   * Takes no `dt`: every channel here is a position, not a rate, so nothing in
-   * it depends on how long since the last sample. The one thing that does - the
-   * neutral's drift - lives in `followNeutral`, which takes the real interval
-   * between pose samples rather than render frames.
-   */
+  /** Feeds one pose. */
   update(pose: PoseFrame, stance: Stance = "orthodox"): BodyMotion {
     const s = sampleBody(pose);
     if (!s) {
@@ -286,13 +210,7 @@ export class BodyMotionTracker {
     return this.last;
   }
 
-  /**
-   * Lets the neutral follow where the player actually settles.
-   *
-   * Separate from `update` so the caller decides when drift is appropriate -
-   * it must not run while the player is mid-slip, or the neutral chases the
-   * dodge and the character springs back upright underneath them.
-   */
+  /** Lets the neutral follow where the player actually settles. */
   followNeutral(pose: PoseFrame, dtSeconds: number): void {
     const n = this.neutral;
     if (!n) return;

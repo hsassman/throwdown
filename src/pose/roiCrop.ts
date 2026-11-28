@@ -1,28 +1,4 @@
 // Region-of-interest cropping: spend the model's pixels on the player.
-//
-// pose_landmarker_lite resizes whatever it is given down to a small square
-// tensor. At a desk webcam the player fills maybe a third of the frame, so
-// after that resize the body gets a small fraction of the available pixels,
-// and every landmark's precision is bounded by it. Cropping first gives the
-// same model roughly 2-3x the linear resolution on every joint, and uploads a
-// few hundred pixels square instead of a full frame.
-//
-// Done by hand rather than through the API. tasks-vision defines
-// `imageProcessingOptions.regionOfInterest`, but every vision task carries a
-// "ROI allowed" flag and PoseLandmarker passes false:
-//
-//     class extends dc { constructor(t,e){ super(new ac(t,e),
-//         "image_in", "norm_rect", !1 ), ... } }
-//                                    ^^^ roiAllowed = false
-//
-// Passing one throws "This task doesn't support region-of-interest." Read out
-// of the shipped bundle, not assumed.
-//
-// The thing that makes or breaks it: a jittering crop window injects its own
-// jitter into every landmark, because a landmark stationary in the world moves
-// within a window that is itself moving. That trades pixel precision for a new
-// noise source and comes out behind. So the window is heavily damped, snaps
-// outward instantly but contracts slowly, and is quantised.
 
 import { ALL_POSE_KEYS, type Keypoint, type PoseFrame } from "./poseTypes";
 import { ROI_CONFIG } from "../config/tuning";
@@ -65,13 +41,7 @@ export class RoiTracker {
     this.lost = Infinity;
   }
 
-  /**
-   * Updates the window from the most recent pose.
-   *
-   * Takes the pose in full-frame normalized coordinates - i.e. after
-   * mapBack() has already run. Feeding it crop-space coordinates would make
-   * the window chase its own tail and converge on a point.
-   */
+  /** Updates the window from the most recent pose. */
   update(pose: PoseFrame | null, videoW: number, videoH: number): void {
     if (!(videoW > 0 && videoH > 0)) return;
 
@@ -193,13 +163,6 @@ export class RoiTracker {
     this.debugState = {
       coverage: r && area > 0 ? (r.w * r.h) / area : 1,
       // How much bigger the body is in the tensor than it would otherwise be.
-      //
-      // Compared against the letterboxed full frame, which is the actual
-      // alternative - not against the frame's shorter edge. Fitting a 640x480
-      // frame into a square tensor is limited by its longer edge (640), and
-      // the short edge is padded with black. Measuring against 480 understated
-      // the real gain by a third, which I only noticed because a test asserted
-      // a number I had predicted by hand and it came out low.
       magnification: r ? Math.max(videoW, videoH) / Math.max(1, r.w) : 1,
       active: r !== null,
       lostFrames: this.lost,
@@ -225,11 +188,6 @@ export class RoiTracker {
 /**
  * Maps a crop-space landmark back to full-frame normalized coordinates, for a
  * given crop.
- *
- * Separate from `RoiTracker.mapBack` because that reads the tracker's current
- * window, which is only right when the result comes back before the window
- * moves. Inference in a worker returns after the tracker may have been
- * updated, so the worker path maps with the crop it actually sent.
  */
 export function cropToFrame(
   nx: number,
@@ -252,14 +210,7 @@ function clampToFrame(rect: CropRect, videoW: number, videoH: number): CropRect 
   };
 }
 
-/**
- * The scratch canvas inference actually reads from.
- *
- * Deliberately a single reused canvas. Allocating one per frame would hand the
- * GC a multi-megabyte object 15-25 times a second, and - worse - would force a
- * new GPU texture allocation on every upload, which is the exact cost this
- * whole module exists to reduce.
- */
+/** The scratch canvas inference actually reads from. */
 export class CropCanvas {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;

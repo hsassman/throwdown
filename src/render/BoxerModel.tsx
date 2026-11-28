@@ -81,16 +81,6 @@ const FRAME_MARGIN = 1.15;
 /**
  * Over-the-shoulder framing, used whenever something is standing opposite the
  * player - the dummy or the CPU fighter.
- *
- * A square-on rear camera puts the player exactly between the lens and their
- * opponent, so the opponent is completely hidden behind them. That is not a
- * subtle framing preference; the first render of the punching dummy showed a
- * player alone in an empty room, with the dummy perfectly occluded. Every
- * fighting game with a behind-the-shoulder view solves it the same way: lift
- * the camera above the player's head and push it off to one side, so the line
- * of sight clears them.
- *
- * Both are in world units, relative to the player's chest.
  */
 const OVER_SHOULDER = {
   rise: 1.05,
@@ -110,32 +100,7 @@ const OVER_SHOULDER = {
   widen: 1.5,
 };
 
-/**
- * How far to the side the camera must sit to see past the player.
- *
- * The previous version of this was a typed-in 0.46, and it was marginal - a
- * headless screenshot of a live fight showed the opponent almost entirely
- * behind the player, with one glove visible. The number was close enough to
- * look deliberate and wrong enough to hide a whole fighter.
- *
- * So it is derived instead. Put the aim point at `aimZ`, the opponent's chest
- * at `distance`, and the camera a long way back along the chosen direction.
- * The sight line from the camera to the opponent's chest then crosses the
- * plane `z` at a lateral offset approaching `lateral * (distance - z)`. The
- * binding plane is the player's own front - it is nearest the opponent, so the
- * ray has converged furthest in by the time it gets there - which gives
- *
- *     lateral > (shoulderHalfWidth + clearance) / (distance - frontZ)
- *
- * The camera is not infinitely far back, and at a finite distance the true
- * offset is smaller by k / (distance - aimZ + k). `finiteBack` is that
- * correction at a typical framing distance; it only ever pushes the camera
- * further out, so an inexact value costs a slightly wider shot rather than a
- * hidden fighter.
- *
- * Deriving it means a change to TARGET_CONFIG.distance, or a re-export at a
- * different scale, re-frames the shot instead of quietly occluding half of it.
- */
+/** How far to the side the camera must sit to see past the player. */
 const FINITE_BACK = 0.85;
 
 /** See followOpponent. A bound on the turn, radians, so a stray reading
@@ -163,13 +128,7 @@ function overShoulderLateral(shoulderHalfWidth: number, frontZ: number): number 
   );
 }
 
-/**
- * Cage radius used when no venue is built, for the camera director's framing.
- *
- * The director sizes every shot off the cage, and in the plain dark room there
- * is no cage to measure - this is roughly the space two fighters occupy, which
- * keeps the knockdown and decision shots framed rather than in orbit.
- */
+/** Cage radius used when no venue is built, for the camera director's framing. */
 const FALLBACK_ARENA_RADIUS = 3;
 
 /** Scratch, reused every frame: the director reads two world positions per
@@ -192,13 +151,6 @@ interface Props {
    * Optional: returns the pose to draw at the calling instant, extrapolated
    * forward by the measured pipeline latency. When supplied it replaces
    * `poseRef` for rendering only.
-   *
-   * Rendering and perception deliberately read different poses. The character
-   * should be where the player is (~110 ms of pipeline latency removed); hit
-   * resolution must stay on what actually happened, or a strike could register
-   * from a velocity estimate rather than from a punch. `poseRef` is still used
-   * for the neutral-drift timing below, because that keys off genuine sample
-   * boundaries and predicted frames do not have any.
    */
   samplePose?: () => PoseFrame | null;
   /**
@@ -206,18 +158,6 @@ interface Props {
    * map onto its bones. See VIEW_MODES: the camera side and the mapping are
    * two halves of one decision, and changing either alone puts the arms on
    * the wrong side of the screen.
-   *
-   * `behind` (default) is the standard fighting-game view: the camera sits
-   * behind the boxer, the mapping is anatomical, and the player's right arm
-   * drives the character's right arm on the same side of the screen they see
-   * their own arm on. `facing` is the front-on reflection view.
-   *
-   * Note the mapping is implemented by remapping which limb drives which bone
-   * and negating the measured x direction - never by scaling the model
-   * negatively. A negative scale makes an ancestor matrix have negative
-   * determinant, which cannot decompose into a valid rotation, so every
-   * getWorldQuaternion() in the retargeting path would return garbage. That
-   * was a real bug here.
    */
   view?: ViewMode;
   onStatusChange?: (status: LoadStatus, detail?: string) => void;
@@ -237,13 +177,7 @@ interface Props {
   strikeQueueRef?: React.RefObject<StrikeEvent[]>;
   /** Receives the target's hit tally, on the same timer as onDebug. */
   onTargetDebug?: (state: TargetDebugState) => void;
-  /**
-   * Swaps the humanoid target for the punching dummy.
-   *
-   * They are mutually exclusive on purpose. Both occupy the same spot at
-   * TARGET_CONFIG.distance, and showing both would put a dummy inside a
-   * fighter - so this is a choice of what stands there, not an extra prop.
-   */
+  /** Swaps the humanoid target for the punching dummy. */
   dummy?: boolean;
   /** The target zone to light on the dummy. Read every frame, never a prop
    *  value, because it changes at drill rate. */
@@ -251,53 +185,15 @@ interface Props {
   /** Drill outcomes to play on the dummy. Drained by the render loop, for the
    *  same reason strikeQueueRef is. */
   outcomeQueueRef?: React.RefObject<DrillOutcome[]>;
-  /**
-   * The CPU opponent's body state, read every frame.
-   *
-   * A ref rather than a prop because it changes at 60 Hz - the CPU steps on the
-   * fight loop's own clock, and routing its stance through React would
-   * re-render the tree every frame to move a figure the render loop is already
-   * inside. Null means there is no live opponent, and the figure simply stands
-   * on guard.
-   */
+  /** The CPU opponent's body state, read every frame. */
   opponentRef?: React.RefObject<OpponentVisualState | null>;
-  /**
-   * Punches thrown by the opponent, drained by the render loop.
-   *
-   * Separate from `strikeQueueRef`, which carries the player's punches the
-   * other way. Two directions, two queues: sharing one would mean the
-   * renderer had to ask who threw each punch, and getting that wrong would
-   * bruise the wrong fighter.
-   */
+  /** Punches thrown by the opponent, drained by the render loop. */
   opponentStrikeQueueRef?: React.RefObject<StrikeEvent[]>;
-  /**
-   * Written every frame with the player's live whole-body channels.
-   *
-   * An output ref, which is unusual and deliberate. The one BodyMotionTracker
-   * lives inside the rig driver, and the fight loop needs the same numbers to
-   * work out the gap between the fighters. Publishing the existing measurement
-   * is right; constructing a second tracker outside would give the two a
-   * separate neutral each, and they would quietly disagree about where the
-   * player is standing.
-   */
+  /** Written every frame with the player's live whole-body channels. */
   bodyOutRef?: React.RefObject<BodyMotion | null>;
-  /**
-   * The venue to build around the fighters. Null keeps the plain dark room.
-   *
-   * The arena has existed, fully modelled and lit, since the stage work - but
-   * only ArenaView ever built one, and ArenaView is a picker screen with no
-   * fighters in it. So every actual fight happened in an empty void while a
-   * regulation octagon sat one screen away being admired. This is the same
-   * builders, in the scene the fight is in.
-   */
+  /** The venue to build around the fighters. Null keeps the plain dark room. */
   stage?: StageId | null;
-  /**
-   * Fight events to drain, for the camera director and the knockdown.
-   *
-   * Drained rather than passed as props for the same reason the strike queues
-   * are: these arrive on the fight's 60 Hz clock, and a prop would re-render
-   * the tree to move a camera this loop is already inside.
-   */
+  /** Fight events to drain, for the camera director and the knockdown. */
   fightEventQueueRef?: React.RefObject<FightEvent[]>;
   /** The live phase, read every frame. The director's "never cut during a
    *  live exchange" rule is a question about this and nothing else. */
@@ -306,17 +202,7 @@ interface Props {
   conditionRef?: React.RefObject<FightCondition>;
   /** Recent punch outcomes, for the camera kick on a landed or taken punch. */
   impactLogRef?: React.RefObject<ImpactLog>;
-  /**
-   * The remote player's live pose, when the opponent is a person.
-   *
-   * Its presence is what switches the second figure from a CPU fighter to a
-   * networked one. When it is set, that figure is driven by a second
-   * RigDriver - the same class that draws the local player - so the person on
-   * the other end ducks, slips, steps and throws exactly as they did, because
-   * it is literally the same code on the same kind of input. Building a
-   * separate animation path for remote fighters would mean two things to keep
-   * in step, and the one that drifted would be the one nobody could see.
-   */
+  /** The remote player's live pose, when the opponent is a person. */
   remotePoseRef?: React.RefObject<PoseFrame | null>;
   /**
    * Gaps between pose samples, from usePoseTracking. When pose tracking is
@@ -590,13 +476,6 @@ export function BoxerModel({
     // one where the player's own right hand is on the right of the screen. A
     // swing to a side-on broadcast angle mid-round would leave someone
     // throwing real punches unable to find their opponent.
-    //
-    // So the split is: this file owns the camera while a round is live, and
-    // the director borrows it for the moments that are not a round - a
-    // knockdown, the bell, the decision - then eases it back to exactly where
-    // it found it. `houseShot` is that "where it found it", refreshed every
-    // frame the director is not holding the camera, which is what makes an
-    // orbit the player performed survive the next knockdown.
     let director: FightCamera | null = null;
     let directorOwns = false;
     let lastPhase: FightPhase | undefined;
@@ -638,14 +517,6 @@ export function BoxerModel({
     /**
      * Places the camera square-on to the character, on the side the current
      * view calls for, and re-frames.
-     *
-     * Split out from fitCamera() because of a real bug: fitCamera() derives
-     * its viewing direction from `camera.position - controls.target`, and on
-     * the first call after loading, controls.target was still at the origin
-     * while the character's chest sits ~1.3 units up. The resulting direction
-     * was (0, 0.80, 0.60) - the camera ended up looking down at the boxer from
-     * about 53 degrees, despite a comment claiming it started square-on. The
-     * fix is to set the target before any direction is read from it.
      */
     const placeCamera = () => {
       if (!frameTarget) return;
@@ -707,30 +578,8 @@ export function BoxerModel({
     resizeObserver.observe(container);
     resize();
 
-    /**
-     * Paints a figure and returns its damage surface.
-     *
-     * The material is replaced rather than edited: the player and the target
-     * are clones of the same asset and would otherwise share one material, so
-     * texturing either would texture both and bruises on the target would
-     * appear on the player's own body too.
-     */
-    /**
-     * Gives one figure its own kit materials, in its own corner's colour.
-     *
-     * The gloves, shorts and boots are baked into the GLB with a single
-     * colour, and the opponent is a `SkeletonUtils.clone` of that same asset -
-     * which shares materials by reference. Without this the two fighters wear
-     * identical kit, and worse, disposing one figure's material pulls it out
-     * from under the other. That exact double-dispose has bitten this project
-     * before, which is why the old material goes into `retired` to be disposed
-     * once rather than per figure.
-     *
-     * Meshes are matched by name (KIT_MESH_COLOUR), because that is what the
-     * Blender pipeline guarantees - blender/scripts/03..05 name every garment
-     * it builds. Anything unrecognised is left alone, so the eyeballs keep
-     * their sclera material.
-     */
+    /** Paints a figure and returns its damage surface. */
+    /** Gives one figure its own kit materials, in its own corner's colour. */
     const gloveGrain = artTexture("glove-grain", 3);
     const trunksGrain = artTexture("shorts-weave", 4);
     const skinGrain = artTexture("skin-grain", 2);
@@ -823,14 +672,6 @@ export function BoxerModel({
       // Registered here rather than composited separately because the body
       // texture rebuilds from a clean base on every repaint - anything drawn
       // outside that cycle is wiped on the next bruise tick.
-      //
-      // Feature positions come from the bones (`l_eye`, `r_eye`, `c_jaw`),
-      // never from hardcoded UVs. Hardcoded coordinates would break silently
-      // on a re-export, and re-exporting through Blender is now on the table.
-      // Eye bind positions, in the same geometry space the UVs live in. Needed
-      // because `l_eye`/`r_eye` carry no skin weight on this rig, so there are
-      // no "eye vertices" to average - the UV comes from the nearest head
-      // vertex instead. See locateFaceFeatures.
       const bindPos = (name: string): THREE.Vector3 | null => {
         const i = boneNames.indexOf(name);
         if (i < 0) return null;
@@ -895,11 +736,6 @@ export function BoxerModel({
           // The second humanoid. Same asset, cloned - a second download and a
           // second set of bind data would buy nothing while the only question
           // is whether hits register and read correctly.
-          //
-          // SkeletonUtils.clone, not Object3D.clone: a plain clone copies the
-          // SkinnedMesh but leaves its skeleton pointing at the original
-          // bones, so the copy would deform with the player's character
-          // instead of its own. That is a silent, extremely confusing failure.
           const opponent = cloneSkinned(model);
           opponent.traverse((o) => {
             const mesh = o as THREE.SkinnedMesh;
@@ -951,8 +787,6 @@ export function BoxerModel({
             // The character is the dummy's body. Three things have to happen
             // to it, and all three are reversible cosmetics - nothing here
             // touches the rig or the hit map.
-            //
-            // 1. The kit comes off. A dummy wears no gloves, trunks or boots.
             for (const mesh of opponent.children.concat(
               ...opponent.children.map((c) => c.children)
             )) {
@@ -1003,16 +837,6 @@ export function BoxerModel({
             punchingDummy.projectMarkersOnto(opponent);
           } else if (versusRef.current) {
             // A person is standing there.
-            //
-            // Driven by a second RigDriver - the same class that draws the
-            // local player - from the pose frames arriving over the link, so
-            // the fighter on screen moves exactly as the person at the other
-            // end did. No OpponentAnimator, because there are no CPU decisions
-            // to draw; no TrainingTarget either, because both of them and the
-            // driver want to own `root.position`, and three writers to one
-            // transform every frame is a figure that flickers between three
-            // places. The driver's own `flinch` carries the hit reaction,
-            // which is what TrainingTarget was there for.
             targetRef.current = null;
             opponent.position.set(0, model.position.y, TARGET_CONFIG.distance);
             opponent.visible = true;
@@ -1122,13 +946,7 @@ export function BoxerModel({
       }
     );
 
-    /**
-     * Where the fighters actually are, read off the scene rather than assumed.
-     *
-     * The opponent moves - footwork, knockback, a slip - and a director framed
-     * on where it was placed at the start of the round would put a knockdown
-     * shot beside an empty patch of canvas.
-     */
+    /** Where the fighters actually are, read off the scene rather than assumed. */
     const readDirectorInput = () => {
       if (playerRoot) {
         playerRoot.getWorldPosition(_dirPos);
@@ -1152,14 +970,7 @@ export function BoxerModel({
       return dirInput;
     };
 
-    /**
-     * Which shot a given moment of the fight deserves.
-     *
-     * The simulation reports what happened; choosing an angle for it is a
-     * render-layer decision and lives here. Every one of these forces the cut,
-     * because every one of them happens when the round is not live - which is
-     * the only time the director is allowed to move at all.
-     */
+    /** Which shot a given moment of the fight deserves. */
     const shotFor = (e: FightEvent): ShotName | null => {
       switch (e.type) {
         // Low and close, looking up: the angle that makes a downed fighter
@@ -1177,14 +988,7 @@ export function BoxerModel({
       }
     };
 
-    /**
-     * Who a cut is about, in the director's own terms.
-     *
-     * A knockdown is about the fighter on the canvas, and the shot has to be
-     * framed on them: the midpoint between a downed fighter and the man
-     * standing over him is the standing man's waist, which is exactly what the
-     * first real knockdown looked like.
-     */
+    /** Who a cut is about, in the director's own terms. */
     const subjectOf = (e: FightEvent): "player" | "opponent" | null => {
       if (e.type === "knockdown") return e.target === "player" ? "player" : "opponent";
       // A stoppage is about whoever lost it.
@@ -1272,18 +1076,6 @@ export function BoxerModel({
     /**
      * Turns the camera rig about the player so it stays behind them on the
      * line to the opponent.
-     *
-     * The over-shoulder offset is derived for an opponent standing straight
-     * ahead. The CPU circles up to CPU_CONFIG.lateralLimit off that line and
-     * steps into the pocket, and at 0.79 m apart a few tenths of a metre to
-     * one side is enough to put it squarely behind the player's head: a burst
-     * of a live fight showed the opponent fully hidden, gloves only, within
-     * twenty seconds of the bell. Turning with the fight, as every fighting
-     * game camera does, keeps the geometry the offset was derived for.
-     *
-     * Applied as a delta, so an orbit the player made is turned along with it
-     * rather than undone, and held off while they drag or the director has
-     * the camera.
      */
     const followOpponent = (dt: number) => {
       const duel = showTargetRef.current || dummyRef.current;
@@ -1575,12 +1367,6 @@ export function BoxerModel({
         // Let the neutral reference drift only on genuinely new pose samples,
         // using the interval between them - otherwise the render rate would
         // silently change how fast it follows.
-        //
-        // Read from poseRef, not from the predicted pose: a predicted frame
-        // carries the timestamp of the sample it was extrapolated from, so
-        // this comparison still counts real samples either way - but keying it
-        // to the unpredicted stream keeps that true even if prediction later
-        // starts restamping.
         const sampled = poseRef.current;
         if (sampled && sampled.timestamp !== lastPoseTs) {
           if (lastPoseTs > 0) {
@@ -1611,10 +1397,6 @@ export function BoxerModel({
         // drill is running. In free work nothing is lit and nothing is scored,
         // and a dummy that stood still while being hit would read as the hit
         // detection having failed.
-        //
-        // This is also why the dummy - not the humanoid target below - drains
-        // the strike queue while it is the thing standing there. Two drainers
-        // on one queue would each get roughly half the punches.
         const strikes = strikeQueueHolder.current?.current;
         if (strikes && strikes.length > 0) {
           for (const st of strikes.splice(0, strikes.length)) {

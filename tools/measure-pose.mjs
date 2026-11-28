@@ -1,25 +1,4 @@
 // Automated Milestone 0 measurement run.
-//
-// Drives the real installed Chrome against the dev server using the real
-// webcam, auto-accepting the camera permission so a run can be scripted.
-//
-// How to read the output - two things decide whether a run is valid:
-//
-//  1. "body found in X% of frames". BlazePose runs an expensive whole-image
-//     detector while no body is acquired, and a cheaper tracking path once one
-//     is. A run at a low ratio is timing the wrong code path - for a
-//     representative gameplay number you want this near 100%, i.e. someone
-//     actually standing in frame.
-//
-//  2. Frame intervals clustered near ~1000ms mean Chrome throttled
-//     requestAnimationFrame because the window was backgrounded/occluded. The
-//     launch flags below disable that, but if it reappears the run is void.
-//
-// Even a clean run here measures a person *standing still*. Sustained throwing
-// of punches is a different (higher) load, so treat this as a baseline rather
-// than the final Milestone 1 figure.
-//
-// Usage: node tools/measure-pose.mjs [durationSeconds]
 
 import { chromium } from "playwright-core";
 

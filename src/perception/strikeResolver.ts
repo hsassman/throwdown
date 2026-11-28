@@ -12,28 +12,6 @@ import {
 } from "./strikeGeometry";
 
 // Resolves punches into landed strikes against a training target.
-//
-// In a 1v1 there is no shared physical space: two players stand in two rooms
-// and there is no real distance between them, so "did the punch reach?" is a
-// design decision, not a measurement. Against a training target the same is
-// true - the dummy is at a virtual range we choose. So this does not measure a
-// collision. It measures how far the player extended and in which direction,
-// and resolves that against a chosen reach.
-//
-// Two rules it keeps:
-//
-// 1. Landmarks only, never the character mesh. Retargeting lives under render/
-//    precisely so the drawn skeleton cannot influence hit resolution; the
-//    drawn arm's forward extension is a cosmetic estimate recovered from
-//    foreshortening, and feeding it back would make what you hit depend on how
-//    you are drawn.
-// 2. MediaPipe's z is never read. Depth comes from x/y foreshortening.
-//
-// Deliberately independent of punchClassifier.ts, which is still ~19%. A
-// target that only registered hits when the type classifier agreed would
-// inherit that failure rate. Reach and zone are a much easier measurement than
-// punch type, so training works now and can show a type alongside once the
-// classifier earns it.
 
 /** Vertical band a strike arrives at. */
 export type StrikeHeight = "head" | "body";
@@ -72,13 +50,6 @@ export interface StrikeEvent {
   /**
    * How far the glove's striking surface was from the shoulder when the strike
    * landed, in torso units - i.e. wrist extension plus the glove.
-   *
-   * The threshold still gates on wrist extension, because that is what
-   * measures commitment and it is what the detection was calibrated against.
-   * This is what actually made contact, and it is what TARGET_CONFIG.distance
-   * is derived from so the glove meets the face instead of passing through it.
-   * Reported rather than gated on, so the render and the HUD can show where
-   * the blow landed without hit detection depending on the character mesh.
    */
   contactReach: number;
   /** performance.now() at the moment the strike resolved. */
@@ -162,18 +133,6 @@ interface ArmSpan {
 /**
  * Measures reach as on-screen extension plus how far the arm points out of the
  * image plane.
- *
- * The depth half must be measured per segment, against each segment's own full
- * length. An earlier version compared the sum of both segments against a
- * straight arm, which is wrong in a way that matters: bending your elbow also
- * shortens that sum, so a normal guard - elbow folded, fist at the chin -
- * registered as a heavily foreshortened arm and sat most of the way to a
- * landed hit. Comparing each segment to itself separates the two: bending
- * changes the angle between segments, foreshortening shortens each one.
- *
- * Both halves are needed. A hook travels a long way on screen and barely
- * foreshortens; a straight punch down the lens barely moves on screen and
- * foreshortens almost completely. Either signal alone misses one of them.
  */
 function reachOf(
   shoulder: Keypoint,
@@ -206,15 +165,7 @@ function reachOf(
   };
 }
 
-/**
- * Where a fist sits in the body frame, as continuous coordinates.
- *
- * Height is measured from the hip line and divided by the torso scale, which
- * is itself the shoulder-to-hip distance - so the shoulder line lands at
- * exactly 1.0 for every player, of any height, at any distance from the
- * camera. The anatomical table in strikeGeometry.ts is written against that
- * normalisation, which is why its numbers are proportions and not centimetres.
- */
+/** Where a fist sits in the body frame, as continuous coordinates. */
 export function impactPointOf(
   wrist: Keypoint,
   shoulders: Keypoint,
@@ -239,12 +190,6 @@ export class StrikeResolver {
   /**
    * Longest length seen for each arm segment, torso units - the reference
    * foreshortening is measured against.
-   *
-   * Seeded from anthropometry rather than starting at zero, and this matters:
-   * starting from the first observation would make the threshold depend on
-   * whatever the player happened to be doing when training mode opened. It
-   * only ever grows, because a shorter reading is foreshortening - the signal
-   * - not a better measurement.
    */
   private fullArm: Record<HandSide, ArmSpan> = {
     left: { ...STRIKE_CONFIG.seedArmSpan },
@@ -474,13 +419,7 @@ export class StrikeResolver {
   }
 }
 
-/**
- * Which zone a fist is arriving at, in the player's own body frame.
- *
- * Height splits at the shoulder line rather than at the nose: a punch level
- * with the shoulders is already a head shot in boxing terms, and using the
- * nose put the boundary so high that body shots swallowed everything.
- */
+/** Which zone a fist is arriving at, in the player's own body frame. */
 export function zoneOf(
   wrist: Keypoint,
   shoulders: Keypoint,

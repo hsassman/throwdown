@@ -38,24 +38,10 @@ function unpackFrame(values: Float32Array, timestamp: number): PoseFrame {
 // (detection on its own rAF loop, latest result written to a ref so inference
 // never blocks rendering); extended with the head landmarks Shadow Box needs,
 // one-euro smoothing, and real latency/FPS instrumentation for Milestone 0.
-//
-// API verified against @mediapipe/tasks-vision@0.10.35 vision.d.ts:
-//   PoseLandmarker.createFromOptions(WasmFileset, PoseLandmarkerOptions)
-//   detectForVideo(videoFrame, timestamp) => PoseLandmarkerResult   (sync overload)
-//   result.landmarks: NormalizedLandmark[][]  ({ x, y, z, visibility })
 
 export type PoseStatus = "loading" | "ready" | "error";
 
-/**
- * Rewrites a pose from crop space into full-frame normalized coordinates.
- *
- * Two different inverse transforms, because the cropper does two different
- * things: a real crop window when one has been acquired, and a letterboxed
- * fit of the whole frame before that. Applying the wrong one puts the whole
- * skeleton in the wrong place, which is why the caller passes `hasCrop`
- * explicitly rather than this function guessing from the tracker's state -
- * the tracker may have been updated since the frame was drawn.
- */
+/** Rewrites a pose from crop space into full-frame normalized coordinates. */
 function mapFrameToFullFrame(
   frame: PoseFrame,
   roi: RoiTracker,
@@ -125,15 +111,6 @@ export interface PoseTrackingHandle {
   /**
    * The pose as it should be drawn right now - the smoothed pose extrapolated
    * forward by the measured pipeline latency.
-   *
-   * Deliberately separate from `poseRef`. Perception must keep reading the
-   * un-extrapolated pose: a strike is a decision about what actually happened,
-   * and resolving hits against predicted positions would let a punch register
-   * from a velocity estimate rather than from a punch. Rendering has the
-   * opposite requirement - it should show where you are, not where you were.
-   *
-   * Read this through `samplePredicted()`, which advances it to the calling
-   * instant; the ref itself only holds the last sample taken.
    */
   predictedPoseRef: React.RefObject<PoseFrame | null>;
   /** Extrapolates to `performance.now()` and returns it. Call per render frame. */
@@ -144,17 +121,7 @@ export interface PoseTrackingHandle {
   trackingReportRef: React.RefObject<TrackingReport | null>;
   /** Latest unsmoothed pose, for side-by-side debug comparison only. */
   rawPoseRef: React.RefObject<PoseFrame | null>;
-  /**
-   * Delivers every pose sample meant for strike resolution, as it arrives.
-   *
-   * Two differences from `poseRef`, both about hits. It is filtered by a
-   * fixed, low-lag filter (STRIKE_SMOOTHING) instead of the display one,
-   * which lags a fast punch badly and is auto-tuned - and nothing that decides
-   * whether a punch landed may be auto-tuned. And it is pushed rather than
-   * polled: a consumer reading a ref once per animation frame misses every
-   * sample that arrives while a frame is late, and a late frame is exactly
-   * what a busy exchange produces. Returns an unsubscribe.
-   */
+  /** Delivers every pose sample meant for strike resolution, as it arrives. */
   subscribeStrikePose: (cb: (pose: PoseFrame) => void) => () => void;
   /** Interval between completed inferences (ms) - the effective pose sample rate. */
   frameIntervalStats: RollingStats;
@@ -182,14 +149,7 @@ export function usePoseTracking(
   const rawPoseRef = useRef<PoseFrame | null>(null);
   const predictedPoseRef = useRef<PoseFrame | null>(null);
   const pipelineDebugRef = useRef<PipelineDebug | null>(null);
-  /**
-   * Standing watchdog on tracking quality (trackingMonitor.ts).
-   *
-   * Fed the raw pose, deliberately. Measuring the smoothed signal would be
-   * measuring the filter: smoothing exists to hide jitter, so a monitor
-   * watching its output would report a calm signal in a shaking room - and
-   * then raise the smoothing that was already hiding the problem.
-   */
+  /** Standing watchdog on tracking quality (trackingMonitor.ts). */
   const monitorRef = useRef(new TrackingMonitor());
   const trackingReportRef = useRef<TrackingReport | null>(null);
   // Held across both inference paths so the render loop can sample it at 60 Hz
@@ -235,15 +195,6 @@ export function usePoseTracking(
     monitorRef.current.ingest(raw);
 
     // Order matters and is not arbitrary.
-    //
-    // Constrain, then smooth. The solver corrects an error across space (limbs
-    // that are the wrong length); the filter corrects an error across time.
-    // Running the filter first would hand the solver a temporally-blended
-    // skeleton whose limb lengths are an average of several frames' worth of
-    // wrong, and the solver would then faithfully rigidify that. Constraining
-    // the honest observation first means the filter smooths a sequence of
-    // anatomically valid skeletons, and the projection step's own small
-    // discontinuities get smoothed out for free.
     let processed: PoseFrame | null = null;
     let forStrikes: PoseFrame | null = null;
     if (raw) {
@@ -276,21 +227,6 @@ export function usePoseTracking(
     trackingReportRef.current = report;
 
     // Close the loop.
-    //
-    // The monitor measured the signal; this is where its conclusion is
-    // actually acted on. Until this existed the monitor was a thermometer with
-    // nothing attached to it - it computed a correction every frame and
-    // nothing read it.
-    //
-    // Only smoothing and prediction are touched, and that limit is enforced by
-    // `tuning()` returning exactly those two keys (asserted structurally in
-    // trackingMonitor.test.ts). Nothing here can reach a threshold that decides
-    // whether a punch landed: a game that got easier in bad light, invisibly,
-    // would be far worse than one that is simply harder to play in bad light.
-    //
-    // Applied on every sample rather than on a timer. Both setters are no-ops
-    // when the value has not changed, and the monitor's own window is 90
-    // frames, so the values move slowly whatever the call rate.
     const tuning = monitorRef.current.tuning(report);
     smoother.setScale(tuning.smoothingScale);
     predictorRef.current.setScale(tuning.predictScale);
@@ -397,26 +333,6 @@ export function usePoseTracking(
       // Re-arm first. This single reordering is the largest frame-rate win
       // available in this pipeline, and it is why the pose rate was pinned at
       // 15.1 FPS.
-      //
-      // requestVideoFrameCallback fires on the next decoded camera frame after
-      // you register. Registering after a 36 ms inference means the frame that
-      // arrived during that inference has already been and gone, so the loop
-      // waits for the one after it - the wait and the work are serialised, and
-      // the period is quantised up to a whole number of camera frames:
-      //
-      //     register after work, 30 FPS capture:  36 ms work -> next boundary
-      //                                           at 66.7 ms -> 15.0 FPS
-      //
-      // which is the measured 15.1 FPS, to within noise. Registering before
-      // the work lets the callback for the next frame queue up while inference
-      // is still running, so it is already pending the moment the main thread
-      // frees. The wait overlaps the work instead of following it, and the
-      // period collapses to the inference time itself:
-      //
-      //     register before work: max(36 ms, one frame) -> ~27 FPS
-      //
-      // i.e. the hard ceiling of 1/inference. Nothing else in this file can
-      // buy that much.
       if (POSE_CONFIG.pipelineFrames) scheduleNext();
 
       const video = videoRef.current;
@@ -657,14 +573,7 @@ export function usePoseTracking(
     poseFoundRatio.current = 0;
   };
 
-  /**
-   * The pose to draw this instant.
-   *
-   * Called from the render loop at 60 Hz against a pose stream arriving at
-   * 15-27 Hz, so most calls are extrapolating between samples rather than
-   * interpolating - which is the entire point. Returns the plain smoothed pose
-   * when prediction is disabled, so ?predict=0 is a clean A/B.
-   */
+  /** The pose to draw this instant. */
   const samplePredicted = (): PoseFrame | null => {
     if (!POSE_CONFIG.usePrediction) return poseRef.current;
     const p = predictorRef.current.predictAt(performance.now());

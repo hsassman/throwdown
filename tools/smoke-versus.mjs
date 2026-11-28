@@ -1,9 +1,6 @@
 // Two browsers, one Play a Friend fight, both cameras the fake player.
 // Checks the host sees the guest's defence, the guest sees the host's fight
 // events, and a rematch restarts both ends.
-//
-// Usage (needs npm run build && npm run preview):
-//   BASE_URL=http://localhost:4173 node tools/smoke-versus.mjs [seconds]
 import { chromium } from "playwright-core";
 import { resolve } from "node:path";
 

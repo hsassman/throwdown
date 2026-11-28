@@ -1,10 +1,4 @@
 // What a punch should FEEL like, separate from what it IS.
-//
-// The fight sim decides whether a punch landed, was blocked or slipped. This
-// file only turns those decisions into feedback - a camera kick, a word on
-// screen, a red flash when you are hit - so a landed punch reads as landed
-// the instant it happens. Nothing here feeds back into hit detection or
-// scoring; it only reads the sim's events.
 
 import type { FightEvent } from "./fightState";
 
@@ -48,17 +42,7 @@ export function impactKind(e: FightEvent, playerId: string): ImpactKind | null {
   }
 }
 
-/**
- * Turns the sim's events into impacts, one per punch.
- *
- * The sim reports a blocked punch as two events: "block", then "land" with
- * the reduced damage (the damage is real, so scoring needs it). Mapped one by
- * one, a blocked punch became both "defended" and "taken" - the red flash and
- * the big hit shake fired on a punch you had blocked, and hitting the
- * opponent's guard showed "Blocked" alongside a landed hit. This drops the
- * "land" that belongs to a block, so a blocked punch only ever reads as a
- * block.
- */
+/** Turns the sim's events into impacts, one per punch. */
 export class ImpactClassifier {
   private blockedTarget: string | null = null;
 
@@ -99,14 +83,7 @@ export function shakeFor(impact: Pick<Impact, "kind" | "power">): { amplitude: n
   }
 }
 
-/**
- * Hit-stop: how long the struck figure freezes when a punch lands, seconds.
- *
- * The standard trick fighting games use to make contact read as contact - a
- * few frames where the struck figure holds still sell the weight of the blow
- * better than any amount of recoil. Scaled with power, and zero for anything
- * that did not land: a frozen frame on a blocked jab would read as lag.
- */
+/** Hit-stop: how long the struck figure freezes when a punch lands, seconds. */
 export function hitStopFor(impact: Pick<Impact, "kind" | "power">): number {
   if (impact.kind !== "landed" && impact.kind !== "taken") return 0;
   if (impact.power < 0.45) return 0;
@@ -116,12 +93,6 @@ export function hitStopFor(impact: Pick<Impact, "kind" | "power">): number {
 /**
  * A playback rate for the fight's figures, for hit-stop and the slow-motion
  * knockdown.
- *
- * Render time only. The simulation, the round clock and hit detection all
- * keep running in real time - this changes how fast the bodies are drawn
- * moving, never what happened. The player's own figure is not slowed either:
- * it follows the player's real body, and freezing it would feel exactly like
- * input lag.
  */
 export class TimeWarp {
   private stopUntil = -Infinity;
@@ -218,14 +189,7 @@ export function popupFor(impact: Pick<Impact, "kind" | "power">): Popup | null {
  */
 export const POPUP_LANES = [38, 52, 66];
 
-/**
- * The first row no live word is using.
- *
- * Words used to be spread by a hash of their sequence number alone, which put
- * consecutive words a few vw apart - and "BLOCKED" followed 80ms later by
- * "HIT" printed as one unreadable "HITCKED", in nearly every exchange. A row
- * per live word cannot collide, however close together they arrive.
- */
+/** The first row no live word is using. */
 export function freeLane(taken: number[]): number {
   for (let i = 0; i < POPUP_LANES.length; i++) if (!taken.includes(i)) return i;
   return 0;

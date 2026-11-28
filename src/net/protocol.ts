@@ -74,7 +74,7 @@ export function mirrorEvent(e: FightEvent, self: string, other: string): FightEv
   }
 }
 
-/** 4 floats per landmark — x, y, z, confidence — matching the layout the pose
+/** 4 floats per landmark - x, y, z, confidence - matching the layout the pose
  *  worker already uses across its own boundary. One transport order, defined
  *  once in ALL_POSE_KEYS, so the two cannot drift apart. */
 const FLOATS_PER_KEY = 4;
@@ -86,14 +86,6 @@ const TAG_JSON = 2;
 // Float32Array view onto a buffer must start on a 4-byte boundary and a
 // Float64 on an 8-byte one - a misaligned view throws rather than reading
 // something slightly wrong, so the padding is load-bearing.
-//
-//   0        tag byte
-//   8..16    float64 timestamp - performance.now() runs into the millions of
-//                                milliseconds in a long session, where a
-//                                float32 has already lost whole milliseconds,
-//                                and this is what the latency estimate and
-//                                the pose predictor both key off
-//   16..     4 floats per landmark, in ALL_POSE_KEYS order
 const POSE_TIME = 8;
 const POSE_BODY = 16;
 
@@ -101,7 +93,7 @@ const POSE_BODY = 16;
  * A landmark missing from the frame is sent as confidence 0 rather than
  * omitted, so every pose message is exactly the same size and the decoder
  * never has to parse a variable layout. `EXTRA_POSE_KEYS` are absent most of
- * the time at a desk webcam — that is the normal case, not an error.
+ * the time at a desk webcam - that is the normal case, not an error.
  */
 const ABSENT: Keypoint = { x: 0, y: 0, confidence: 0 };
 

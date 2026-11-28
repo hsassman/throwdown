@@ -28,13 +28,7 @@ import type { Keypoint, PoseFrame } from "../../pose/poseTypes";
 // assertion against the actual rig would have caught. A mocked skeleton would
 // have reproduced my wrong assumptions rather than the asset's real structure.
 
-/**
- * How far a bone may sit from its bind rotation and still count as "at rest".
- *
- * The asset is built by the Blender pipeline, so rest transforms survive an
- * extra float32 round trip; the measured drift is 2.7e-8. Invisible, but not
- * zero, which is what this used to assume.
- */
+/** How far a bone may sit from its bind rotation and still count as "at rest". */
 const REST_EPSILON = 1e-6;
 
 const MODEL_PATH = "public/models/boxer_lod3.glb";

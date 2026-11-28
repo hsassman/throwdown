@@ -11,8 +11,6 @@ import { RING, platformHalfSpan } from "./arena/ringSpec";
 // Standalone dim-lit view of the octagon. No character, no camera feed, no
 // pose tracking - this exists so the arena can be judged on its own, which
 // every previous visual problem in this project would have been caught by.
-//
-// Lazy-loaded by App like BoxerModel, for the same reason: it pulls three.js.
 
 export type StageId = "octagon" | "ring";
 

@@ -4,7 +4,7 @@ import { FOOTWORK_CONFIG } from "../config/tuning";
 
 // The stepping rule, exercised without a rig or a renderer. Everything here is
 // a position in a ground plane and a dt, which is the whole point of keeping
-// this module frame-agnostic — see its header.
+// this module frame-agnostic - see its header.
 
 const OFFSETS: StanceOffsets = {
   left: { x: -0.3, z: 0.3 },
@@ -62,7 +62,7 @@ describe("a foot is left behind before it steps", () => {
     const small = FOOTWORK_CONFIG.stepTrigger * 0.5;
     travel(fw, { x: small, z: 0 }, 0.5);
     expect(fw.steppingFoot).toBeNull();
-    // The feet really have been left behind — that is the point. The body has
+    // The feet really have been left behind - that is the point. The body has
     // moved and they have not.
     expect(fw.left.x).toBeCloseTo(-0.3, 9);
   });
@@ -72,7 +72,7 @@ describe("a foot is left behind before it steps", () => {
     const to = FOOTWORK_CONFIG.stepTrigger * 2;
     travel(fw, { x: to, z: 0 }, 0.6);
     settle(fw, { x: to, z: 0 }, 1.5);
-    // Both feet have caught up to the new stance — to within the settle bar,
+    // Both feet have caught up to the new stance - to within the settle bar,
     // which is where the feet are deliberately allowed to come to rest rather
     // than endlessly correcting the last millimetre.
     expect(Math.abs(fw.left.x - (to - 0.3))).toBeLessThan(
@@ -136,12 +136,7 @@ describe("the step itself", () => {
   it("lands the foot where the body ENDED UP, not where it started", () => {
     // The failure this pins: freezing the step's destination at lift-off. A
     // foot launched while the body is still travelling then lands a full step
-    // behind, and the fighter moonwalks — visibly wrong and easy to reintroduce.
-    //
-    // Asserted against the SETTLE bar rather than an exact landing, because
-    // coming to rest within that bar is the deliberate contract. A frozen
-    // destination would miss by roughly the distance the body covers during a
-    // step, which is an order of magnitude larger.
+    // behind, and the fighter moonwalks - visibly wrong and easy to reintroduce.
     const fw = new Footwork(OFFSETS);
     travel(fw, { x: 1.2, z: 0 }, 0.8);
     settle(fw, { x: 1.2, z: 0 }, 2);
@@ -228,7 +223,7 @@ describe("the boxing stance", () => {
 
   it("orients the whole stance to an off-axis basis", () => {
     // A stage that stands the fighters on a diagonal. The stance must rotate
-    // with them rather than staying glued to the world axes — the feet still
+    // with them rather than staying glued to the world axes - the feet still
     // have to straddle the body and the lead foot still has to be the forward
     // one, measured along the basis the caller actually passed.
     const k = Math.SQRT1_2;

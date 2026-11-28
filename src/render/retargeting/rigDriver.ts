@@ -57,9 +57,6 @@ import type { StrikeEvent } from "../../perception/strikeResolver";
 // estimates, the neutral body position, and frame-to-frame smoothing. Kept out
 // of BoxerModel so the logic is testable without a WebGL context, and out of
 // mediapipeToMhrRig so that module stays pure geometry.
-//
-// Purely cosmetic - see docs/ARCHITECTURE.md. Nothing here feeds back into
-// perception, hit resolution or the simulation.
 
 /** Scratch vectors for the per-frame foot solve. Allocating these inside the
  *  update would hand the collector a few hundred short-lived vectors a second
@@ -85,15 +82,7 @@ function smoothingAlpha(dt: number, tau: number): number {
   return 1 - Math.exp(-dt / tau);
 }
 
-/**
- * Angle between two rotations, radians.
- *
- * Deliberately not Quaternion.angleTo(): the exported asset's quaternions are
- * marginally non-unit, and acos near 1 turns a 1e-8 dot deficit into ~4e-4
- * radians even against an exact copy. That noise floor is small in absolute
- * terms but it sits right where this function is used to decide "is the bone
- * basically still", so it is clamped explicitly instead.
- */
+/** Angle between two rotations, radians. */
 function angleBetween(a: THREE.Quaternion, b: THREE.Quaternion): number {
   const dot = THREE.MathUtils.clamp(Math.abs(a.dot(b)), 0, 1);
   return 2 * Math.acos(dot);
@@ -149,18 +138,7 @@ export class RigDriver {
   private rootOffset = new THREE.Vector2();
   /** Legs and waist for the duck. Null if the rig has no legs. */
   private crouchRig: CrouchRig | null = null;
-  /**
-   * The player's feet, and the legs that reach them.
-   *
-   * At a desk webcam the legs are almost never in frame, so the retargeting has
-   * nothing to drive them with and they sat at bind pose - dead straight -
-   * while the body slid sideways to render a slip. The character moved like a
-   * chess piece for the same reason the opponent did.
-   *
-   * This fills that gap and only that gap: the moment the camera can actually
-   * see the player's legs, the measured pose wins and this stands down. A
-   * procedural guess must never override a real measurement.
-   */
+  /** The player's feet, and the legs that reach them. */
   private legs: { left: LegRig | null; right: LegRig | null } = {
     left: null,
     right: null,
@@ -168,31 +146,14 @@ export class RigDriver {
   private footwork: Footwork | null = null;
   /** Arm bones the rest guard is currently driving. See applyRestGuard. */
   private readonly guarded = new Set<DrivenBoneName>();
-  /**
-   * Knockdown and hurt, as the fight sees them and as the body shows them.
-   *
-   * The player's figure had no expression of either. A clean right hand put
-   * them on the canvas, the simulation started a count, the round resumed -
-   * and the character on screen boxed on throughout, mirroring a player who
-   * was still standing in their room. The opponent has had a full bone-driven
-   * reaction since it existed; this is the other half of it.
-   */
+  /** Knockdown and hurt, as the fight sees them and as the body shows them. */
   private down = 0;
   private hurt = 0;
   private shownDown = 0;
   private shownHurt = 0;
   private wobbleT = 0;
   private groundY = 0;
-  /**
-   * The player's reaction to being hit.
-   *
-   * The opponent has had a full bone-driven hit reaction since it existed -
-   * head snap, jaw, spine fold, knockback. The player got bruises and nothing
-   * else: the CPU could land a clean right hand and the character would not so
-   * much as blink. That asymmetry was the most conspicuous thing left in the
-   * fight, and it is the same reaction, scaled down and composed on top of the
-   * tracked pose rather than replacing it - see TARGET_CONFIG.playerReactionShare.
-   */
+  /** The player's reaction to being hit. */
   private impulse = 0;
   private shownImpulse = 0;
   private flinchHeadShare = 1;
@@ -217,16 +178,7 @@ export class RigDriver {
   /** Angles applied this frame, radians. */
   private headAngles = { yaw: 0, pitch: 0 };
 
-  /**
-   * The last good target for each bone, and how long ago it was measured.
-   *
-   * MediaPipe drops individual landmarks constantly - an elbow passing in
-   * front of the torso, a wrist leaving frame at the end of a hook. Snapping
-   * the bone straight back to its rest pose on the frame that happens, and
-   * back out again when tracking recovers, is a visible twitch, and it lands
-   * on precisely the fast motions the game is about. Holding the last target
-   * and fading it out over `holdSeconds` turns a twitch into a settle.
-   */
+  /** The last good target for each bone, and how long ago it was measured. */
   private held = new Map<DrivenBoneName, { target: BoneTarget; age: number }>();
 
   /** Fists, if the mesh has finger chains. Cosmetic and optional. */
@@ -274,21 +226,7 @@ export class RigDriver {
     this.restPose();
   }
 
-  /**
-   * Puts the figure on guard with its knees soft, immediately.
-   *
-   * Not on the first update. The mesh's bind pose is a T-pose with dead
-   * straight legs, and a driver that only posed on its first frame would put
-   * the player's own fighter on screen with its arms out sideways - then ease
-   * out of it over the next few frames, which measures as a 0.30-unit jump of
-   * the wrist on frame one. That is the same mistake OpponentAnimator's
-   * constructor already avoids by calling reset(), and it lands at exactly the
-   * moment the player is looking at their fighter for the first time.
-   *
-   * `shown` and `targetQuat` are seeded from the result rather than from bind,
-   * so the smoothing pass starts from the guard instead of easing away from a
-   * T-pose nobody ever sees.
-   */
+  /** Puts the figure on guard with its knees soft, immediately. */
   private restPose(): void {
     applyGuard(this.root, this.binds);
     // Seeded before the crouch, not after. `update` composes the standing bend
@@ -309,14 +247,7 @@ export class RigDriver {
     }
   }
 
-  /**
-   * Advances the character by one rendered frame.
-   *
-   * `pose` may be null or stale - it updates far slower than rendering does,
-   * which is the whole reason the smoothing pass exists. Re-deriving the same
-   * target from an unchanged pose is intentional and cheap: it's what lets the
-   * character glide between pose samples instead of stepping.
-   */
+  /** Advances the character by one rendered frame. */
   update(pose: PoseFrame | null, dt: number, mirrored: boolean): void {
     if (pose) this.refineFromPose(pose, mirrored, dt);
     else this.tracked = false;
@@ -353,13 +284,6 @@ export class RigDriver {
     applyPoseToRig(this.binds, measuredTargets, live ? this.headAngles : null);
 
     // 1b. An arm the camera cannot see holds a guard.
-    //
-    //     The rig's bind pose is a T-pose, so before this the rest pose of a
-    //     player's own fighter was a man standing with his arms out sideways -
-    //     which is what everyone saw for the seconds before they stepped into
-    //     frame, and every time tracking dropped mid-round. The CPU opponent
-    //     has held a guard at rest since it existed; this is the same table,
-    //     now shared by both. See guardPoses.ts.
     const guarded = this.applyRestGuard(measuredTargets);
 
     for (const [name, bind] of this.binds) {
@@ -376,13 +300,6 @@ export class RigDriver {
     }
 
     // 2. Ease the displayed rotation toward that target.
-    //
-    // The time constant adapts to how far the bone has to travel. A fixed one
-    // cannot serve both jobs this smoothing has: long enough to bridge the
-    // ~15 FPS pose stream without the character stepping, and short enough not
-    // to blunt a punch - which is the one motion the game is about. Large
-    // discrepancies are real motion and get chased hard; small ones are
-    // landmark jitter and get damped.
     for (const [name, bind] of this.binds) {
       const shown = this.shown.get(name)!;
       const target = this.targetQuat.get(name)!;
@@ -480,13 +397,7 @@ export class RigDriver {
     this.updateFlinch(dt);
   }
 
-  /**
-   * The fight's verdict on this fighter's condition.
-   *
-   * `down` is a target, not a progress value: how long a body takes to go over
-   * is not a rule, and shaping it belongs here. What the simulation decides is
-   * when it starts and when the fighter is back on their feet.
-   */
+  /** The fight's verdict on this fighter's condition. */
   setCondition(down: number, hurt: number): void {
     this.down = down;
     this.hurt = hurt;
@@ -497,26 +408,12 @@ export class RigDriver {
     return this.shownDown;
   }
 
-  /**
-   * Registers a punch landing on the player.
-   *
-   * Mirrors TrainingTarget.hit - same direction rules, same accumulation - so
-   * the two fighters react to the same punch the same way. The direction is
-   * derived from the zone rather than from geometry because the zone is all
-   * the resolver can honestly report; see strikeResolver.ts.
-   */
+  /** Registers a punch landing on the player. */
   flinch(event: StrikeEvent): void {
     // The player's character faces +Z. A lane on the puncher's right arrives on
     // the player's own left, which sits at world +X for a figure facing +Z -
     // so the head is driven the other way.
     // Both axes are read off the rig rather than assumed.
-    //
-    // This used to hardcode "+Z is forward, +X is this fighter's left", which
-    // was true of the local player's figure and of nothing else. The same
-    // driver now also draws a networked opponent, and that figure is turned to
-    // face the other way - an assumed +Z would snap their head away from the
-    // punch on a body shot and into it on a head shot, which reads as the
-    // rules having got the hit backwards.
     figureForward(this.root, _flinchFwd);
     figureLeft(this.root, _flinchLeft);
 
@@ -586,17 +483,7 @@ export class RigDriver {
     if (spine) composeWorldRotation(spine, _flinchAxis, bodyAngle);
   }
 
-  /**
-   * Plants the player's feet and bends the legs to reach them.
-   *
-   * `legsTracked` is the whole safety rule. The camera is the authority on the
-   * player's body, and whenever it can see the legs this stands aside
-   * completely - the measured pose has already been written onto the bones by
-   * the solve above and must not be overwritten by a guess. The footwork state
-   * is still advanced in that case, so that if tracking drops mid-round the
-   * feet are already somewhere sensible rather than snapping in from wherever
-   * they were last left.
-   */
+  /** Plants the player's feet and bends the legs to reach them. */
   private updateFeet(dt: number, legsTracked: boolean): void {
     const { left, right } = this.legs;
     if (!left || !right) return;
@@ -635,13 +522,6 @@ export class RigDriver {
       const foot = side === "left" ? this.footwork.left : this.footwork.right;
       _footTarget.set(foot.x, this.groundY + foot.lift, foot.z);
       // Going over, the feet come in under the hips.
-      //
-      // Not a flourish - it is what keeps the solve reachable. The hips swing
-      // back and down through most of a right angle during a fall, and a foot
-      // left planted where the fighter was standing ends up further from the
-      // hip than the leg is long. The IK would then straighten and haul the
-      // ankle off the canvas: the "fighter on tiptoe" failure the standing
-      // bend was added to prevent, arriving by another route.
       if (this.shownDown > 0.001) {
         leg.thigh.bone.getWorldPosition(_ankle);
         _hipFoot.set(_ankle.x, this.groundY, _ankle.z);
@@ -667,19 +547,8 @@ export class RigDriver {
   /**
    * Fills in bones whose landmarks dropped out this frame from the last good
    * reading, and reports how much of that held value still counts.
-   *
-   * Mutates `targets` in place. Returns a fade factor per held bone: 1 while
-   * the reading is fresh, falling to 0 as the hold expires, at which point the
-   * bone is simply undriven again.
    */
-  /**
-   * Poses any arm the camera is not driving, and reports which bones it took.
-   *
-   * Per arm, not per bone. If the upper arm is measured and the forearm is
-   * not, forcing a guard forearm onto a tracked upper arm produces an elbow
-   * bending the wrong way - worse than the held-and-faded target, which at
-   * least agrees with the limb above it.
-   */
+  /** Poses any arm the camera is not driving, and reports which bones it took. */
   private applyRestGuard(
     targets: Record<string, BoneTarget | undefined>
   ): Set<DrivenBoneName> {
@@ -778,11 +647,6 @@ export class RigDriver {
     }
 
     // Fist clench, from how far each arm is extended.
-    //
-    // Extension is measured against the arm length this driver has already
-    // learned (upper + forearm, torso units), so it is a genuine 0-1 fraction
-    // of this player's reach rather than a threshold in absolute units that
-    // would mean something different for every body.
     const table = BONE_SOURCES[mirrored ? "mirrored" : "direct"];
     for (const side of ["l", "r"] as const) {
       const shoulderKey = table[`${side}_uparm`]?.from as AnyPoseKey | undefined;
@@ -841,13 +705,6 @@ export class RigDriver {
     }
 
     // Whole-body motion: slip, crouch, step and blade.
-    //
-    // This used to be derived inline from raw shoulder-midpoint displacement.
-    // It is now delegated to BodyMotionTracker for two reasons: it adds the
-    // depth and turn channels the character had no way to express, and its
-    // lateral/vertical are measured relative to the optical axis rather than
-    // raw image position - which is what stops a step toward the camera
-    // leaking into the vertical channel and making the character grow.
     const body = this.body.update(pose);
     if (!body.tracked) return;
     this.motion = body;
@@ -907,16 +764,7 @@ export class RigDriver {
     this.limbFull = { ...seedLimbs() };
   }
 
-  /**
-   * The live whole-body channels.
-   *
-   * Exposed separately from `debug` because `debug` builds a snapshot object
-   * and is called four times a second for a readout; this is read every frame
-   * by the fight loop, which needs the gap between the fighters. One tracker
-   * with one neutral, shared by reference - a second BodyMotionTracker would
-   * have its own idea of where the player is resting, and the two would
-   * disagree about how far the player had stepped in.
-   */
+  /** The live whole-body channels. */
   get bodyMotion(): BodyMotion {
     return this.motion;
   }

@@ -10,18 +10,6 @@ import {
 } from "./octagonSpec";
 
 // A regulation octagon, built to real dimensions from octagonSpec.ts.
-//
-// Everything here is procedural. There is no cage asset to license, the shape
-// is eight repetitions of one wall, and a modelled cage would be a ~3MB
-// download for something describable in two numbers. It also means the whole
-// structure rescales from `acrossFlats` alone if the spec ever changes - a
-// training cage, a smaller practice ring - instead of being baked into
-// vertices someone would have to re-export.
-//
-// The whole thing sits with the canvas at y = 0, not the ground. Fighters are
-// placed on the canvas, so making it the origin means a character's feet go at
-// y = 0 like they do everywhere else in this project; the platform and its
-// legs hang down into negative y where nothing else has to reason about them.
 
 /** Which wall carries the gate. 0 faces +Z (see corners() on the half-step
  *  rotation); 4 is the far wall, so the door does not sit between the default
@@ -360,19 +348,7 @@ export function buildOctagon(options: OctagonOptions = {}): Octagon {
   };
 }
 
-/**
- * The dim lighting rig the arena is meant to be seen under.
- *
- * Kept separate from the cage so the two can be reused apart - the menu's
- * background wants this lighting with a different subject, and a bright
- * inspection view wants the cage without it.
- *
- * The shape of it is not arbitrary. A broadcast fight is lit from a truss
- * directly above the canvas, which is why fighters have bright shoulders and
- * their eyes sit in shadow, and why the crowd behind them is black. Four
- * overhead spots reproduce that; the ambient is kept very low so the cage
- * falls off into darkness rather than sitting in an evenly lit grey room.
- */
+/** The dim lighting rig the arena is meant to be seen under. */
 export function buildArenaLighting(radius: number): {
   group: THREE.Group;
   dispose(): void;

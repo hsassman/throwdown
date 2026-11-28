@@ -8,28 +8,6 @@ import {
 } from "./rigJointMap";
 
 // Closes the character's hands into fists.
-//
-// Not driven by tracking. MediaPipe Pose gives three points per hand and no
-// finger articulation; the Hands model would, but a second model per frame is
-// inference budget this project does not have. So curl is inferred from what
-// the arm is doing - which is right anyway, since a boxer's hands are never
-// open and the mesh ships in a relaxed, splayed bind pose.
-//
-// The first version curled each bone about its own derived axis and produced a
-// splayed claw with the fingers passing through each other. Three faults:
-//
-//  1. Every bone got a different hinge, so no two rotated in the same plane
-//     and the fingers fanned apart as they curled. Real finger joints are
-//     near-parallel hinges. There is now one hinge axis per hand, expressed in
-//     each bone's local frame; because a child's local axis rides on its
-//     parent's rotation, the chain stays in plane.
-//  2. The direction vector was the whole finger, not the segment - `index1`
-//     was measured toward the fingertip rather than toward `index2`.
-//  3. Curling alone cannot close a fist. Measured on this rig, fingertips sit
-//     0.029-0.033 apart at bind while knuckles are ~0.021 apart, so the
-//     fingers fan outward by about half. Each finger now also adducts about
-//     the palm normal by its own measured splay: index +3.9deg, middle +0.3,
-//     ring -7.7, pinky -7.9.
 
 export interface FingerBoneBind {
   bone: THREE.Object3D;
@@ -186,8 +164,6 @@ export function captureHandBind(
   // leaves the fingertips further apart than the knuckles. Measured before
   // this step, the middle-ring fingertip gap closed to 0.0298 against a
   // knuckle spacing of 0.0203 - still half a finger too wide.
-  //
-  // So the final angle is solved for, against the closed fist itself.
   calibrateAdduction(root, hand, hinge);
   applyClench(hand, 0);
   root.updateMatrixWorld(true);
@@ -203,12 +179,6 @@ const SOLVED_FINGERS: FingerName[] = ["index", "ring", "pinky"];
  * Tunes each finger's adduction so that, at a full fist, the fingertips sit
  * the same distance apart as the knuckles they hang from - which is what
  * "the fingers are touching" means geometrically.
- *
- * A secant solve rather than a formula, because the relationship between a
- * knuckle's sideways swing and where its fingertip ends up after three chained
- * rotations has no clean closed form. It is smooth and monotonic over the
- * range that matters, so a handful of iterations converge tightly, and the
- * cost is paid once when the mesh loads.
  */
 function calibrateAdduction(
   root: THREE.Object3D,
@@ -225,20 +195,7 @@ function calibrateAdduction(
   const knuckleBoneFor = (finger: FingerName) =>
     hand.bones.find((b) => b.bone.name === `${side}_${finger}1`) ?? null;
 
-  /**
-   * How far the finger's PIP joint sits from where it should, sideways.
-   *
-   * The PIP joint - the far end of the proximal phalanx - is the right target,
-   * and the fingertip is not. Solving for the tip failed instructively: at a
-   * full fist the fingertip folds back to within 0.033 of its own knuckle, so
-   * its lever arm has collapsed and closing a 0.012 gap there demanded about
-   * 29 degrees of knuckle adduction, which pinned the solver against its
-   * clamp and is not something a finger can do. The proximal phalanx keeps its
-   * full 0.039 lever arm whatever the curl, needs only the ~8 degrees the bind
-   * splay already implies, and is the part you actually see: in a closed fist
-   * the tips are buried in the palm and are not in a neat row in a real hand
-   * either.
-   */
+  /** How far the finger's PIP joint sits from where it should, sideways. */
   const errorFor = (finger: FingerName): number => {
     applyClench(hand, 1);
     root.updateMatrixWorld(true);
@@ -295,11 +252,6 @@ function calibrateAdduction(
  * front of the folded index and middle fingers, which is what makes a fist a
  * fist rather than a cup. Curling it like a finger drives it straight through
  * the other bones.
- *
- * So it is solved toward a target instead: the point where a real boxing thumb
- * lies, just off the middle phalanges of the index and middle fingers, on the
- * palm side. The whole thumb is swung to aim there and the last two joints
- * curl to wrap around.
  */
 function captureThumb(
   root: THREE.Object3D,
@@ -387,17 +339,6 @@ const _curl = new THREE.Quaternion();
  * Sets how closed the hand is. 0 is the exported rest pose, 1 a full fist.
  * Values outside that are clamped rather than extrapolated - overshooting
  * drives phalanges through each other.
- *
- * Order matters, and getting it backwards is silent. Composing
- * `bind * adduct * curl` applies the curl first in world terms, because
- * `Wb * A * C == R_palm(a) * R_hinge(c) * Wb`. At a ~90 degree curl the finger
- * points along the palm normal, and rotating a vector about an axis it is
- * parallel to does nothing at all - so adduction had exactly zero effect on a
- * closed fist, which is why the first fix still left gaps between the fingers.
- *
- * `bind * curl * adduct` gives `R_hinge(c) * R_palm(a) * Wb`: the finger swings
- * sideways into formation while it is still pointing forward, then folds. That
- * is also the anatomical order - abduction at the knuckle, then flexion.
  */
 export function applyClench(hand: HandBind, clench: number): void {
   const t = THREE.MathUtils.clamp(clench, 0, 1);

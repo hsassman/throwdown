@@ -1,9 +1,4 @@
 // Small 2D geometry helpers for the perception layer.
-//
-// Works in MediaPipe's normalized image space: x,y in [0,1] with y increasing
-// downward (upward motion is negative dy, flipped at point of use). Nothing
-// here uses z - punches travel toward the camera, exactly where MediaPipe's
-// depth estimate is least reliable.
 
 import type { Keypoint } from "../pose/poseTypes";
 

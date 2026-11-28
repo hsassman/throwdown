@@ -1,23 +1,4 @@
 // Back-to-back A/B of main-thread vs Web Worker inference.
-//
-// Runs both conditions in one sitting so they see the same machine load, the
-// same lighting and the same person - comparing runs taken minutes apart gave
-// misleading results, because inference cost on this laptop drifts with
-// background load (36ms to 51ms observed for the same code path).
-//
-// Stand in frame of the webcam for the whole run. A condition where no body is
-// detected times BlazePose's detection path instead of its tracking path and
-// is not comparable to one where a body is present. The script reports the
-// body-found ratio per condition and refuses to declare a winner if the two
-// conditions didn't see comparable input.
-//
-// Usage:
-//   npm run build && npx vite preview --port 4173
-//   node tools/ab-worker.mjs [secondsPerCondition]
-//
-// Note it must run against a production build (`vite preview`), not the dev
-// server: Vite's `worker.format` setting only applies to builds, so in dev the
-// pose worker is always an ES module and MediaPipe cannot load its WASM there.
 
 import { chromium } from "playwright-core";
 

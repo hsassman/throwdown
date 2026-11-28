@@ -9,14 +9,6 @@ import { FIGHT_GEOMETRY, OPPONENT_ANIM, RENDER_CONFIG, STRIKE_CONFIG } from "../
 import type { CpuStance } from "../sim/cpuOpponent";
 
 // Asserted against the real exported asset, not a mock.
-//
-// Everything in this file that matters is a frame conversion, and a mock rig
-// would have whatever frame the mock's author assumed - which is the same
-// assumption the code under test is making, so the two would agree while both
-// being wrong. The only thing that settles it is the shipped mesh.
-//
-// And the assertions are about where the body ends up in world space, never
-// about the sign of a field. A sign test passes for code that negates twice.
 
 const MODEL_PATH = "public/models/boxer_lod3.glb";
 let source: THREE.Object3D;
@@ -651,11 +643,6 @@ describe("knockdowns and being hurt, in world space", () => {
     // pitching over about its own feet cannot beat a free fall from the same
     // height, so anything above that bound is the animation driving the figure
     // into the canvas rather than letting it drop - which is what a snap is.
-    //
-    // Derived from the rig's own standing head height rather than typed, so a
-    // re-export at a different scale keeps the bound instead of quietly
-    // invalidating it. This caught a fallSeconds of 0.38, which swung the head
-    // at 6.5 m/s against a free-fall ceiling of 5.2.
     run(visual(), 0.5);
     const standing = anim.headWorld().y;
     const terminal = Math.sqrt(2 * 9.81 * standing) / 60;

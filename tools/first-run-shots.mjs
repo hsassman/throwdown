@@ -1,13 +1,6 @@
 // Screenshots of the first-run walkthrough with the fake player as the
 // camera, at a laptop size and a phone size, so its layout can be checked on
 // both without a device.
-//
-// Usage (needs npm run build && npm run preview, and tools/fake-player.mjs):
-//   FAKE_QUERY=guard=high FAKE_NAME=fake-high node tools/fake-player.mjs 2.4 30
-//   node tools/first-run-shots.mjs
-// The high-guard video is needed to get past "Guard up": the default fake
-// player guards at the chest, which the fight reads as a low guard.
-// Writes tools/out/firstrun/<size>-<n>.png (git-ignored).
 import { chromium } from "playwright-core";
 import { resolve } from "node:path";
 import { mkdirSync } from "node:fs";

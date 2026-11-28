@@ -2,20 +2,6 @@ import { reviveProfile, type TrainingProfile } from "./profile";
 
 // localStorage persistence for the training profile.
 // Every operation here is allowed to fail, and none of them may throw
-//
-// `localStorage` is not the reliable key-value store it looks like:
-//
-//   * It is absent entirely in a Vitest/node environment, and in a worker.
-//   * Access to it throws (not returns null) in a browser configured to block
-//     site data, and in some private-browsing modes.
-//   * `setItem` throws `QuotaExceededError` when full - and Safari reports a
-//     zero quota in private mode, so the very first write can fail.
-//
-// A training mode that dies because the browser declined to remember a score
-// would be a spectacularly bad trade. So reads fall back to a fresh profile
-// and writes fail silently-but-observably: `lastError` records what happened
-// so the UI can mention it once, rather than the app either crashing or
-// pretending the save worked.
 
 const KEY = "shadowbox.training.v1";
 

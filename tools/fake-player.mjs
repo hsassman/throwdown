@@ -1,24 +1,5 @@
 // Records a fake player: the game's own boxer, front-on, throwing a jab-cross
 // on a loop, encoded as a video Chrome can play as its camera.
-//
-// Why: Chrome's built-in fake camera is a test pattern with no body in it, so
-// every headless run has timed MediaPipe's whole-image detector rather than
-// the tracking path real play uses (see the warning in perf-sweep.mjs). With
-// this, `--use-file-for-fake-video-capture` puts a body in frame and the pose
-// pipeline can be measured without a person standing at a webcam.
-//
-// It is a rendered figure, not a person: good enough to engage tracking and
-// time it, not evidence about real-world accuracy.
-//
-// Usage (needs the dev server: npm run dev):
-//   node tools/fake-player.mjs [seconds=4] [fps=30]
-//   node tools/fake-player.mjs --shots 0,21   # preview frames as PNGs only
-// Output: tools/out/fake-player.y4m (git-ignored), and PNGs for --shots.
-//   FAKE_QUERY=guard=high  gloves at the chin instead of the chest
-//   FAKE_NAME=fake-high    writes tools/out/fake-high.y4m instead
-//   FAKE_QUERY="guard=high&move=1" FAKE_NAME=fake-move  ... 8 30
-//                          guard up, no punches, stepping in and out, slipping
-//                          and ducking on an 8 s loop (MOVE_SCRIPT in render.ts)
 
 import { chromium } from "playwright-core";
 import { mkdirSync, rmSync } from "node:fs";

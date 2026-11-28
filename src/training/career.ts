@@ -1,19 +1,10 @@
 import type { Difficulty } from "../sim/cpuOpponent";
 import type { WeightClass } from "../sim/attributes";
 
-// A career: a fixed ladder of opponents, fought in order. Groundwork only —
+// A career: a fixed ladder of opponents, fought in order. Groundwork only -
 // no cutscenes, no belts, just the one thing a career actually needs to be
 // worth repeating: a record that persists, and a reason the next fight is
 // different from the last.
-//
-// WHY A FIXED LADDER, NOT GENERATED OPPONENTS
-//
-// The CPU only has three difficulty tiers (cpuOpponent.ts's `Difficulty`) and
-// eight weight classes exist purely as a stat multiplier — there is no roster
-// of named fighters with distinct styles yet. Pretending otherwise with
-// randomly-generated names would be exactly the kind of claim this project's
-// own honesty rule exists to catch. So the ladder is short, each rung is
-// named for what it actually is, and it ends rather than looping forever.
 
 export interface CareerOpponent {
   id: string;
@@ -66,7 +57,7 @@ export interface CareerRecord {
 export interface CareerProfile {
   version: number;
   /** Index into CAREER_LADDER of the next fight. Equal to the ladder's length
-   *  once every rung has been won — the career is complete, not stuck. */
+   *  once every rung has been won - the career is complete, not stuck. */
   rank: number;
   record: CareerRecord;
   updatedAt: number;
@@ -94,7 +85,7 @@ export type FightOutcome = "win" | "loss" | "draw";
 
 /**
  * Folds one fight's result into the profile, in place. A win advances the
- * rank; a loss or draw does not — the same opponent is fought again, rather
+ * rank; a loss or draw does not - the same opponent is fought again, rather
  * than the ladder quietly getting easier to keep the player moving.
  */
 export function recordResult(
@@ -116,7 +107,7 @@ export function recordResult(
 
 /**
  * Rebuilds a profile from parsed JSON, tolerating anything. Same contract as
- * training/profile.ts's reviveProfile — see there for why this never throws.
+ * training/profile.ts's reviveProfile - see there for why this never throws.
  */
 export function reviveCareerProfile(raw: unknown, now = 0): CareerProfile {
   const fresh = freshCareerProfile(now);

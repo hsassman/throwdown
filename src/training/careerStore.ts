@@ -1,7 +1,7 @@
 import { reviveCareerProfile, type CareerProfile } from "./career";
 
 // localStorage persistence for the career ladder. Same contract as
-// training/profileStore.ts — every operation is allowed to fail, none of
+// training/profileStore.ts - every operation is allowed to fail, none of
 // them may throw. See that file for the full reasoning; not repeated here.
 
 const KEY = "shadowbox.career.v1";

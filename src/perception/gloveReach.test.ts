@@ -6,15 +6,6 @@ import { STRIKE_CONFIG, TARGET_CONFIG } from "../config/tuning";
 // cannot see the glove. The glove's reach therefore enters as a constant
 // measured offline (STRIKE_CONFIG.gloveNoseReach), while the distance the
 // target stands at lives in the render layer (TARGET_CONFIG.distance).
-//
-// Those two are only correct together. Nothing in the type system relates
-// them, and the last time they drifted the symptom was the glove passing
-// straight through the opponent's head on every straight punch -- the target
-// distance had been derived for a bare fist, before gloves existed, and was
-// never revisited when they arrived.
-//
-// So the geometry is recomputed here from the measured rig numbers and checked
-// against both constants. If either is edited alone, this fails.
 
 /** Measured once from blender/out/boxer.blend. See TARGET_CONFIG.distance. */
 const RIG = {

@@ -5,38 +5,13 @@ import type { ImpactPoint } from "../perception/strikeGeometry";
 // `strikeGeometry.ts` resolves strikes into - 0 is the belt line, 1.0 is the
 // shoulder line, and lateral is offset from the midline. Nothing in this file
 // is in metres, and nothing in it knows what the dummy looks like.
-//
-// That is the standing rule from `docs/ARCHITECTURE.md` applied to the training
-// mode: what you hit must not depend on how it is drawn. The renderer consumes
-// this spec to build the dummy; perception consumes it to decide what was hit.
-// Both read the same numbers, and the arrow only ever points outward from here.
-// What a dummy is not
-//
-// It has no legs, no arms and no kit. Two consequences worth stating, because
-// they are features rather than omissions:
-//
-//   * There is nothing below `BASE`. The `low` region in strikeGeometry.ts is
-//     a foul against a fighter; against a dummy there is simply no body there,
-//     so a low punch hits the stand and reads as a miss. The dummy teaches the
-//     belt line by having one.
-//   * It cannot block, slip or punch back. That is the point - a dummy is for
-//     measuring the player's output in isolation, with the opponent's
-//     behaviour removed as a variable. The live opponent lives in `sim/`.
 
 export interface DummySpec {
   /** Top of the head, torso units above the belt line. */
   crown: number;
   /** Shoulder line. 1.0 by definition - the torso scale is shoulder-to-hip. */
   shoulder: number;
-  /**
-   * Where the body stops and the stand begins.
-   *
-   * Measured off the reference photo the project owner supplied: a Century-BOB
-   * type dummy is cut off at the lower chest, well above the navel, and the
-   * moulded torso meets the column just under the ribcage. That is much higher
-   * than a first guess puts it, and it matters - it is why there is no `gut`
-   * target zone. A dummy has no gut to hit.
-   */
+  /** Where the body stops and the stand begins. */
   base: number;
   /** Half-width of the chest at the shoulder line. */
   chestHalfWidth: number;
@@ -47,36 +22,17 @@ export interface DummySpec {
   /**
    * Height at which the body is widest - the deltoid line, a little below the
    * shoulder line rather than exactly on it.
-   *
-   * Without this the torso reaches full width at `shoulder` and then has only
-   * the 0.08 torso units up to `neck` to get back down to neck width. That is
-   * under 4cm, so the loft renders it as a near-horizontal shelf and the dummy
-   * reads as a box with a lid on it. Real shoulders are widest just below the
-   * joint and slope for a good 10cm into the neck.
    */
   deltoid: number;
   /** Depth of the torso front-to-back, for the renderer's cross-section. */
   torsoDepth: number;
-  /**
-   * Stand column and base radii.
-   *
-   * There is deliberately no length here. How far the column has to reach is
-   * not a property of the dummy - it is however far it is from the belt line
-   * down to the floor, which depends on where the dummy is standing. Storing a
-   * length would be storing a second, independent answer to a question the
-   * placement already answers, and the two would disagree.
-   */
+  /** Stand column and base radii. */
   stand: { radius: number; footRadius: number };
 }
 
 /**
  * Proportions of a commercial free-standing dummy, expressed against the
  * figure's own torso so it scales with whoever is being tracked.
- *
- * `crown` is 1.68 rather than a round number because that is where the
- * strikeGeometry region table already puts the top of the skull - `crown`
- * spans 1.58..2.2 and the head narrows out of reach above ~1.68. Picking a
- * different number here would build a head that the hit map disagrees with.
  */
 export const DUMMY: DummySpec = {
   crown: 1.68,
@@ -102,18 +58,7 @@ function smooth(t: number): number {
   return c * c * (3 - 2 * c);
 }
 
-/**
- * The head's profile, 0..1, as a fraction of its widest point.
- *
- * A true ellipsoid that reaches exactly zero at the crown. The first version
- * used a damped form that bottomed out at 0.42, which left the top of the head
- * as an open-ended cylinder - the loft caps the bottom of the body but not the
- * top, so the dummy rendered with a flat hole where its skull should be.
- *
- * The ellipsoid is anchored below the neck so it still has real width where it
- * meets the shoulders. Anchoring it at the neck would pinch the head to a
- * point at the jaw, which is where the jaw and chin targets live.
- */
+/** The head's profile, 0..1, as a fraction of its widest point. */
 function headProfile(h: number, spec: DummySpec): number {
   const bottom = spec.neck - 0.18;
   const centre = (bottom + spec.crown) / 2;
@@ -127,17 +72,7 @@ function headHalfWidth(h: number, spec: DummySpec): number {
   return spec.headHalfWidth * headProfile(h, spec);
 }
 
-/**
- * Half-width of the dummy's silhouette at a given height.
- *
- * Used for two jobs that must not be allowed to disagree: the renderer lofts
- * its cross-sections from this, and the drill uses it to reject target zones
- * that would fall off the edge of the body.
- *
- * The three sections meet continuously by construction - the shoulder cap ends
- * at whatever width the head profile has at the neck, rather than at a stored
- * neck width that could drift out of agreement with it and leave a ledge.
- */
+/** Half-width of the dummy's silhouette at a given height. */
 export function halfWidthAt(h: number, spec: DummySpec = DUMMY): number {
   if (h < spec.base || h > spec.crown) return 0;
   if (h >= spec.neck) return headHalfWidth(h, spec);
@@ -162,16 +97,7 @@ export function halfWidthAt(h: number, spec: DummySpec = DUMMY): number {
   return spec.chestHalfWidth + (neckW - spec.chestHalfWidth) * smooth(t);
 }
 
-/**
- * Front-to-back half-depth of the silhouette at a given height.
- *
- * Lives here next to `halfWidthAt` because the two together are the dummy's
- * shape, and splitting them across modules is how a hit map and a mesh end up
- * describing different objects. Nothing in the perception path reads this -
- * impacts are resolved in the lateral/height plane only - but the renderer
- * needs it to loft a cross-section, and zone markers need it to sit on the
- * surface rather than floating in front of it.
- */
+/** Front-to-back half-depth of the silhouette at a given height. */
 export function halfDepthAt(h: number, spec: DummySpec = DUMMY): number {
   if (h < spec.base || h > spec.crown) return 0;
   // A head is deeper than it is wide - front to back is its long axis.
@@ -192,25 +118,12 @@ export function halfDepthAt(h: number, spec: DummySpec = DUMMY): number {
 /** How much deeper than wide the head is. */
 const HEAD_DEPTH_RATIO = 1.15;
 
-/**
- * Exponent of the superelliptical cross-section.
- *
- * 2 is a plain ellipse. Higher values square the section off, which is closer
- * to what a chest looks like from above; the head stays a true ellipse,
- * because a squared-off skull looks wrong from every angle.
- */
+/** Exponent of the superelliptical cross-section. */
 export function sectionExponent(h: number, spec: DummySpec = DUMMY): number {
   return h > spec.neck ? 2.0 : 2.4;
 }
 
-/**
- * Depth of the surface directly in front of a lateral/height position.
- *
- * Solves the superellipse for its depth. This is what puts a target marker on
- * the skin: a marker placed at a fixed depth would sink into the chest at the
- * midline and hover in mid-air out by the ribs, because the body is curved and
- * the zones are spread right across it.
- */
+/** Depth of the surface directly in front of a lateral/height position. */
 export function surfaceDepth(
   lateral: number,
   h: number,
@@ -224,16 +137,7 @@ export function surfaceDepth(
   return halfD * Math.pow(Math.max(0, 1 - Math.pow(t, n)), 1 / n);
 }
 
-/**
- * Whether a resolved impact actually landed on the dummy at all.
- *
- * The `> 0` guard is load-bearing and was put here by a failing test. Without
- * it, `halfWidthAt` returns 0 off the ends of the body and `Math.abs(0) <= 0`
- * is true - so a punch straight down the midline registered as landing on the
- * dummy at any height, including through the floor. Every midline punch is a
- * jab or a straight, which is to say the most common punch in the game hit the
- * one case that was wrong.
- */
+/** Whether a resolved impact actually landed on the dummy at all. */
 export function onDummy(p: ImpactPoint, spec: DummySpec = DUMMY): boolean {
   const half = halfWidthAt(p.height, spec);
   return half > 0 && Math.abs(p.lateral) <= half;

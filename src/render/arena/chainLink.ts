@@ -1,24 +1,6 @@
 import * as THREE from "three";
 
 // Procedural chain-link fencing.
-//
-// Why a texture and not geometry
-//
-// Modelled wire is the obvious answer and the wrong one. One wall of 2-inch
-// diamonds is about 140 x 70 = ~9800 links; at even 40 triangles for a link's
-// tube that is ~400k triangles per panel and 3.1M for the cage, before a
-// single fighter is drawn. The mesh is also the one thing in the scene the
-// camera is almost always looking through rather than at.
-//
-// So: one alpha-masked quad per wall, with the diamond pattern drawn into a
-// tiling texture. The cost is that the wire has no thickness in silhouette;
-// the mitigation is that real chain-link seen at fight distance is mostly a
-// grey haze anyway, and the diamonds still read correctly because the pattern
-// is generated at the true physical aperture rather than eyeballed.
-//
-// The tile is one diamond, repeated by the sampler. Drawing a whole wall into
-// a texture instead would need a ~4096px map to keep the wire crisp, and would
-// have to be regenerated whenever a wall's size changed.
 
 export interface ChainLinkOptions {
   /** Corner-to-corner size of one diamond, metres. */
@@ -30,12 +12,7 @@ export interface ChainLinkOptions {
   colour?: string;
 }
 
-/**
- * Builds the repeating diamond tile.
- *
- * Returns null in a non-DOM environment (tests, SSR) rather than throwing, so
- * the arena's geometry can still be constructed and asserted headlessly.
- */
+/** Builds the repeating diamond tile. */
 export function chainLinkTexture(options: ChainLinkOptions): {
   map: THREE.CanvasTexture;
   alpha: THREE.CanvasTexture;

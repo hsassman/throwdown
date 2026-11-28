@@ -1,11 +1,6 @@
 // `?demo`: a preset for the on-stage match. Trades picture quality for pose
 // rate, because pose rate is what decides how closely each fighter's figure
 // follows them (modelled: ~77 ms behind at 25 poses/s, ~160 ms at 8-12/s).
-//
-//   https://<site>/?demo
-//
-// Everything it changes is about speed; nothing changes how hits are judged.
-// Explicit settings in the link (e.g. ?camW=640&camH=480) still win.
 
 export const DEMO_PRESET = {
   /**

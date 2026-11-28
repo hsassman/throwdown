@@ -16,19 +16,6 @@ import {
 // ~19% detection rate, so most correct punches scored nothing and the player
 // could not tell their own technique apart from the software's failure. And a
 // punch type is not really a skill in the first place - landing on a spot is.
-//
-// A lit zone sidesteps the classifier entirely. Where a punch landed and how
-// Hard are measurements this project can already make reliably (reach and body
-// frame, both proven and tested), so the drill is built only on those. A punch
-// type can be displayed alongside the moment it earns its place, and nothing
-// in this file has to change when it does.
-// Time is injected, never read
-//
-// Every method takes `now`. Nothing in this file calls `performance.now()`.
-// A drill is a state machine over time, and one that reads the clock itself
-// can only be tested by sleeping - which makes the suite slow, flaky, and
-// unable to test the interesting cases (a punch landing 1ms before the window
-// shuts) at all.
 
 /** A target currently lit on the dummy. */
 export interface LitTarget {
@@ -242,15 +229,7 @@ export class Drill {
     };
   }
 
-  /**
-   * Which hand a zone should be thrown with, when the drill demands one.
-   *
-   * Derived from the anatomy rather than randomised. A target on the puncher's
-   * left (negative lateral - the liver, or the target's right jaw) is what a
-   * left hook reaches; one on the right is what a right hand reaches. Asking
-   * for the crossing hand on a wide target would drill a punch that cannot
-   * physically land, and the player would rightly read that as a bug.
-   */
+  /** Which hand a zone should be thrown with, when the drill demands one. */
   private handFor(zone: HitZone): HandSide {
     if (zone.centre.lateral < -0.05) return "left";
     if (zone.centre.lateral > 0.05) return "right";

@@ -1,10 +1,4 @@
 // One AudioContext for the whole app, unlocked by a real user gesture.
-//
-// Browsers (iOS Safari strictly, Chrome too) start an AudioContext suspended
-// unless it is created or resumed inside a tap or click. This game's menu is
-// driven by the camera, so after the "Enable camera" button nothing is ever a
-// real gesture: a context created when a fight starts stays silent with no
-// error. Creating one context up front and resuming it on taps fixes that.
 
 type Ctor = typeof AudioContext;
 

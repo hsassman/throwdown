@@ -3,16 +3,6 @@ import type { BodyUvMap, ImpactSite } from "./bodyUv";
 import { TEXTURE_CONFIG } from "../../config/tuning";
 
 // Builds the character's texture and accumulates visible damage on it.
-//
-// The mesh ships with a single untextured `DefaultMaterial`, so the figures
-// render as flat grey putty. This paints skin onto them, plus bruising that
-// appears where punches actually landed.
-//
-// Layering
-//
-// `base` holds the skin and never changes. `map` is what the GPU samples: base
-// blitted, then bruises drawn over it. Repainting is one canvas-to-canvas blit
-// plus a handful of gradients, so damage can fade over time cheaply.
 
 export interface Bruise {
   u: number;
@@ -40,14 +30,7 @@ export interface BodyTexture {
   clear(): void;
   dispose(): void;
   readonly bruiseCount: number;
-  /**
-   * Draws on top of the skin and bruises, on every repaint.
-   *
-   * Facial damage composes here rather than painting the canvas itself. This
-   * texture rebuilds from the clean base each repaint, so anything drawn
-   * outside that cycle is wiped on the next bruise tick - and anything drawn
-   * cumulatively would darken forever and never fade.
-   */
+  /** Draws on top of the skin and bruises, on every repaint. */
   setOverlay(
     draw: ((ctx: CanvasRenderingContext2D, size: number) => void) | null
   ): void;

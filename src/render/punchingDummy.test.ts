@@ -18,13 +18,6 @@ describe("dummy geometry", () => {
     // frustum culling - it renders as nothing rather than as something wrong,
     // which is the hardest kind of fault to spot in a screenshot. The
     // superellipse raises values to fractional powers, so this is a live risk.
-    //
-    // Scanned in a plain loop with one assertion at the end rather than an
-    // expect() per float. The dummy carries a few hundred thousand of them, and
-    // an assertion each turned a millisecond of arithmetic into seconds of
-    // matcher overhead - enough that this test intermittently blew its timeout
-    // when the suite ran under load. Naming the offending mesh and index is
-    // also a far better failure than "expected false to be true".
     const d = build();
     let checked = 0;
     let bad: string | null = null;
@@ -85,9 +78,6 @@ describe("dummy geometry", () => {
     // The bug this replaced: the dummy was placed floor-up, so every target
     // sat at the wrong world height by however tall the stand was - the chin
     // ended up around chest height and nothing lined up with the player.
-    //
-    // strikeGeometry measures height 0 at the belt and 1.0 at the shoulder, so
-    // a zone at height h must land at beltHeight + h * scale.
     const beltHeight = 0.944;
     const scale = 0.475;
     const d = new PunchingDummy({ scale, distance: 0, beltHeight });
@@ -188,11 +178,6 @@ describe("hosting a character figure", () => {
     const before = d.markerWorldPosition("chest", new THREE.Vector3())!.clone();
 
     // A slab standing proud of the moulded surface, spanning the body.
-    //
-    // The dummy group is turned to face the player, so the dummy's own forward
-    // is -Z in world terms. The slab has to sit between the ray's start and
-    // the body - putting it further out than the ray origin (which a first
-    // version of this test did) means the ray starts behind it and misses.
     const PROUD = 0.1;
     const slab = new THREE.Mesh(
       new THREE.BoxGeometry(4, 4, 0.02),

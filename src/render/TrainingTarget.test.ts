@@ -65,14 +65,7 @@ function headWorld(): THREE.Vector3 {
   return v;
 }
 
-/**
- * The head's position relative to the figure's own root.
- *
- * Needed to see the posture separately from the whole-body knockback: every
- * punch pushes the target backwards along +Z, and at a realistic knockback
- * that translation is larger than the body-fold rotation, so measuring the
- * head in world space says "moved backwards" for every kind of hit.
- */
+/** The head's position relative to the figure's own root. */
 function headRelativeToRoot(): THREE.Vector3 {
   return headWorld().sub(model.position);
 }

@@ -64,9 +64,6 @@ describe("facial damage model", () => {
     // 2026-09-16 - see blender/README.md. Closure is still computed
     // because the HUD and the CPU both want to know a fighter is losing an eye,
     // and because the Blender-authored head will have real lids to drive.
-    //
-    // It cannot be driven through the rig: the eye bones carry zero skin
-    // weight (asserted below), so scaling them deforms nothing at all.
     const f = make();
     for (let i = 0; i < 8; i++) f.hit("temple_left", 1);
     f.update(0);

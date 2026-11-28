@@ -20,36 +20,6 @@ import { FOOTWORK_CONFIG, KNOCKDOWN_ANIM, OPPONENT_ANIM } from "../config/tuning
 import { ARM_CHAIN, LOW_GUARD, NO_GUARD, POSES } from "./guardPoses";
 
 // Makes the CPU opponent visible.
-//
-// sim/cpuOpponent.ts has already decided everything: where the feet are,
-// whether the guard is up, whether a slip is committed, whether a punch is on
-// its way. This file contains no decisions of its own - it is handed that
-// state and turns it into a body. If it ever starts choosing something, the
-// choice has escaped the simulation and will not survive being replayed.
-//
-// The figure is shared with TrainingTarget, which owns the hit reaction. Two
-// objects writing one bone would fight every frame, so the split is strict:
-//
-//   TrainingTarget   c_neck, c_head, c_spine2, c_jaw, root.position
-//   this             the four arm bones, and a pivot above the root
-//
-// TrainingTarget moves the figure within its parent; this moves the parent, so
-// knockback and footwork compose instead of overwriting. Which is also right:
-// being knocked back while stepping in happens.
-//
-// Three frame conventions meet here, and a wrong sign produces a figure that
-// moves smoothly and confidently in the wrong direction:
-//
-//   Rig     `l_*` bones are at +X, so the figure's own right is -X, and it
-//           faces +Z at identity (see docs/asset-pipeline.md).
-//   Stance  `lateral` is positive toward the CPU's own right; `depth` is
-//           positive toward the player.
-//   Scene   the opponent is turned to face the player, so its frame is the
-//           world rotated by pi about Y: x and z both negate.
-//
-// Each flip is applied on its own line in `update` with its reason, and the
-// tests check where the head ends UP in world space, never the sign of a
-// field - a sign test passes for code that negates twice.
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
@@ -76,26 +46,13 @@ export interface OpponentVisualState {
   evasion: Evasion;
   /** 0-1 wind-up progress. Non-zero only while telegraphing. */
   windup: number;
-  /**
-   * 1 while this fighter is on the canvas, 0 while they are on their feet.
-   *
-   * A target, not a progress value: the fall and the rise are shaped here, in
-   * the render layer, because how long a body takes to go over is not a rule.
-   * What the simulation decides is when it starts and when the fighter is back
-   * up, and that is what this carries.
-   */
+  /** 1 while this fighter is on the canvas, 0 while they are on their feet. */
   down: number;
   /** 0-1: how hurt they are. Drives the sway and the sagging guard. */
   hurt: number;
 }
 
-/**
- * What the body does with no live opponent driving it: stand on guard.
- *
- * Frozen and shared. The render loop reads this on every frame where the fight
- * is not running, and a fresh object per frame would allocate 60 times a
- * second for a value that never changes.
- */
+/** What the body does with no live opponent driving it: stand on guard. */
 export const IDLE_OPPONENT: OpponentVisualState = Object.freeze({
   stance: Object.freeze({ lateral: 0, depth: 0, crouch: 0, lean: 0 }),
   guard: "high",
@@ -129,15 +86,7 @@ export class OpponentAnimator {
    *  the player's own rig driver - one duck, one implementation. */
   private crouchRig: CrouchRig | null;
 
-  /**
-   * World units per torso unit, measured off the rig rather than typed in.
-   *
-   * The stance is in torso units because that is the unit perception produces
-   * and the unit the CPU reasons in. Turning it into metres needs the figure's
-   * own shoulder-to-hip distance, and measuring it here means a re-export at a
-   * different scale moves the opponent correctly without anyone remembering to
-   * update a constant.
-   */
+  /** World units per torso unit, measured off the rig rather than typed in. */
   private readonly torsoWorld: number;
 
   /** Per-hand extension, -1 fully cocked, 0 on guard, +1 fully extended. */
@@ -147,52 +96,18 @@ export class OpponentAnimator {
   /**
    * Vertical aim of the punch in flight, per hand: +1 is a head shot, -1 a dig
    * to the body.
-   *
-   * Without this every punch left along the same line regardless of where it
-   * was aimed, so a liver shot and a shot at the chin were the same animation
-   * and the only way to tell them apart was to read the damage feed. The CPU
-   * already picks a target height; this is the render layer finally using it.
    */
   private aim = { left: 0, right: 0 };
-  /**
-   * Lateral aim of the punch in flight, per hand, in the figure's own frame.
-   *
-   * The CPU has always picked a named target - chin, jaw, temple, liver, ribs -
-   * and every one of them carries a lateral offset. Only the height was ever
-   * animated, so a dig to the liver and a shot at the temple left along the
-   * same centre line and arrived at opposite corners of the body. The punch
-   * now travels to the side it was actually aimed at.
-   */
+  /** Lateral aim of the punch in flight, per hand, in the figure's own frame. */
   private cross = { left: 0, right: 0 };
 
-  /**
-   * The feet, and the legs that reach them.
-   *
-   * Before this existed the opponent travelled by translating its whole body
-   * with its legs held at bind pose - it glided around the ring like a chess
-   * piece. The stance the simulation commands is unchanged; what changed is
-   * that the feet now stay on the canvas and the knees bend to account for it.
-   */
+  /** The feet, and the legs that reach them. */
   private legs: { left: LegRig | null; right: LegRig | null };
   private footwork: Footwork | null = null;
-  /**
-   * Canvas height, in the frame the feet are tracked in.
-   *
-   * Measured from the rig's own ankles on the first update rather than at
-   * construction, because the figure is not yet parented into the scene when
-   * the constructor runs - reading a world position there would measure the
-   * figure's own local space and plant the feet at the wrong height.
-   */
+  /** Canvas height, in the frame the feet are tracked in. */
   private groundY = 0;
 
-  /**
-   * Smoothed knockdown and hurt, 0-1.
-   *
-   * Chased here rather than taken straight from the state, with a different
-   * rate each way: a fighter goes over in about a third of a second and takes
-   * the best part of one to get back up. A single time constant for both makes
-   * getting up look like falling in reverse, which is the one thing it is not.
-   */
+  /** Smoothed knockdown and hurt, 0-1. */
   private shownDown = 0;
   private shownHurt = 0;
   /** Phase of the hurt sway, seconds. Advanced by dt so it is frame-rate
@@ -224,14 +139,6 @@ export class OpponentAnimator {
     }
 
     // Posed on guard immediately, not on the first update.
-    //
-    // The mesh's bind pose is a T-pose. An animator that only posed the arms
-    // once `update` was first called would put the opponent on screen with its
-    // arms straight out sideways for a frame - and a frame is plenty, since
-    // the figure is spawned at the start of a round, which is exactly when the
-    // player is looking at it. A test caught this by measuring the glove's
-    // largest single-frame travel: the jump from T-pose to guard was four
-    // times anything the fight itself produces.
     this.reset();
   }
 
@@ -245,15 +152,7 @@ export class OpponentAnimator {
     return { ...this.extension };
   }
 
-  /**
-   * A punch has been released by this hand.
-   *
-   * Separate from `update` because a strike is an instant - the CPU emits it on
-   * one tick and never mentions it again - whereas the arm coming out and
-   * going back is most of a second. Folding it into the per-frame state would
-   * have meant either the punch was invisible or the animator had to infer it
-   * from a state transition it might miss on a long frame.
-   */
+  /** A punch has been released by this hand. */
   throw(hand: "left" | "right", height = 1.2, lateral = 0): void {
     this.releasing[hand] = OPPONENT_ANIM.punchSeconds;
     // `height` is in the torso-normalised body frame the whole game resolves
@@ -298,14 +197,7 @@ export class OpponentAnimator {
     return this.shownDown;
   }
 
-  /**
-   * Plants the feet, steps them, and bends the legs to reach them.
-   *
-   * Runs after `updateBody`, and that order is the whole point: the body has
-   * already been moved to where the simulation says it should be, so what the
-   * legs solve against is the real, current gap between the hips and the
-   * canvas. Solving first would bend the knees for last frame's position.
-   */
+  /** Plants the feet, steps them, and bends the legs to reach them. */
   private updateFeet(dt: number): void {
     const { left, right } = this.legs;
     if (!left || !right) return;
@@ -352,13 +244,6 @@ export class OpponentAnimator {
       // `lift` is already in world units - Footwork was handed the torso scale.
       _footTarget.set(foot.x, this.groundY + foot.lift, foot.z);
       // Going over, the feet come in under the hips.
-      //
-      // Not a flourish - it is what keeps the solve reachable. The hips swing
-      // back and down through most of a right angle during a fall, and a foot
-      // left planted where the fighter was standing ends up further from the
-      // hip than the leg is long. The IK would then straighten and haul the
-      // ankle off the canvas, which is the "fighter on tiptoe" failure the
-      // standing bend was added to prevent, arriving by another route.
       if (this.shownDown > 0.001) {
         leg.thigh.bone.getWorldPosition(_ankle);
         _footTarget.lerp(
@@ -390,10 +275,6 @@ export class OpponentAnimator {
   private updateArms(dt: number, s: OpponentVisualState): void {
     for (const hand of ["left", "right"] as const) {
       // Where this arm wants to be, before the release animation.
-      //
-      // The wind-up drives it negative - toward `cocked` - which is the whole
-      // telegraph. `windup` runs 0 to 1 over the CPU's wind-up window, so the
-      // arm draws back progressively rather than snapping into a pose.
       let target = 0;
       if (this.releasing[hand] > 0) {
         this.releasing[hand] = Math.max(0, this.releasing[hand] - dt);
@@ -437,14 +318,7 @@ export class OpponentAnimator {
     }
   }
 
-  /**
-   * Builds one arm's pose and applies it.
-   *
-   * `extend` is the axis everything rides on: negative interpolates toward the
-   * cocked pose, positive toward the extended one, and the guard sits at zero.
-   * One axis rather than a set of states means there is no frame in which the
-   * arm is between two animations with nothing driving it.
-   */
+  /** Builds one arm's pose and applies it. */
   private poseArm(
     hand: "left" | "right",
     extend: number,
@@ -517,19 +391,6 @@ export class OpponentAnimator {
     // duck the same way. Translating the body downward instead, which is what
     // this used to do, reads as the figure sinking through the canvas with its
     // legs straight.
-    //
-    // Its leg rotations are then superseded by the IK in `updateFeet`, and
-    // deliberately so: `crouchDrop` still decides how far the hips fall, but
-    // once the feet are planted the knee angle that reaches them is no longer a
-    // free choice - it is whatever the hip height and the foot position imply.
-    // Keeping the drop formula here is what keeps the duck exactly as deep as
-    // it has always been while the legs become correct underneath it.
-    // The standing bend is added to whatever the fight asked for, so a fighter
-    // at rest already has its knees soft and a duck deepens an existing bend
-    // rather than starting from a locked leg. See FOOTWORK_CONFIG.standingBend
-    // for why this is load-bearing and not a flourish.
-    // Going down folds the knees on top of whatever the fight asked for. A
-    // body pitching over with straight legs reads as a falling plank.
     const crouch = Math.min(
       1,
       stance.crouch +
@@ -542,12 +403,6 @@ export class OpponentAnimator {
     this.pivot.position.y = -drop;
 
     // The lean, plus the hurt sway.
-    //
-    // Rotating about world +Z carries the head toward -X, so the sign is
-    // inverted to move it the way the stance says. The pivot sits at the feet,
-    // so this rotation displaces the head and leaves the feet - an accurate
-    // description of both a slip and a fighter who cannot hold their own
-    // weight steady.
     const sway =
       this.shownHurt > 0.01
         ? Math.sin(this.wobbleT * KNOCKDOWN_ANIM.wobbleHz * Math.PI * 2) *
@@ -557,12 +412,6 @@ export class OpponentAnimator {
     this.pivot.rotation.z = -stance.lean + sway;
 
     // The fall.
-    //
-    // About the pivot, which sits at the feet, so the body pitches over from
-    // the ground rather than sinking through it. The opponent stands at +Z
-    // with the player at the origin, and a positive rotation about world +X
-    // carries a point above the pivot toward +Z - away from the player, which
-    // is the direction a fighter goes when they are hit from the front.
     this.pivot.rotation.x = this.shownDown * KNOCKDOWN_ANIM.fallAngle;
 
     // The waist fold lives in the crouch now, so there is nothing left for the

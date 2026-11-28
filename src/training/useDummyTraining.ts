@@ -19,24 +19,6 @@ import type { LitTarget } from "./drill";
 // Wires the dummy drill to the live strike stream, and to the persistent
 // profile that makes it improve with use.
 // One strike path, not two
-//
-// This subscribes to the same resolver the renderer and the fight simulation
-// read (`useStrikeTraining().subscribe`). It does not run a second resolver of
-// its own. Two resolvers reading the same pose would drift apart the moment
-// either was reset, and the player would see a punch land on the dummy that
-// the scoreboard never counted.
-// Where the calibration is applied, and why it is re-resolved
-//
-// The adaptation loop's correction shifts the landing point. That means the
-// Anatomical region has to be recomputed from the shifted point - a correction
-// that moved an impact from the jaw to the temple while still reporting "jaw"
-// would make the damage number disagree with the position it was derived from.
-// `applyCalibration` below does both together for exactly that reason.
-//
-// The correction is applied here, at scoring time, and not inside
-// `strikeResolver.ts`. That keeps the resolver a pure measurement, and it
-// means the fight simulation is unaffected by anything learned in training.
-// Extending it to the fight is a deliberate decision that has not been taken.
 
 /** How often the profile is written to disk, in scored punches. */
 const SAVE_EVERY = 8;
@@ -80,9 +62,6 @@ export interface DummyTrainingOptions {
 /**
  * Shifts a strike's landing point by the learned correction, and re-resolves
  * everything downstream of it.
- *
- * Exported because it is the one place the adaptation actually changes a
- * measurement, which makes it the one place worth testing directly.
  */
 export function applyCalibration(
   strike: StrikeEvent,
@@ -121,15 +100,7 @@ export function useDummyTraining(
   const drillRef = useRef<Drill | null>(null);
   const calRef = useRef<Calibration>(calibrationFrom(loaded.profile));
   const sinceSaveRef = useRef(0);
-  /**
-   * Whether the current drill has already been banked.
-   *
-   * `stop` is called from several places - the screen changing, the round
-   * running out, the mode being disabled - and more than one of them fires on
-   * a single navigation. Without this guard each call recorded another round,
-   * so one visit to the dummy logged three. A round is a thing that happened
-   * once; banking it is idempotent per drill.
-   */
+  /** Whether the current drill has already been banked. */
   const bankedRef = useRef(true);
 
   const [running, setRunning] = useState(false);

@@ -8,12 +8,6 @@ const kp = (x: number, y: number, confidence = 1): Keypoint => ({ x, y, confiden
 /**
  * Poses in the raw (unmirrored) camera frame: the player faces the camera, so
  * their anatomical left sits at larger image x.
- *
- * The right arm's three postures are laid out with real proportions, so the
- * measured segment lengths actually mean what the resolver assumes. Torso here
- * is 0.34 (shoulders y=0.38, hips y=0.72), and the seeded segment lengths are
- * 0.54 / 0.57 torso units, so a segment at full length spans ~0.18 / ~0.19 in
- * image units.
  */
 type Arm = { elbow: [number, number]; wrist: [number, number] };
 

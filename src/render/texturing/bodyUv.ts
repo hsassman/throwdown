@@ -8,15 +8,6 @@ import * as THREE from "three";
 // it, correctly by its own logic, since no material referenced it. Keeping
 // ~43KB of UVs on the chance they would be needed later is what makes this
 // module possible at all without re-exporting.
-//
-// The layout was measured with tools/uv-regions.mjs, not guessed:
-//
-//     head    u 0.003-0.499   v 0.003-0.453    (c_jaw at v 0.306-0.412)
-//     hands   u 0.504-0.997   v 0.039-0.463
-//     torso   v 0.443-0.933, spanning the full width
-//     legs    v 0.503-0.995
-//
-// The head owning a clean quadrant is what makes facial damage practical.
 
 /** Where a landed strike shows up on the texture. */
 export interface ImpactSite {
@@ -34,17 +25,6 @@ export interface BodyUvMap {
 /**
  * How far to either side an impact site sits, as a weight on the forward
  * direction rather than a distance.
- *
- * The first attempt placed a probe point out in front of the body and took the
- * nearest vertex. That collapsed the three lanes onto each other: pushing the
- * probe far enough forward to avoid picking the back of the skull (0.18) made
- * it much further away than the 0.055 lateral offset, so the closest vertex
- * was the nose tip whichever lane was asked for - the head lanes came out
- * 0.008 apart in UV, effectively identical.
- *
- * Choosing by direction from the part's centre instead has no such scale to
- * get wrong: it simply asks which surface vertex lies furthest round toward
- * the cheek, and works the same on any size of head.
  */
 const HEAD_LANE_WEIGHT = 0.8;
 const TORSO_LANE_WEIGHT = 0.85;
@@ -92,14 +72,7 @@ export function buildBodyUvMap(
   return { sites, vertexCount: count };
 }
 
-/**
- * Finds the texture coordinate for each strike zone.
- *
- * Each site is the surface vertex of the relevant body part that faces
- * furthest in a given direction - forward for a centre shot, forward and
- * round for a cheek or a rib. See the note on HEAD_LANE_WEIGHT for why this
- * replaced a nearest-point-to-a-probe search.
- */
+/** Finds the texture coordinate for each strike zone. */
 function locateImpactSites(
   geometry: THREE.BufferGeometry,
   boneNames: string[],

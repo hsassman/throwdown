@@ -3,33 +3,6 @@ import { decode, encode, PROTOCOL_VERSION, type NetMessage } from "./protocol";
 
 // The connection between two fighters.
 // WHY PEER-TO-PEER, AND WHY SAME-NETWORK PLAY COPIES A CODE BY HAND
-//
-// WebRTC connects two browsers directly. The video and pose landmarks never
-// touch a server either way — that rule holds for every mode below. What
-// differs is how the two ends find each other and exchange the one blob of
-// text (the SDP offer/answer) WebRTC needs to connect.
-//
-// "Same Network" has no server at all: the host generates a code, sends it
-// to their opponent however they already talk to them, and pastes the reply
-// back. It is clumsy for thirty seconds and then it is a direct connection
-// with nobody in the middle.
-//
-// "Online" (useOnlineSession.ts) uses a small SignalR hub (server/) only to
-// find an opponent and relay that same offer/answer automatically — the hub
-// never sees video, pose, or the fight itself, and this class's API
-// (host()/accept()/complete()) is identical either way.
-//
-// This is what the menu calls "Same Network". On a LAN the direct host
-// candidates connect without a STUN server at all, which is why the default
-// `iceServers` is empty: a STUN lookup that cannot reach the internet only
-// adds a timeout. Online mode passes a real STUN server in instead (see the
-// constructor).
-// NO TRICKLE
-//
-// ICE candidates are normally exchanged continuously, which needs a live
-// channel between the peers — exactly the thing that is missing. So the code
-// is generated only once gathering has FINISHED and every candidate is already
-// inside the SDP. One code each way, and no further contact needed.
 
 export type LinkState =
   | "idle"
@@ -52,12 +25,6 @@ export interface LinkStatus {
 /**
  * How long to wait for ICE gathering before giving up on the remaining
  * candidates and producing a code from what we have.
- *
- * There is a real deadline here rather than an indefinite wait: gathering
- * finishing is not guaranteed, and a host staring at a spinner has no idea
- * whether to keep waiting. Host candidates on a LAN arrive in a few
- * milliseconds, so anything still outstanding at this point was not going to
- * help a same-network fight.
  */
 const GATHER_TIMEOUT_MS = 2500;
 
@@ -74,19 +41,11 @@ export class PeerLink {
 
   private status: LinkStatus = { state: "idle", latency: null, detail: null };
 
-  /** True on the end that generated the offer. The host runs the simulation —
+  /** True on the end that generated the offer. The host runs the simulation -
    *  see protocol.ts on authority. */
   isHost = false;
 
-  /**
-   * ICE servers passed to every RTCPeerConnection this link creates.
-   *
-   * Empty by default, which is today's "Same Network" behaviour — see
-   * makeConnection() below on why LAN mode skips STUN entirely. Online mode
-   * (useOnlineSession.ts) passes a STUN server here so a connection across
-   * the internet has candidates worth trying. A TURN server for NATs STUN
-   * cannot traverse is docs/PLAN.md step 4, not added yet.
-   */
+  /** ICE servers passed to every RTCPeerConnection this link creates. */
   private readonly iceServers: RTCIceServer[];
 
   /** Produce compact codes (compactSignal.ts) where the description allows
@@ -119,14 +78,7 @@ export class PeerLink {
     cb(this.status);
   }
 
-  /**
-   * Starts a fight and returns the code to send to the other player.
-   *
-   * The data channel is created HERE, before the offer, and only by the host.
-   * An offer with no channel in it negotiates a connection with nothing to
-   * carry, and the answering end has no way to add one afterwards without a
-   * second round of signalling — which is the round there is no channel for.
-   */
+  /** Starts a fight and returns the code to send to the other player. */
   async host(): Promise<string> {
     this.reset();
     this.isHost = true;
@@ -282,15 +234,7 @@ export class PeerLink {
     };
   }
 
-  /**
-   * Round-trip timing, measured by sending a hello and timing its reply.
-   *
-   * Reuses the handshake rather than adding a ping message: it already carries
-   * the version check both ends need, it is tiny, and one fewer message type
-   * is one fewer thing that can go stale. The `ping` flag is what makes it a
-   * request/response pair rather than two independent announcements — see
-   * NetMessage, and the 1051 ms it used to report.
-   */
+  /** Round-trip timing, measured by sending a hello and timing its reply. */
   private ping(): void {
     // One in flight at a time. A second would restart the clock and report the
     // newer one's trip while the older reply was still coming, which reads as
@@ -366,16 +310,6 @@ export class PeerLink {
 /**
  * Turns a session description into something a person can paste into a chat
  * message.
- *
- * Base64 of the JSON, with the URL-safe alphabet and no padding so it survives
- * being pasted into a chat client that linkifies, a URL, or a QR code without
- * anything mangling it. `+` and `/` are both characters that other software
- * feels entitled to rewrite.
- *
- * Not encrypted and not claiming to be — it is a connection offer, it contains
- * the local network addresses of the machine, and anyone who can read the
- * message it is sent in can read it. That is the same exposure as telling
- * someone your IP address, and it is why this is the LAN mode.
  */
 export function encodeSignal(sdp: RTCSessionDescription | null): string {
   if (!sdp) return "";
@@ -410,7 +344,7 @@ export function decodeSignal(code: string): RTCSessionDescriptionInit | null {
     return { type: obj.t, sdp: obj.s };
   } catch {
     // A mistyped or truncated code is the expected failure here, not an
-    // exceptional one — the caller shows "that does not look like a code".
+    // exceptional one - the caller shows "that does not look like a code".
     return null;
   }
 }

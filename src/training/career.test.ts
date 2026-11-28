@@ -29,7 +29,7 @@ describe("recording a result", () => {
     expect(p.updatedAt).toBe(100);
   });
 
-  it("does not advance on a loss — the same opponent is fought again", () => {
+  it("does not advance on a loss - the same opponent is fought again", () => {
     const p = freshCareerProfile();
     recordResult(p, "loss");
     expect(p.rank).toBe(0);

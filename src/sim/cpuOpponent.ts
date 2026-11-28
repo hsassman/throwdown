@@ -1,22 +1,5 @@
 // An opponent that fights back.
 // Two design commitments
-//
-// 1. It telegraphs. Every attack has a visible wind-up before it can hurt you.
-//    That is not a concession to make it easy - it is the entire basis of the
-//    genre. A fight against an opponent that strikes instantly is a reaction
-//    test; a fight against one that shows you what is coming is a game. The
-//    wind-up window is the only thing that makes defence meaningful, and it is
-//    doubly necessary here because the player's own input arrives at ~15 FPS
-//    through a webcam, so anything faster than about 250ms is not defendable
-//    even in principle.
-//
-// 2. It is deterministic. All randomness comes from a seeded generator held in
-//    this object, never from Math.random. That makes every test reproducible,
-//    and - more importantly - it is a hard prerequisite for the rollback
-//    netcode in the netcode notes. Rollback replays past frames and
-//    requires identical results; a CPU calling Math.random would desync two
-//    peers the first time it threw a punch. Building it non-deterministically
-//    now would mean rewriting it later, so it is deterministic from the start.
 
 import type { Evasion, GuardPosture } from "./fightState";
 import type { ImpactPoint } from "../perception/strikeGeometry";
@@ -24,28 +7,12 @@ import { CPU_CONFIG, FIGHT_GEOMETRY } from "../config/tuning";
 
 export type CpuState = "circling" | "telegraph" | "striking" | "recovering" | "hurt";
 
-/**
- * What the feet are doing. Independent of what the hands are doing, on purpose.
- *
- * A boxer steps while throwing, circles while resting, and backs out of range
- * after a combination. Folding footwork into the attack state machine would
- * have meant the opponent stood perfectly still between punches, which is the
- * single most obvious tell that something is a state machine and not a person.
- * So this is a second machine on its own clock, and the two only interact
- * where a fight says they should - you do not back away mid-combination, and
- * you do not circle while hurt.
- */
+/** What the feet are doing. Independent of what the hands are doing, on purpose. */
 export type CpuFootwork = "hold" | "advance" | "retreat" | "circleLeft" | "circleRight";
 
 /**
  * Where the opponent's body is, in the same channels the camera produces for
  * the player (`perception/bodyMotion.ts`).
- *
- * This is the piece that makes the render layer simple. There is one movement
- * vocabulary in the game - lateral, depth, crouch, lean - and two sources for
- * it: a webcam for the player, this state machine for the opponent. The
- * animator does not need to know which is which, and a channel that reads
- * correctly for one reads correctly for the other.
  */
 export interface CpuStance {
   /** Torso units, positive toward the CPU's own right. */
@@ -66,14 +33,7 @@ export interface CpuIntent {
     impact: ImpactPoint;
     power: number;
     hand: "left" | "right";
-    /**
-     * Deterministic spread in [-0.5, 0.5] for the caller's approach vector.
-     *
-     * Emitted from here rather than rolled by the caller because the approach
-     * decides the punch's arc, and the arc feeds `damageOf` through the
-     * rising-chin bonus. A caller reaching for Math.random would have made the
-     * fight non-reproducible from outside the one class that guarantees it.
-     */
+    /** Deterministic spread in [-0.5, 0.5] for the caller's approach vector. */
     jitter: number;
   };
   /** Guard changed this tick. */
@@ -96,21 +56,11 @@ export interface CpuPerception {
   opponentThrowing: boolean;
   /** Opponent's guard, if readable. */
   opponentGuard: GuardPosture;
-  /**
-   * Gap to the opponent, torso units. 0 is chest to chest.
-   *
-   * Supplied by the caller rather than simulated here, because the player's
-   * half of it is a camera measurement (`BodyMotion.depth`) and the CPU's half
-   * is `stance.depth`. Keeping the subtraction outside means this class never
-   * has to know that one of the two fighters is a person.
-   */
+  /** Gap to the opponent, torso units. 0 is chest to chest. */
   range: number;
   /**
    * Which side the incoming punch is arriving on, in the CPU's own frame, or
    * null when it cannot tell. Only meaningful while `opponentThrowing`.
-   *
-   * Gated by the difficulty's discipline roll before it is acted on - a rookie
-   * that always slipped the correct way would be reading the player's mind.
    */
   incomingSide?: "left" | "right" | null;
 }
@@ -365,10 +315,6 @@ export class CpuOpponent {
   }
 
   // Head movement
-  //
-  // Answering an incoming punch with a slip instead of a guard. The decision
-  // is one roll deep on purpose - this is a fighter choosing between two
-  // defences it already knows, not a planner.
 
   private updateEvasion(dt: number, see: CpuPerception, intent: CpuIntent): void {
     this.evadeCooldown = Math.max(0, this.evadeCooldown - dt);
@@ -496,9 +442,6 @@ export class CpuOpponent {
   }
 
   // Stance
-  //
-  // Turns the two state machines above into the continuous channels the render
-  // layer consumes. Commanded first, then chased - see `shown`.
 
   private integrateStance(dt: number, range: number): void {
     const speed = CPU_CONFIG.stepSpeed * this.profile.footSpeed * dt;
@@ -529,11 +472,6 @@ export class CpuOpponent {
     }
 
     // Where the other fighter's side of the gap is, in this fighter's frame.
-    //
-    // `range` arrives measured against the current `shown.depth`, so adding it
-    // back gives the half of the gap this fighter does not own - the neutral
-    // separation less however far the player has stepped in. It is the thing
-    // the body below has to stop short of.
     const theirSide = range + this.shown.depth;
 
     // Head movement rides on top of the feet rather than replacing them, which
@@ -558,27 +496,6 @@ export class CpuOpponent {
     this.shown.lean += (targetLean - this.shown.lean) * a;
 
     // A fighter cannot stand inside another fighter.
-    //
-    // A hard constraint on the body, applied after the chase, not a decision
-    // taken before it. `clinchRange` has always been the gap inside which the
-    // two are on top of each other, but the only thing that ever read it was
-    // `tooClose`, which picks a retreat state - and a footwork state is held
-    // for up to 1.6 seconds before it is reconsidered.
-    //
-    // That is survivable while the CPU owns the whole gap, and it does not: the
-    // player's half is a camera measurement obeying no rule at all. A player
-    // who walks in while the CPU is mid-advance closes both halves at once, and
-    // the depth integrator's only bound was `depthLimit` - 1.4 torso units
-    // against a starting gap of 1.66. The two figures ended up 0.17 world
-    // units apart, gloves through heads, and nothing objected.
-    //
-    // Expressed as a ceiling on where the body may be rather than on what it
-    // may want, because that is what makes it hold in the case that actually
-    // breaks: a fighter already deep in the pocket when the other one steps
-    // in. Being pushed back is the correct outcome - it is what a clinch is -
-    // so the ceiling is allowed to drive `shown.depth` Down, and the command
-    // is pulled along with it so the CPU does not spring forward the moment the
-    // player gives ground.
     const ceiling = theirSide - FIGHT_GEOMETRY.contactRange;
     if (this.shown.depth > ceiling) {
       this.shown.depth = Math.max(-CPU_CONFIG.depthLimit, ceiling);

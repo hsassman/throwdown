@@ -7,24 +7,6 @@ import {
 import { MONITOR_CONFIG } from "../config/tuning";
 
 // A standing watchdog on pose-tracking quality, and a bounded auto-tuner.
-//
-// Tracking quality is not a constant: it moves with light, distance, clothing,
-// thermal throttling and whatever else is on the GPU. Every tuning number here
-// was calibrated in one set of those conditions and nothing ever noticed when
-// they changed. This measures what the tracker is actually delivering, so the
-// answer is "dropout is 31% on the right wrist" rather than "the skeleton
-// looks wrong today".
-//
-// It tunes smoothing and prediction only - both latency/cosmetic controls. It
-// must never touch perception thresholds (reach, strike speed, dodge angles),
-// because a hit threshold that quietly relaxed as the lighting got worse would
-// mean the game rewards a bad webcam. Same principle that keeps the character
-// mesh out of hit resolution: what you land must not depend on how well you
-// happen to be seen. The tuner returns multipliers for those two knobs only,
-// both clamped.
-//
-// Every metric is divided by torso scale, so a player sitting closer does not
-// read as jittery simply because their pixels are bigger.
 
 /** One metric's standing, so a report can name its own weakest link. */
 export interface MetricScore {
@@ -64,15 +46,6 @@ export interface TrackingReport {
 /**
  * Whether a report reflects an actual measurement, as opposed to the empty
  * placeholder produced before `minSamples` frames have arrived.
- *
- * The placeholder's `score` is 0 - not "unmeasured", genuinely the numeric
- * value zero - because `TrackingReport.score` has no separate slot for "no
- * data yet" and 0 is what an empty min() naturally produces. Any caller that
- * reads `.score` directly without this check will report "0% healthy" for a
- * player who has not stepped in front of the camera, which reads as the
- * camera being broken rather than as nobody being there. One place decides
- * this so TrackingPanel and the system monitor cannot drift onto two
- * different definitions of "not measured yet".
  */
 export function isMeasured(report: TrackingReport): boolean {
   return report.samples >= MONITOR_CONFIG.minSamples && report.metrics.length > 0;
@@ -334,14 +307,7 @@ export class TrackingMonitor {
     };
   }
 
-  /**
-   * Bounded corrections for the two knobs the monitor may touch.
-   *
-   * Deliberately gentle and deliberately clamped. This runs unattended, and a
-   * tuner that can reach an extreme will eventually get there on one bad
-   * window and stay -- so the range it can express is small enough that the
-   * worst case is merely a bit soft or a bit laggy, never broken.
-   */
+  /** Bounded corrections for the two knobs the monitor may touch. */
   tuning(report = this.report()): TrackingTuning {
     const cfg = MONITOR_CONFIG;
     if (report.samples < cfg.minSamples) {

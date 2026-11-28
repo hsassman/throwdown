@@ -22,15 +22,6 @@ export const POSE_CONFIG = {
    * Inference in a Web Worker. Off: measured at 13.8 vs 15.1 FPS, and it cannot
    * load under the dev server (MediaPipe needs a classic worker). `?worker=1`
    * against a production build re-runs the comparison on other hardware.
-   *
-   * Re-measured Nov 2026 with tools/perf-ab.mjs (fake player, CPU fight,
-   * headless Chrome, GPU). The worker frees the main thread - render ~16 ->
-   * ~34 fps, long tasks ~600 -> 0 ms/s - but GPU inference inside a worker ran
-   * 120-400ms against ~40ms on the main thread, so the pose rate fell from ~20
-   * to ~6/s. That held after the worker path gained the ROI crop, with the CPU
-   * delegate (~110ms either thread), and with WebCodecs VideoFrames (~900ms).
-   * Pose rate is what hits are resolved from, so the main thread stays the
-   * default here. Worth re-running on any machine where that may differ.
    */
   get useWorker() {
     return queryFlag("worker", false);
@@ -68,12 +59,6 @@ export const POSE_CONFIG = {
    * or ?delegate=gpu. Absent (the default) keeps the shipped behaviour -
    * GPU first with a CPU fallback - which docs/ARCHITECTURE.md lists as non-negotiable.
    * This does not change that default; it only makes it testable.
-   *
-   * Worth actually running: "GPU delegate confirmed engaged" is recorded in
-   * the risk log, but GPU vs CPU was never measured head to head. On weak
-   * integrated graphics the per-frame texture upload and shader dispatch can
-   * cost more than they save for a model this small, so the assumption that
-   * GPU is faster here is exactly the kind this project is supposed to check.
    */
   /**
    * First-choice backend for the worker path. Follows ?delegate= like the
@@ -96,11 +81,6 @@ export const NET_CONFIG = {
   /**
    * The MatchmakingHub this build talks to for "Find a match" and the
    * leaderboard, or null when this build has no server.
-   *
-   * Set VITE_MATCHMAKING_URL at build time. A dev build falls back to a local
-   * `dotnet run`; a production build does not, because a deployed page calling
-   * localhost reaches nothing, and every online screen then failed with a CORS
-   * error instead of saying the site has no server.
    */
   matchmakingUrl: (import.meta.env.VITE_MATCHMAKING_URL ||
     (import.meta.env.DEV ? "http://localhost:5160/hubs/matchmaking" : null)) as string | null,
@@ -154,18 +134,7 @@ function queryFlag(key: string, fallback: boolean): boolean {
 }
 
 export const CAMERA_CONFIG = {
-  /**
-   * Requested capture resolution.
-   *
-   * Does not meaningfully change inference cost - BlazePose rescales whatever
-   * it is given to a fixed 256x256 tensor. It matters because many webcams
-   * only offer their higher frame-rate modes at lower resolutions, so dropping
-   * to 320x240 is often what actually unlocks 60 FPS capture. Accuracy barely
-   * moves, since 320x240 is close to the model's native input; what it costs
-   * is preview sharpness, and in boxer mode the preview is a corner inset.
-   *
-   * Overridable via ?camW / ?camH.
-   */
+  /** Requested capture resolution. */
   get width() {
     return queryNumber("camW", isDemoMode() ? DEMO_PRESET.camWidth : 640);
   },
@@ -177,25 +146,6 @@ export const CAMERA_CONFIG = {
    * Requested capture frame rate. Raised from 30 to 60 - this is the single
    * cheapest lever on the measured 15 FPS pose rate, and it is about
    * Quantization, not throughput.
-   *
-   * Inference takes ~36ms and runs inside requestVideoFrameCallback, so the
-   * next inference can only start on the next decoded frame after it finishes.
-   * The effective rate is therefore
-   *     1 / (ceil(inference / frameInterval) x frameInterval)
-   * which at 36ms inference gives:
-   *     30 FPS capture (33.3ms) -> ceil(36/33.3)=2 -> 66.6ms -> 15.0 FPS
-   *     60 FPS capture (16.7ms) -> ceil(36/16.7)=3 -> 50.0ms -> 20.0 FPS
-   *    120 FPS capture ( 8.3ms) -> ceil(36/8.3) =5 -> 41.7ms -> 24.0 FPS
-   * the 15.0 there matches the 15.1 actually measured, which is good evidence
-   * the model is right. Finer frame granularity wastes less of the gap.
-   *
-   * The hard ceiling is 1/inference = ~27.8 FPS on this machine. Reaching 60
-   * needs inference under 16.7ms, which is a hardware or model change, not a
-   * capture setting - see the risk log.
-   *
-   * `ideal` rather than `exact`, so a camera that cannot do 60 degrades to
-   * whatever it supports instead of failing to open. The debug HUD reports the
-   * rate actually granted; do not assume the request was honoured.
    */
   get frameRate() {
     return queryNumber("camFps", 60);
@@ -206,61 +156,20 @@ export const SMOOTHING_DEFAULTS = {
   /**
    * One-euro filter in front of the CHARACTER (not hit detection - that is
    * STRIKE_SMOOTHING below).
-   *
-   * The original values (1.2 / 0.02) were carried over from Flap's wrist
-   * tracking and never re-tuned. With beta that low the filter barely opens at
-   * punch speed: simulated at 19 poses/s, a fast straight reached 90% of its
-   * travel on screen +334 ms after the real arm (+810 ms with the tracking
-   * monitor at its old maximum). That was the "my arm moves, but late" feel.
-   *
-   * 1.5 / 10, chosen by sweep against the same punch and a still, noisy wrist:
-   * +15 ms at 50% and +71 ms at 90% of travel, while a still guard keeps about
-   * 48-52% of the webcam's jitter (was 42%) - a little more shake at rest in
-   * exchange for an arm that follows the player. Raise minCutoff to steady a
-   * shaky guard; raise beta to make fast motion snappier.
    */
   minCutoff: 1.5,
   beta: 10,
   dCutoff: 1.0,
 };
 
-/**
- * The filter in front of strike resolution, separate from SMOOTHING_DEFAULTS.
- *
- * Two reasons it is its own filter. First, lag: the display filter passes
- * about 30% of each new sample at 19 FPS, so a fast punch is attenuated before
- * resolution sees it - on synthetic straights thrown down the lens, 0 of 40
- * registered through it. Second, the display filter is auto-tuned by the
- * tracking monitor, and nothing that decides whether a punch landed may be
- * auto-tuned. This one is fixed.
- *
- * Unfiltered is not the answer either: foreshortening amplifies landmark
- * jitter when an arm is near full length, and on noisy synthetic input the
- * raw pose fired from a still guard. Units are normalized image coordinates
- * per second, so a low `minCutoff` holds a still guard down while a high
- * `beta` opens the filter almost fully once anything moves at punch speed.
- * Chosen by sweep (src/perception/hitRegistration.test.ts pins the result):
- * 95-100% of synthetic straights and hooks at 19 and 30 FPS, no false strikes
- * from a still guard, a guard adjustment or a slow reach.
- */
+/** The filter in front of strike resolution, separate from SMOOTHING_DEFAULTS. */
 export const STRIKE_SMOOTHING = {
   minCutoff: 2.0,
   beta: 20,
   dCutoff: 1.0,
 } as const;
 
-/**
- * Punch detection and classification (Milestone 1, Approach A).
- *
- * All distances are **torso-normalized**: 1.0 means one shoulder-to-hip
- * length, so the same numbers hold whether the player is near or far from the
- * camera, tall or short.
- *
- * These are starting values reasoned from the geometry, not tuned against
- * measured data. Milestone 1's job is to produce the confusion matrix that
- * says whether they are right - expect to revise them, and record what
- * changed and why in the risk log.
- */
+/** Punch detection and classification (Milestone 1, Approach A). */
 export const PERCEPTION_CONFIG = {
   /** Below this landmark confidence, a frame is ignored rather than guessed at. */
   minLandmarkConfidence: 0.5,
@@ -270,19 +179,7 @@ export const PERCEPTION_CONFIG = {
 
   // --- Punch detection (the tractable half; see the gesture-classification notes) ---
 
-  /**
-   * Detection gates.
-   *
-   * Rebuilt after the first measured run detected only 19% of thrown punches
-   * (risk log OQ1). The old design gated on wrist-to-shoulder distance, which a
-   * punch thrown at the camera doesn't grow. Detection now keys on excursion -
-   * how far the fist has travelled from its calibrated guard, in any direction
-   * - which has no blind axis and covers all four punch types with one gate.
-   *
-   * These are conservative floors, above resting jitter and below the weakest
-   * modelled punch, not validated against real punches. The diagnostics panel
-   * reports actual peaks reached; revisit from that data, not by passing a test.
-   */
+  /** Detection gates. */
 
   /**
    * Floor for fist travel from guard, torso units. Effective threshold is the
@@ -378,16 +275,7 @@ export const CROUCH_CONFIG = {
 } as const;
 
 export const RENDER_CONFIG = {
-  /**
-   * Smoothing time constant for bone rotations, seconds.
-   *
-   * Pose samples arrive at ~15 FPS while rendering runs at ~60, so without
-   * interpolation the character visibly steps four times per pose update.
-   * This is the single biggest contributor to whether the motion reads as
-   * fluid. Kept short because punches are fast and over-smoothing would lag
-   * the very motion the game is about - raise it if the character looks
-   * jittery, lower it if it feels sluggish.
-   */
+  /** Smoothing time constant for bone rotations, seconds. */
   boneSmoothingTau: 0.06,
 
   /**
@@ -407,13 +295,6 @@ export const RENDER_CONFIG = {
   /**
    * How long a bone coasts on its last good target after its landmarks drop
    * out, seconds, before fading back to rest.
-   *
-   * MediaPipe loses individual landmarks constantly - an elbow crossing the
-   * torso, a wrist leaving frame at the end of a hook. Snapping to rest on
-   * that frame and back out on the next is a visible twitch, and it lands on
-   * exactly the fast motion the game is about. Long enough to ride out a
-   * dropout of a few pose samples (at ~15 FPS one sample is ~66ms), short
-   * enough that a player who walks away doesn't leave a statue mid-punch.
    */
   landmarkHoldSeconds: 0.25,
 
@@ -480,13 +361,6 @@ export const RENDER_CONFIG = {
   /**
    * World height of the rig's belt line (the hip line), measured from the same
    * asset: c_spine0 sits at y 0.944 with the figure's feet on y 0.
-   *
-   * This is the origin every torso-normalised height is measured from -
-   * `strikeGeometry.ts` defines height 0 as the belt and 1.0 as the shoulder -
-   * so anything placed in that space has to be anchored here, not on the
-   * floor. Anchoring on the floor instead puts every target zone at the wrong
-   * world height by however tall the legs are, which is exactly the fault the
-   * punching dummy shipped with on its first render.
    */
   rigHipWorldHeight: 0.944,
 
@@ -494,26 +368,10 @@ export const RENDER_CONFIG = {
   /**
    * Gain on the depth channel - how much a measured step in or out moves the
    * character.
-   *
-   * Kept separate from `rootGain` because depth is the one channel that
-   * carries an assumption: `BODY_CONFIG.cameraDistance`. If stepping in reads
-   * as too much or too little travel, this is the dial, and turning it here
-   * leaves the lateral and vertical channels untouched.
-   *
-   * Below 1 on purpose. The character stands at a fixed distance from its
-   * target, and a player who drifts a foot toward their desk should not walk
-   * their fighter into the opponent.
    */
   depthGain: 0.55,
 
-  /**
-   * Gain on torso yaw. Well under 1, deliberately.
-   *
-   * The measured angle is the whole body's rotation, but the rendered root
-   * rotation sits under the arm retargeting, which already places the arms in
-   * world space. Applying the full turn would rotate the arms twice - once by
-   * the root and once by their own aim - and the punches would swing wide.
-   */
+  /** Gain on torso yaw. Well under 1, deliberately. */
   turnGain: 0.45,
 };
 
@@ -524,14 +382,7 @@ export const DEBUG_CONFIG = {
   perfWindowSize: 600,
 };
 
-/**
- * Training-mode strike resolution - see perception/strikeResolver.ts.
- *
- * These numbers describe a game design decision, not a measurement, and that
- * distinction is deliberate: risk log 13 records that there is no shared
- * physical space between players, so how far a punch "reaches" is chosen, not
- * observed. Tuning them changes how demanding the training target is to hit.
- */
+/** Training-mode strike resolution - see perception/strikeResolver.ts. */
 export const STRIKE_CONFIG = {
   /**
    * Reach a fist must achieve to land, in torso units, measured from its own
@@ -544,16 +395,6 @@ export const STRIKE_CONFIG = {
   /**
    * How far the glove's striking surface sits beyond the wrist, in torso
    * units. 0.3409 torso = 0.17561 rig units against a 0.51518 torso.
-   *
-   * Measured once, offline, from the fitted asset: the glove is 0.2728 long
-   * with 0.0972 of cuff behind the wrist. A bare fist leads by 0.15009, so the
-   * glove adds 0.0495 torso of reach.
-   *
-   * A constant, and that is the point. Perception must never read the
-   * character mesh, so the glove's contribution is measured offline and
-   * written down rather than inspected at match time. Re-measure if the glove
-   * is re-fitted; gloveReachCheck in strikeResolver.test.ts asserts it stays
-   * consistent with TARGET_CONFIG.distance.
    */
   gloveNoseReach: 0.3409,
   /** The same measure for a bare fist, kept for the gloves-off case and so the
@@ -564,11 +405,6 @@ export const STRIKE_CONFIG = {
    * Starting estimate of each arm segment's length, torso units - the same
    * anthropometric figures the rig's limb calibration seeds from
    * (LIMB_TORSO_LENGTH). Only ever grows from observation.
-   *
-   * Seeding matters: starting from the first observed length would make the
-   * threshold depend on whatever the player happened to be doing when
-   * training mode opened, and if they never fully extend sideways the
-   * reference would stay too short and every punch would read as landed.
    */
   seedArmSpan: { upper: 0.54, lower: 0.57 },
 
@@ -584,53 +420,21 @@ export const STRIKE_CONFIG = {
   /**
    * Fist speed floor, torso-widths per second. Stops a slow reach forward -
    * adjusting your guard, scratching your nose - registering as a punch.
-   *
-   * Raised from 1.2 when speed gained its out-of-plane component
-   * (depthSpeedWeight), which makes every reading larger. The margin is
-   * narrower than it looks, because the gate is read as the fist crosses the
-   * threshold, late in its travel where it is already slowing: in
-   * hitRegistration.test.ts 1.2 let a noisy 900ms reach through and 1.6
-   * started rejecting real straights. Revisit against recorded punches.
    */
   minStrikeSpeed: 1.4,
 
   /**
    * How much the fist's out-of-plane speed counts toward the speed gate,
    * relative to its on-screen speed.
-   *
-   * The gate used to read on-screen speed only, which is blind along exactly
-   * the axis a straight punch travels: thrown down the lens, the wrist barely
-   * moves on screen, so a committed cross could reach full extension and still
-   * fail the gate as "too slow". Measured on synthetic straights at 19 FPS,
-   * that alone cost 20-50% of them. Below depthReachWeight because
-   * foreshortening is the noisier signal and its derivative noisier still: at
-   * 0.8 a noisy 900ms reach forward started passing the gate, at 0.5 it did
-   * not, and straights were registered just as often.
    */
   depthSpeedWeight: 0.5,
 
-  /**
-   * Span the fist's speed is measured over, ms.
-   *
-   * Speed was the displacement between two consecutive samples, ~50ms apart
-   * at 19 FPS, and dividing landmark jitter by an interval that short made
-   * the speed gate mostly a noise detector: in a noisy synthetic run a 900ms
-   * reach forward - nowhere near a punch - passed it more often than not.
-   * Measured across a window that holds two intervals at 19 FPS and three at
-   * 30, the jitter term halves while a real punch, whose outward travel takes
-   * 100-200ms, keeps nearly all of its speed.
-   */
+  /** Span the fist's speed is measured over, ms. */
   speedWindowMs: 120,
 
   /**
    * Consecutive samples a longer arm-segment reading must hold before it may
    * raise that arm's learned full length.
-   *
-   * The learned length only ever grows, so a single mis-tracked frame (an
-   * elbow snapping onto the hip for one sample) used to raise it permanently -
-   * after which every real punch read as foreshortened by less than it was,
-   * and stopped reaching the threshold for the rest of the session. The
-   * minimum over this many samples is what is allowed to raise it.
    */
   spanConfirmFrames: 3,
   /** Ceiling on a learned segment length, as a multiple of its anthropometric
@@ -641,14 +445,6 @@ export const STRIKE_CONFIG = {
   /**
    * Pose samples a strike may wait after crossing the threshold for the fist
    * to reach its peak, before it resolves anyway. 0 resolves on the crossing.
-   *
-   * Power is "how far past the threshold the punch got". Measured on the
-   * crossing frame, that is mostly a measure of where in the punch the camera
-   * happened to sample: synthetic hooks at 19 FPS read 0.89 +/- 0.16 power
-   * depending on frame phase, against 1.00 +/- 0.00 with one sample of latch.
-   * Counted in samples rather than ms so the cost is exactly one pose frame at
-   * any rate - two (measured, at 70ms) was ~100ms of visible delay. The strike
-   * is still timestamped at the interpolated crossing.
    */
   peakLatchSamples: 1,
 
@@ -678,10 +474,6 @@ export const STRIKE_CONFIG = {
    * straight punch rather than a hook or an uppercut. Descriptive only - this
    * drives a caption, never whether a hit lands. See strikeGeometry.ts on why
    * that separation is the point of the phase-2 rework.
-   *
-   * 0.6 rather than 0.5 because a slightly-angled straight punch is still a
-   * straight punch to anyone watching, and the hooking/rising buckets should
-   * be reserved for travel that is visibly across or up.
    */
   straightDirectness: 0.6,
 
@@ -720,14 +512,7 @@ export const FACE_CONFIG = {
   /** How much cheek swelling contributes to closing the eye above it. */
   cheekClosureShare: 0.45,
 
-  /**
-   * Cheek/jaw swelling, as a bone-scale factor at full damage.
-   *
-   * Only the jaw is here, and only the jaw ever can be: the skin weights were
-   * counted and l_eye/r_eye carry none, so scaling them deforms nothing. Eye
-   * closure is tracked as a damage metric but has nothing to drive until the
-   * Blender-authored head ships real lids - see blender/README.md.
-   */
+  /** Cheek/jaw swelling, as a bone-scale factor at full damage. */
   jawPuff: 0.14,
 
   /** Eye vertices are few, so their own UV spread underestimates the visible
@@ -751,14 +536,7 @@ export const FACE_CONFIG = {
  * constructs its runner with roiAllowed=false and throws).
  */
 export const ROI_CONFIG = {
-  /**
-   * Side of the square canvas handed to the model, pixels.
-   *
-   * 256 because that is the order of the tensor the lite model resizes to, so
-   * anything larger is uploaded only to be thrown away. Kept as a constant
-   * rather than inlined because it is the first thing to try changing if a
-   * heavier model is ever swapped in.
-   */
+  /** Side of the square canvas handed to the model, pixels. */
   tensorSize: 256,
 
   /** Confidence a landmark needs before it can widen the crop. Low-confidence
@@ -841,9 +619,6 @@ export const CROWD_CONFIG = {
 /**
  * The framing coach: tells the player when the camera cannot see them well
  * enough to play, and what to do about it. See perception/framingCheck.ts.
- *
- * Advice only. Nothing here changes how a punch is judged - a player who
- * ignores it simply keeps playing with a worse signal, exactly as before.
  */
 export const FRAMING_CONFIG = {
   /** Landmark confidence below which a body part counts as not seen. */
@@ -881,10 +656,6 @@ export const FRAMING_CONFIG = {
 /**
  * The first-run walkthrough: stand where the camera can see you, put your
  * guard up, throw one with each hand. See onboarding/firstRun.ts.
- *
- * It uses the game's own guard rule and strike resolver, unchanged - the point
- * is to show a new player what the game will count, so it must count exactly
- * the same way. These are only how long each pose must be held.
  */
 export const FIRST_RUN_CONFIG = {
   /** Well framed, head to hips and both hands in view, for this long, ms. */
@@ -935,12 +706,6 @@ export const SKELETON_CONFIG = {
   /**
    * Time constant for a limb's slow-moving "current projected length",
    * seconds. This is the knob that separates foreshortening from noise.
-   *
-   * Too short and it tracks the noise, doing nothing. Too long and it resists
-   * a genuine punch toward the camera, which would blunt the depth signal the
-   * strike resolver depends on. 0.08 s is roughly one to two pose samples:
-   * long enough that single-frame noise cannot move it, short enough that a
-   * punch - which develops over three or four samples - is followed.
    */
   currentLengthTau: 0.08,
 
@@ -973,14 +738,7 @@ export const SKELETON_CONFIG = {
  * the character being where you were ~110 ms ago and being where you are.
  */
 export const PREDICT_CONFIG = {
-  /**
-   * How much of the measured pipeline latency to compensate for, 0-1.
-   *
-   * Not 1. Prediction amplifies noise in proportion to how far ahead it
-   * reaches, and the last few milliseconds cost the most confidence for the
-   * least visible gain. 0.75 removes most of the perceived lag while keeping
-   * the overshoot on a direction change small enough not to read as wobble.
-   */
+  /** How much of the measured pipeline latency to compensate for, 0-1. */
   strength: 0.75,
 
   /** Hard ceiling on how far ahead to extrapolate, seconds. Protects against
@@ -1008,13 +766,7 @@ export const PREDICT_CONFIG = {
   minConfidence: 0.5,
 } as const;
 
-/**
- * The fight itself: health, guard, knockdowns, rounds, scoring.
- *
- * Every number here is a game design decision. Unlike the perception constants
- * above, none of it is measured or derived from anthropometry - it is chosen,
- * and it should be tuned by playing rather than by arguing.
- */
+/** The fight itself: health, guard, knockdowns, rounds, scoring. */
 export const FIGHT_CONFIG = {
   /** Stamina drained by starting an evasion. A fight rule, not a CPU one - it
    *  applies to whoever is evading, and the player's own tracked dodges will
@@ -1023,18 +775,7 @@ export const FIGHT_CONFIG = {
    *  rather than one strictly better one. */
   evadeStaminaCost: 1.6,
 
-  /**
-   * When the player's own body movement counts as a committed evasion.
-   *
-   * Read against `BodyMotion`, the same signal that drives the visible duck
-   * and slip. Gating the rule on a different measurement would let the two
-   * disagree, and a character who visibly ducks a punch that is then scored as
-   * a clean hit is the most infuriating bug this kind of game can have.
-   *
-   * Enter and exit differ so the state cannot flicker: entering costs stamina,
-   * and a player holding a crouch on a single threshold would be charged over
-   * and over as noise carried the reading across it.
-   */
+  /** When the player's own body movement counts as a committed evasion. */
   duckEnter: 0.45,
   duckExit: 0.3,
   /** Lateral travel, torso units, that counts as a slip. */
@@ -1044,16 +785,6 @@ export const FIGHT_CONFIG = {
   /**
    * Where the player's hands have to be for a guard, as mean wrist height
    * above the belt in torso units - 1.0 is the shoulder line.
-   *
-   * A high guard means hands at the chin, which sits a little above the
-   * shoulders; a low guard is forearms across the middle. Below the low bar
-   * the hands are down and nothing is being protected, which is exactly what
-   * the sim's "none" means.
-   *
-   * Hysteresis again, and for a sharper reason than the evasion's: the guard
-   * is read every frame and decides how much damage a punch does, so a
-   * reading sitting on a threshold would flicker a block on and off between
-   * consecutive punches of the same combination.
    */
   guardHighEnter: 0.95,
   guardHighExit: 0.82,
@@ -1075,13 +806,6 @@ export const FIGHT_CONFIG = {
    * Furthest back, ms, a player's strike is judged against the opponent's
    * defence as it was when the punch was thrown, rather than as it is when
    * the strike reaches the fight loop.
-   *
-   * A strike arrives late by construction: inference (~36ms), one sample of
-   * peak latch (~50ms at 19 FPS) and up to a fight tick - ~100ms in all, which
-   * is longer than a CPU slip takes to start. Judging against "now" meant a
-   * clean shot at an open head could be scored as slipped because the CPU
-   * began moving after the punch had already arrived. Capped so a stalled
-   * pipeline cannot rewind the fight arbitrarily.
    */
   maxRewindMs: 150,
 
@@ -1127,34 +851,13 @@ export const FIGHT_CONFIG = {
  * that name is already taken above by the webcam's capture settings, and two
  * different "cameras" in one config file is how a wrong-constant bug starts.
  */
-/**
- * Going down, and being hurt.
- *
- * Shared by both fighters, like FOOTWORK_CONFIG and crouch.ts: a knockdown
- * that looked different depending on who took it would teach the player the
- * wrong thing about what they are watching.
- *
- * Until this existed a knockdown produced a line in the feed and nothing else.
- * The simulation stopped the fighter, started a count and resumed the round,
- * while the figure carried on boxing throughout - which reads as the hit
- * detection having failed, not as a knockdown.
- */
+/** Going down, and being hurt. */
 export const KNOCKDOWN_ANIM = {
   /** How far the body pitches over, radians. Short of flat: the sim stands the
    *  fighter back up after `knockdownSeconds`, so this is a fighter going down
    *  on one hip and getting up, not a fighter laid out. */
   fallAngle: (74 * Math.PI) / 180,
-  /**
-   * Seconds to go over.
-   *
-   * Bounded from below by gravity, which is not a stylistic choice. At 0.38 s
-   * the head swung through its arc at 6.5 m/s - faster than it would reach
-   * falling freely from standing height (about 5.2 m/s), so the body was being
-   * driven into the canvas rather than dropping onto it, and it read as a
-   * snap. The test asserts the free-fall ceiling directly off the rig's own
-   * standing head height, so a re-export at a different scale keeps the bound
-   * rather than silently breaking it.
-   */
+  /** Seconds to go over. */
   fallSeconds: 0.48,
   /**
    * The knockdown plays in slow motion for this long, seconds, at this
@@ -1193,14 +896,7 @@ export const DIRECTOR_CONFIG = {
   aimHeight: 1.15,
   /** Knee height, which is what makes a downed fighter read as downed. */
   lowAngleHeight: 0.55,
-  /**
-   * How far back the knockdown shot sits, world units.
-   *
-   * Was an inline 1.6, and at that distance the fighter still standing filled
-   * most of the frame while the one on the canvas sat in the corner, half out
-   * of it. Both fighters have to be in the shot - it is about the
-   * relationship between them - so it is far enough back to hold the pair.
-   */
+  /** How far back the knockdown shot sits, world units. */
   lowAngleDistance: 3.1,
   /** How far above the canvas the knockdown shot aims. Low, because a fighter
    *  on the canvas is a metre below where they were standing and an aim at
@@ -1222,11 +918,6 @@ export const DIRECTOR_CONFIG = {
   /**
    * How close to the house shot the eased pose must get before the renderer
    * takes its own camera back, world units.
-   *
-   * There has to be a bar, and it has to be slack. An exponential ease never
-   * arrives exactly, so a handover that waited for equality would leave the
-   * director holding the camera for the rest of the fight - and the player
-   * unable to orbit.
    */
   handBack: 0.04,
 } as const;
@@ -1278,14 +969,7 @@ export const OPPONENT_ANIM = {
   aimFullLateral: 0.3,
 } as const;
 
-/**
- * Footwork: how the feet hold the canvas and how they step off it.
- *
- * All distances are in torso units, the unit the stance itself is expressed
- * in, and are converted to world units by the animator using the rig's own
- * measured torso length - so a re-export at a different scale steps correctly
- * without anyone editing this block.
- */
+/** Footwork: how the feet hold the canvas and how they step off it. */
 export const FOOTWORK_CONFIG = {
   /** Half the lateral gap between the feet. A boxer stands about shoulder
    *  width, and the shoulders are roughly one torso unit across. */
@@ -1302,31 +986,9 @@ export const FOOTWORK_CONFIG = {
    *  itself up. Too small and the feet patter constantly; too large and the
    *  fighter does the splits before stepping. */
   stepTrigger: 0.26,
-  /**
-   * The lower bar applied to the trailing foot once the other one has moved.
-   *
-   * A fighter who steps and does not recover their base ends up permanently
-   * narrower or wider than they started, drifting further with every exchange.
-   * This is what brings the second foot up behind the first. Kept well below
-   * `stepTrigger` so it only ever squares an already-disturbed stance, and
-   * comfortably above zero so a settled fighter is not endlessly correcting
-   * rounding error.
-   */
+  /** The lower bar applied to the trailing foot once the other one has moved. */
   settleTrigger: 0.07,
-  /**
-   * The furthest a planted foot may be dragged from where it wants to be.
-   *
-   * Only one foot steps at a time, so while one is in the air the other has to
-   * hold - and under a fast exchange the body can travel further in that 170ms
-   * than the leg can actually span. Left unbounded the hip-to-ankle distance
-   * exceeds the leg's reach, the IK cannot put the ankle on the canvas, and the
-   * foot rises: the fighter tiptoes.
-   *
-   * Clamping drags the foot along instead, which is what a real one does when
-   * you move faster than you can pick it up. Measured against the shipped rig:
-   * the leg can span about 0.57 torso units sideways from the hip, and the
-   * stance already spends about 0.18 of that, so 0.30 leaves real margin.
-   */
+  /** The furthest a planted foot may be dragged from where it wants to be. */
   maxStretch: 0.3,
   /** Seconds a single step takes, lift to land. Boxing steps are fast. */
   stepSeconds: 0.17,
@@ -1335,22 +997,7 @@ export const FOOTWORK_CONFIG = {
    *  around the ring. */
   stepHeight: 0.045,
 
-  /**
-   * Knee bend held at all times, as a fraction of a full crouch.
-   *
-   * A boxer never stands with locked knees, and neither should the figure - but
-   * this is load-bearing rather than decorative. The rig's bind pose has the
-   * legs dead straight, which means the leg is already at its maximum reach
-   * standing still: the instant a planted foot sits even slightly out to the
-   * side, the hip-to-ankle distance exceeds what the leg can span and the IK
-   * pulls the ankle up off the canvas to compensate. The fighter's feet lift
-   * for no reason and it reads as tiptoeing.
-   *
-   * Sinking the hips a little gives the legs the slack to reach out to a
-   * planted foot. At 0.4 of a full crouch the leg can span roughly twice the
-   * step trigger laterally, which leaves headroom for the extra drag a fast
-   * exchange produces on top of it.
-   */
+  /** Knee bend held at all times, as a fraction of a full crouch. */
   standingBend: 0.4,
 } as const;
 
@@ -1376,13 +1023,6 @@ export const CPU_CONFIG = {
   aimJitter: 0.09,
 
   // Footwork
-  //
-  // The opponent's position is expressed in the same channels the camera
-  // produces for the player (`perception/bodyMotion.ts`): lateral and depth in
-  // torso units, crouch 0-1, lean in radians. That is deliberate - it means
-  // there is one movement vocabulary in the game rather than two, and the
-  // animator that renders the opponent stepping is the same shape as the one
-  // that renders the player stepping.
 
   // Ranges live in FIGHT_GEOMETRY, not here. They are derived from where the
   // fighters actually stand, and a copy in this block would be free to drift
@@ -1444,22 +1084,6 @@ export const TARGET_CONFIG = {
   /**
    * Where the target stands relative to the player's boxer, world units. The
    * player's character faces +Z, so the target sits in front of it.
-   *
-   * Derived so the glove lands on the face rather than passing through it.
-   * Measured off the fitted rig: shoulder at z = -0.0322, shoulder-to-wrist
-   * 0.5268, glove nose 0.1756 beyond the wrist, target head front 0.1551
-   * ahead of the figure's centre. A strike registers at 0.95 torso of wrist
-   * extension, which is 92.9% of the arm:
-   *
-   *   wrist      0.5268 * 0.929  = 0.48945
-   *   glove nose + 0.17561       = 0.66506
-   *   nose z     - 0.0322        = 0.63286
-   *   distance   + 0.1551        = 0.788
-   *
-   * Was 0.72, derived for a bare fist before the gloves existed, and the glove
-   * passed 0.105 through the head on every straight punch. The 0.037 of
-   * overlap left at full extension is deliberate: a padded glove compresses,
-   * and one that stops dead on the skin reads as a mime.
    */
   distance: 0.788,
 
@@ -1481,32 +1105,11 @@ export const TARGET_CONFIG = {
   /**
    * How much of that reaction the player's own figure takes when the opponent
    * lands on them.
-   *
-   * Below 1, and not as timidity. The opponent's figure is driven entirely by
-   * this reaction, so it can be thrown around freely. The player's head and
-   * neck are simultaneously being driven by their real head through the
-   * camera, and the flinch is composed on top - so the same angle that reads
-   * as a clean snap on the opponent reads as the character fighting its own
-   * tracking. Enough to feel the punch, not enough to take the character away
-   * from the person controlling it.
    */
   playerReactionShare: 0.55,
 } as const;
 
-/**
- * Where the two fighters stand, in the units the simulation thinks in.
- *
- * Derived, not typed. The figures are placed `TARGET_CONFIG.distance` apart in
- * world units, and the CPU reasons about range in torso units - and the two
- * were silently inconsistent: the CPU was told the gap was 1.0 torso units when
- * the figures really stood about 1.66 apart. It therefore believed it was
- * already at its preferred range while visibly across the ring, and would
- * throw punches that landed on a fighter it had not walked up to. That is
- * exactly the failure the striking-range gate was added to prevent, defeated
- * by a unit mismatch rather than by a missing rule.
- *
- * Deriving it means moving the fighters re-teaches the CPU where they are.
- */
+/** Where the two fighters stand, in the units the simulation thinks in. */
 const NEUTRAL_RANGE = TARGET_CONFIG.distance / RENDER_CONFIG.rigTorsoWorldLength;
 
 export const FIGHT_GEOMETRY = {
@@ -1514,71 +1117,24 @@ export const FIGHT_GEOMETRY = {
    *  depth channels are subtracted from. */
   neutralRange: NEUTRAL_RANGE,
 
-  /**
-   * The gap at which a committed punch reaches, torso units.
-   *
-   * Equal to the neutral gap, and that is not a coincidence or a coasting
-   * default - `TARGET_CONFIG.distance` was itself derived as the distance at
-   * which a fully extended arm just reaches the other fighter's head. The two
-   * statements are the same measurement in different units, so writing a
-   * separate number here would have been a second opinion about a thing that
-   * has already been settled, free to drift away from it.
-   */
+  /** The gap at which a committed punch reaches, torso units. */
   strikingRange: NEUTRAL_RANGE,
 
-  /**
-   * The gap a fighter tries to hold while not attacking.
-   *
-   * Just outside reach, which is where a boxer actually stands: close enough
-   * to step in, far enough not to be hit on the way. It is what makes the CPU
-   * step in to throw and step out again rather than standing in the pocket
-   * trading, and it is why the player sees footwork at all.
-   */
+  /** The gap a fighter tries to hold while not attacking. */
   preferredRange: NEUTRAL_RANGE * 1.22,
 
   /**
    * Inside this the fighters are on top of each other. Nobody fights from
    * inside their own guard, so the CPU backs out - and the CPU's body may not
    * come closer than this at all (see the ceiling in cpuOpponent.ts).
-   *
-   * Set by what the figures actually occupy, not by feel. Measured off the
-   * rig in a high guard: the wrist sits 0.31 world units in front of the body,
-   * the glove's nose 0.18 beyond it, and the face ~0.21 in front of the body.
-   * So the gap at which one fighter's guard glove reaches the other's face is
-   * ~0.70 world units, 1.48 torso units, 0.89 of neutral. This was 0.55 -
-   * 0.43 world units, where each glove sat behind the other fighter's face,
-   * and in play the gloves visibly went through heads whenever the CPU closed
-   * in. opponentAnimator.test.ts re-measures it against the shipped rig.
-   *
-   * This is the band the CPU's footwork DECIDES by - inside it, back out. The
-   * hard floor on where its body may stand is contactRange, below.
    */
   clinchRange: NEUTRAL_RANGE * 0.9,
 
-  /**
-   * The closest the CPU's body may stand, whatever either fighter does.
-   *
-   * Was clinchRange, sized by guards: the gap at which a guard glove reaches
-   * a face. But a straight punch is drawn to land at exactly the neutral gap
-   * (TARGET_CONFIG.distance is that derivation), so at 0.9 every landed
-   * straight while the CPU was in close went ~0.08 world units into the face
-   * - a headless fight showed the player's glove buried in the opponent's
-   * head on most exchanges. At 0.96 the extra overlap is ~0.03 world units,
-   * inside the glove's own compression.
-   *
-   * Not the full neutral gap, and kept apart from clinchRange: the fight
-   * starts at neutral and the footwork needs room to step into, and moving
-   * the decision band up with it had the CPU backing out of every exchange.
-   */
+  /** The closest the CPU's body may stand, whatever either fighter does. */
   contactRange: NEUTRAL_RANGE * 0.96,
 } as const;
 
-/**
- * Fist clench - see render/retargeting/handRig.ts.
- *
- * Finger articulation is not tracked (MediaPipe Pose gives three points per
- * hand and no curl), so clench is inferred from what the arm is doing.
- */
+/** Fist clench - see render/retargeting/handRig.ts. */
 export const HAND_CONFIG = {
   /** Clench held at all times. A boxer's hands are never open, and the mesh's
    * relaxed bind pose reads as wrong the moment it is seen in context. */
@@ -1598,12 +1154,7 @@ export const HAND_CONFIG = {
   depthWeight: 0.45,
 } as const;
 
-/**
- * Character texturing and visible damage - see render/texturing/.
- *
- * The exported mesh has no textures at all; these build one procedurally at
- * load time from the UV layout measured by tools/uv-regions.mjs.
- */
+/** Character texturing and visible damage - see render/texturing/. */
 export const TEXTURE_CONFIG = {
   /**
    * Texture resolution. 1024 is the sweet spot here: the head occupies a clean
@@ -1645,28 +1196,9 @@ export const TEXTURE_CONFIG = {
   repaintInterval: 0.2,
 } as const;
 
-/**
- * Skin tones. The two differ slightly so the figures read apart at a glance.
- *
- * Clothing was tried twice and removed both times at the project owner's
- * request - first as flat painted colour bands, then as fitted third-party
- * meshes. See the 2026-09-15 entries in docs/ARCHITECTURE.md for what was learned; the
- * character is bare skin plus damage until a garment approach is chosen again.
- */
+/** Skin tones. The two differ slightly so the figures read apart at a glance. */
 export const KIT = {
-  /**
-   * Per-fighter kit colour.
-   *
-   * The GLB ships one colour set baked into the glove/shorts/boot materials,
-   * and the opponent is a `SkeletonUtils.clone` of the same asset - which
-   * shares materials by reference. So the two fighters cannot be told apart
-   * until each is given its own material, and disposing one figure's material
-   * while the other still points at it is a real bug this project has already
-   * hit once.
-   *
-   * Red corner / blue corner, because at speed the kit is the most visible
-   * thing on either figure and is therefore the right thing to key on.
-   */
+  /** Per-fighter kit colour. */
   player: {
     skin: "#b98a6a",
     hair: "#30211e",
@@ -1700,15 +1232,7 @@ export const KIT_ROUGHNESS: Record<"glove" | "trunks" | "boots", number> = {
   boots: 0.45,
 };
 
-/**
- * Tracking watchdog (pose/trackingMonitor.ts).
- *
- * Thresholds are the conditions this project has actually measured, not
- * aspirations. The pose rate in particular: risk log 12 explains the ~15 Hz
- * quantisation and the ~27.8 Hz hard ceiling from inference time on this
- * machine, so "good" is set where it is reachable rather than where it would
- * be nice.
- */
+/** Tracking watchdog (pose/trackingMonitor.ts). */
 export const MONITOR_CONFIG = {
   /** Landmark confidence below which a reading counts as a dropout. */
   minConfidence: 0.5,
@@ -1782,16 +1306,6 @@ export const SYSTEM_CONFIG = {
 } as const;
 
 // Dummy training
-//
-// The training mode is a punching dummy with lit target zones. These numbers
-// govern how a target is presented and how the response is scored.
-//
-// A note on the reaction-time figures, because they look generous: this
-// project's pose stream runs at ~15 Hz (risk log 12), so a sample arrives
-// every ~67ms and the measured latency of any response carries up to that much
-// quantisation error on top of the player's real reaction. `perfectMs` is set
-// well above a human's floor (~200ms visual reaction) for that reason - a
-// tighter figure would be measuring the frame rate, not the player.
 export const TRAINING_CONFIG = {
   /** How long a lit target stays live before it counts as missed. */
   windowMs: 1800,
@@ -1819,12 +1333,6 @@ export const TRAINING_CONFIG = {
 } as const;
 
 // Adaptation
-//
-// The training system gets better the more it is used. What it is allowed to
-// change is deliberately narrow - see `training/adaptation.ts` for the full
-// argument. In short: it may correct a common-mode coordinate bias (which is a
-// setup error, like camera height) and it may choose which targets to show. It
-// may never touch a threshold that decides whether a punch landed.
 export const ADAPT_CONFIG = {
   /** Total scored strikes before any correction is applied at all. */
   minSamples: 24,
@@ -1845,12 +1353,6 @@ export const ADAPT_CONFIG = {
 } as const;
 
 // Camera pointer - driving the menu with your hands.
-//
-// See ui/shell/pointerModel.ts for the four independent defences these serve.
-// The timings are deliberately toward the slow end: the project owner asked to
-// avoid accidental presses entirely, and in this game specifically the
-// player's hands are up and moving constantly, so a fast confirm would fire on
-// ordinary guard movement.
 export const POINTER_CONFIG = {
   /** Landmark confidence a wrist needs before it may drive the cursor. */
   minConfidence: 0.5,
@@ -1888,35 +1390,16 @@ export const POINTER_CONFIG = {
 } as const;
 
 // Whole-body motion - see perception/bodyMotion.ts.
-//
-// The channels that let the character step in, crouch and blade rather than
-// only sway. All distances are torso-normalized; all angles are radians.
 export const BODY_CONFIG = {
   /**
    * Assumed camera distance, in torso units. The one honest assumption in the
    * depth channel.
-   *
-   * 4.0 torso units is about 2m for a 0.5m torso, which is roughly where
-   * someone stands to box in front of a laptop. A single uncalibrated webcam
-   * cannot measure this - it needs the field of view, which browsers do not
-   * report reliably - so it is stated rather than derived.
-   *
-   * It acts purely as the gain on depth: wrong by a factor of two and stepping
-   * in moves the character half or twice as far, but never the wrong way and
-   * never non-monotonically. Revisit if depth feels over- or under-driven;
-   * this is the number to turn.
    */
   cameraDistance: 4.0,
 
   /**
    * The camera's principal point, in normalised image coordinates - the point
    * the image magnifies about as the subject moves nearer or further.
-   *
-   * The image centre for any ordinary webcam. It matters because lateral and
-   * vertical are measured relative to it: stepping toward the camera magnifies
-   * everything about this point, so anyone not standing dead centre appears to
-   * rise as they step in. Measuring from here and dividing by the torso scale
-   * cancels that exactly.
    */
   principalX: 0.5,
   principalY: 0.5,
@@ -1926,25 +1409,12 @@ export const BODY_CONFIG = {
   /** Maximum step in or out, torso units. */
   depthClamp: 0.8,
 
-  /**
-   * Torso yaw below this is treated as zero, radians (~7 degrees).
-   *
-   * Shoulder width is noisy at this project's ~15 Hz pose rate, and the acos
-   * that recovers the angle is steepest exactly where the signal is smallest.
-   * Without a dead zone, resting noise near square-on turns into a visibly
-   * twitching torso - the worst place to put jitter, because it is the part of
-   * the body a player is not moving.
-   */
+  /** Torso yaw below this is treated as zero, radians (~7 degrees). */
   turnDeadZone: 0.12,
   /** Maximum torso yaw, radians (~50 degrees). A bladed stance, not a pirouette. */
   turnClamp: 0.88,
 
-  /**
-   * Vertical drop that counts as a full crouch, torso units.
-   *
-   * A boxer's duck drops the shoulders by roughly a third of their
-   * shoulder-to-hip length; anything much more is sitting down.
-   */
+  /** Vertical drop that counts as a full crouch, torso units. */
   fullCrouch: 0.34,
 
   /** Neutral drift time constant, seconds. Long: a held crouch must stay one. */
@@ -1953,17 +1423,6 @@ export const BODY_CONFIG = {
   /**
    * The neutral holds still while the body is clearly away from it - stepped
    * in, slipped, ducked - for up to `seconds`, then drifts as normal.
-   *
-   * Without this, a step in held for under two seconds pulled the neutral a
-   * fifth of the way toward it, and after stepping back the player read as
-   * standing 0.15-0.3 torso units further away for the next ten seconds. A
-   * fake player stepping in and out on a loop sat permanently "back". Dodges
-   * and steps are brief; settling somewhere new is not, so a displacement
-   * held past `seconds` is treated as the new rest and followed.
-   *
-   * Thresholds in the channels' own units: torso units for depth and lateral,
-   * a crouch fraction for the duck. Each is several times that channel's
-   * standing noise (depth sd ~0.04, lateral ~0.01 against the fake player).
    */
   driftHold: { depth: 0.2, lateral: 0.15, crouch: 0.25, seconds: 2.5 },
 } as const;

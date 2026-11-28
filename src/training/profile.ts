@@ -3,28 +3,6 @@ import { HIT_ZONES } from "./hitZones";
 
 // The persistent training record: what the player has thrown, and how it went.
 // What is stored, and what deliberately is not
-//
-// Stored: aggregate statistics per target zone. Counts, means, and a running
-// mean of the signed miss vector.
-//
-// Not stored: pose landmarks, frames, video, or anything from which a body
-// could be reconstructed. The project's standing rule is that raw landmarks
-// never cross the network; writing them to disk instead would honour the
-// letter of that and miss the point entirely. Everything here is a scalar
-// summary of a punch, and there is no path back to the person who threw it.
-// Why running means rather than a log
-//
-// A log of every punch grows without bound, and localStorage has a hard quota
-// that fails by throwing on write. A profile that breaks the game after three
-// weeks of training would be a spectacular way to punish the most engaged
-// player. Running means are O(1) in storage and answer every question the
-// adaptation loop actually asks.
-//
-// The cost is that means forget nothing, so a player who improves is averaged
-// against their beginner self forever. `DECAY` fixes that: each update pulls
-// the mean toward the new sample by a fixed fraction, which makes it an
-// exponential moving average with a half-life of roughly 20 punches per zone.
-// Recent form dominates, and old form fades instead of anchoring.
 
 /** Bumped whenever the shape below changes incompatibly. */
 export const PROFILE_VERSION = 1;
@@ -102,13 +80,7 @@ function ema(mean: number, sample: number, n: number): number {
   return mean + (sample - mean) * rate;
 }
 
-/**
- * Folds one drill outcome into the profile, in place.
- *
- * Returns the profile for chaining. Mutates rather than copying because this
- * runs once per punch and the profile is not React state - it is persisted
- * state that a hook snapshots when it wants to render.
- */
+/** Folds one drill outcome into the profile, in place. */
 export function recordOutcome(
   profile: TrainingProfile,
   outcome: DrillOutcome,
@@ -151,16 +123,7 @@ export function recordRound(
   return profile;
 }
 
-/**
- * Rebuilds a profile from parsed JSON, tolerating anything.
- *
- * Deliberately total: it never throws and never returns null. This reads from
- * localStorage, which means the input can be a profile from a future version,
- * a half-written string from a browser killed mid-write, or something a user
- * pasted in by hand. Every one of those must degrade to "start fresh" rather
- * than taking the training mode down, because a corrupted profile that crashes
- * the app is unrecoverable without devtools.
- */
+/** Rebuilds a profile from parsed JSON, tolerating anything. */
 export function reviveProfile(raw: unknown, now = 0): TrainingProfile {
   const fresh = freshProfile(now);
   if (typeof raw !== "object" || raw === null) return fresh;

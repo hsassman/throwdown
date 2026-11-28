@@ -9,14 +9,6 @@ import {
 } from "./ringSpec";
 
 // A boxing ring, built to real dimensions from ringSpec.ts.
-//
-// Procedural for the same reasons the octagon is: no asset to license, the
-// shape is four repetitions of one side, and it rescales from one number.
-//
-// Like the octagon, the canvas sits at y = 0. Fighters stand on the canvas, so
-// making it the origin keeps a character's feet at y = 0 the way they are
-// everywhere else; the platform and its skirt hang into negative y where
-// nothing else has to reason about them.
 
 export interface RingOptions {
   /** Override the inside-the-ropes span, metres. Defaults to championship. */

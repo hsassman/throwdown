@@ -3,14 +3,6 @@ import { FRAMING_CONFIG as C } from "../config/tuning";
 
 // Is the camera seeing the player well enough to play, and if not, what
 // should they do?
-//
-// A webcam game fails silently in a way a controller never does: stand too
-// close, or in front of a bright window, and punches simply stop landing. The
-// player concludes the game is broken. Every input this needs is already
-// measured - the pose, and a cheap brightness sample of the frame - so the
-// cause can be named instead.
-//
-// Advice only. Nothing that decides a hit reads this.
 
 export type FramingIssue =
   | "noBody"
@@ -99,14 +91,7 @@ function order(issues: FramingIssue[]): FramingIssue[] {
   return FRAMING_PRIORITY.filter((i) => issues.includes(i));
 }
 
-/**
- * Turns per-sample assessments into a steady prompt.
- *
- * A problem has to hold for `showAfterMs` before it is shown, and the picture
- * has to be clean for `hideAfterMs` before it clears. Without this a player
- * at the edge of a threshold would see a prompt strobe on and off, and a
- * single dropped frame mid-punch would flash "step into view".
- */
+/** Turns per-sample assessments into a steady prompt. */
 export class FramingCoach {
   private shown: FramingIssue | null = null;
   private candidate: FramingIssue | null = null;

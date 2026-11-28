@@ -1,14 +1,4 @@
 // Decides the 3D view's render resolution (pixel ratio).
-//
-// The scene shares the GPU (and the main thread) with pose inference, and the
-// pose rate is what decides how closely the character follows the player:
-// modelled end to end, the drawn arm trails a real punch by ~77 ms at 25
-// poses/s, ~93 ms at 19/s and ~160 ms at 8-12/s, however the filters are
-// tuned. So resolution is given up not only when the 3D view itself is
-// struggling, but also when pose tracking is being starved - and it is only
-// won back when both are healthy.
-//
-// Pure (no three.js, no DOM) so it can be tested directly.
 
 export const GOVERNOR_CONFIG = {
   /** Render frame time above which a frame counts as slow (~45 FPS). */

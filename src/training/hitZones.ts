@@ -4,29 +4,6 @@ import { DUMMY, halfWidthAt, onDummy, type DummySpec } from "./dummySpec";
 // The lit target zones on the dummy - the "heat points" the player is asked to
 // hit, and the thing accuracy is measured against.
 // One coordinate system, not two
-//
-// Every zone centre is an `ImpactPoint`: the exact type `strikeResolver.ts`
-// produces when a punch lands. So scoring a punch against a lit zone is a
-// subtraction, with no transform in between and therefore no transform to get
-// wrong.
-//
-// Each zone also declares the anatomical region it is supposed to be, and
-// `hitZones.test.ts` asserts that `regionAt(zone.centre).id === zone.region`
-// for every one of them. That test is the whole reason this file is safe to
-// edit: the region table in strikeGeometry.ts and the target positions here
-// are two descriptions of the same anatomy, and nothing but a test keeps them
-// honest. Nudge a zone off its organ and the suite says so.
-//
-// Why the lateral bands here are tighter than the region table's
-//
-// The region table's bands are deliberately generous - they must catch
-// glancing blows and wild swings, so `temple` accepts anything from 0.13 to
-// 0.50 out from the midline. A person's temple is not 0.5 torso units wide;
-// that band is a catchment, not an anatomy. Target zones are the opposite
-// problem - they mark where the organ actually is, so they sit near the inner
-// edge of each band and are checked against the dummy's real silhouette by
-// `zonesAreOnTheBody` below. A temple target at 0.26 would have floated in the
-// air beside the head.
 
 /** How hard a zone is to hit, which drives drill progression. */
 export type ZoneTier = "open" | "precise" | "expert";
@@ -159,15 +136,7 @@ export function missDistance(p: ImpactPoint, zone: HitZone): number {
   return Math.hypot(dx, dy);
 }
 
-/**
- * Accuracy of a punch against the zone it was asked to hit, 0..1.
- *
- * Full marks anywhere inside the circle, then a smooth falloff to zero over a
- * further `FALLOFF` radii. It is deliberately not a step function: a punch
- * that lands a centimetre outside the ring is a better punch than one that
- * lands on the other shoulder, and a pass/fail score cannot say so - which
- * makes the resulting training data far less useful for the adaptation loop.
- */
+/** Accuracy of a punch against the zone it was asked to hit, 0..1. */
 const FALLOFF = 2.2;
 export function accuracyOf(p: ImpactPoint, zone: HitZone): number {
   const d = missDistance(p, zone);
@@ -194,14 +163,7 @@ export function nearestZone(
   return best;
 }
 
-/**
- * Every zone whose centre lies outside the dummy's silhouette.
- *
- * Exported rather than kept private because it is asserted to be empty in the
- * tests. A target painted on thin air is invisible to the player and
- * unhittable in principle, and the failure is entirely silent otherwise - the
- * drill would just look unfairly hard.
- */
+/** Every zone whose centre lies outside the dummy's silhouette. */
 export function zonesOffTheBody(spec: DummySpec = DUMMY): HitZone[] {
   return HIT_ZONES.filter((z) => {
     // Vertical first: below the cut there is no body at all, and halfWidthAt

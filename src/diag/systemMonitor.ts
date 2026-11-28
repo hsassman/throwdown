@@ -6,31 +6,6 @@ import { SYSTEM_CONFIG } from "../config/tuning";
 
 // The single aggregated report: pose tracking, frame timing, strike
 // resolution and drill health in one place.
-//
-// Why this exists separately from trackingMonitor.ts
-//
-// `TrackingMonitor` already answers "is the camera signal any good" and feeds
-// the auto-tuner. That is one question. This answers a different one - "is
-// the whole pipeline healthy right now" - and the two must not be folded
-// together: the tracking monitor's report is consumed by code that adjusts
-// the pipeline, and widening what it measures would widen what a bug in the
-// auto-tuner could reach. This module only reads the other layers' own
-// reports; it has no write access to anything and cannot become a second path
-// by which the pipeline gets tuned.
-//
-// Each section can be missing - no tracking report yet, no drill running, no
-// strikes thrown - and missing is not the same as unhealthy. A section that
-// has not started reports null rather than a score, and the overall score is
-// the minimum of whichever sections are actually present. That mirrors
-// TrackingReport's own rule (its overall score is the minimum of its metrics,
-// not their average) at one level up: the system is only as healthy as its
-// worst present part, and a part that has not run yet is not a part that is
-// failing.
-//
-// Time is always injected
-//
-// Every method takes `atMs` explicitly, the same discipline `training/drill.ts`
-// uses, so the whole thing is testable without a clock and without waiting.
 
 export interface FrameHealth {
   /** Delivered frame rate, from the render loop's own measured interval -
@@ -149,13 +124,7 @@ export class SystemMonitor {
     };
   }
 
-  /**
-   * Builds the aggregate report.
-   *
-   * `frame` takes the already-computed Stats objects from the render loop's
-   * own RollingStats - this module does not own a second copy of that data,
-   * it only reads it.
-   */
+  /** Builds the aggregate report. */
   report(
     atMs: number,
     inputs: {

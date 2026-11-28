@@ -5,28 +5,6 @@ import type { ImpactSite } from "../texturing/bodyUv";
 
 // The painted half of facial damage: eyes, blood, discolouration.
 // Why the eyes are painted here rather than shipped in the mesh
-//
-// The exported character arrives with no textures at all - the body texture is
-// already built procedurally at load. So the face is currently a flat skin
-// fill with eyeball geometry the same colour as the skin around it, which is
-// why the figures read as mannequins. Painting a sclera and an iris at the
-// eye's own UV is the smallest change that makes them read as a person.
-//
-// Where the features go
-//
-// Located by bone, not by hardcoded UV coordinates. The rig has `l_eye`,
-// `r_eye` and `c_jaw` as real skin joints, so the vertices weighted to each
-// one give that feature's UV footprint directly. Hardcoding coordinates would
-// break silently the moment the mesh is re-exported - and re-exporting through
-// Blender is now on the table, which makes that a live risk rather than a
-// hypothetical one.
-//
-// Blood flows down
-//
-// Drawn as streaks from the nose toward the chin in UV space. That only works
-// because the head's UV island happens to be laid out upright; the direction
-// is derived from the jaw's UV sitting below the eyes' rather than assumed, so
-// a re-export that flips the island does not paint blood up the forehead.
 
 export interface FaceFeatureUv {
   eyeLeft: ImpactSite;
@@ -39,26 +17,12 @@ export interface FaceFeatureUv {
 /**
  * Locates the facial features in UV space, from the vertices weighted to each
  * facial bone.
- *
- * Returns null when the expected bones are absent, which keeps this a
- * cosmetic add-on rather than something that can break loading.
  */
 export function locateFaceFeatures(
   geometry: THREE.BufferGeometry,
   boneNames: string[],
   dominant: Int32Array,
-  /**
-   * Bind-pose positions of the eye bones, in geometry space.
-   *
-   * Required, and not optional, because of a measured fact about this rig:
-   * `l_eye` and `r_eye` carry zero skin weight (0 dominant vertices), so there
-   * is no set of "eye vertices" whose UVs could be averaged. The first version
-   * of this function tried exactly that and returned null on the real asset.
-   *
-   * Instead the eye's UV is taken from the nearest head vertex to the eye
-   * bone - the skin that sits over the socket, which is what a bruise or a
-   * closing lid should be painted on anyway.
-   */
+  /** Bind-pose positions of the eye bones, in geometry space. */
   eyeBindPositions?: { left: THREE.Vector3; right: THREE.Vector3 } | null
 ): FaceFeatureUv | null {
   const uv = geometry.getAttribute("uv");
@@ -154,21 +118,7 @@ export interface FacePainterOptions {
   mask?: HTMLCanvasElement | null;
 }
 
-/**
- * The head and jaw skin's footprint in UV space, as an opaque-on-clear mask.
- *
- * Everything the painter draws is offset from a feature in UV space - a cut
- * above the eye, a nosebleed running toward the chin - and UV space is an
- * atlas, not a face. The eye sites are single vertices that can sit on the
- * island's edge, and a streak several eye-radii long walks straight off it
- * onto whatever island the unwrap put next door. On this rig that is back
- * skin: a burst of a live fight showed two red slashes between the player's
- * shoulder blades after a shot to the chin. Clipping to the triangles that
- * are head or jaw skin keeps the damage on the face whatever the layout.
- *
- * A mask, rasterised once, rather than a clip path: the path is thousands of
- * triangles, and clipping to it on every repaint froze the page outright.
- */
+/** The head and jaw skin's footprint in UV space, as an opaque-on-clear mask. */
 export function headIslandMask(
   geometry: THREE.BufferGeometry,
   boneNames: string[],
@@ -240,15 +190,6 @@ export function createFacePainter(options: FacePainterOptions): FacePainter | nu
   const py = (v: number) => v * size;
 
   // Socket discolouration only.
-  //
-  // This used to draw a sclera, iris, pupil, catchlight and a closing lid. All
-  // of it was removed on 2026-09-16: painting an eye onto flat head skin gives
-  // a decal with no socket depth behind it, and it read as a staring mannequin
-  // rather than a face. Eyes are now authored as real geometry in Blender and
-  // baked into the exported mesh - see blender/README.md.
-  //
-  // The bruising stays, because a dark ring around the socket is surface
-  // colour and is exactly the kind of thing a texture should carry.
   const drawSocket = (site: ImpactSite, swelling: number) => {
     if (swelling < 0.02) return;
     const cx = px(site.u);

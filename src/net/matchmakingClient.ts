@@ -1,12 +1,7 @@
 // Drives the MatchmakingHub (server/Throwdown.Server/MatchmakingHub.cs): joins
 // the queue, reports when another player is found, and relays the two SDP
-// codes PeerLink produces. It does not touch WebRTC at all — see
+// codes PeerLink produces. It does not touch WebRTC at all - see
 // useOnlineSession.ts for where this and PeerLink meet.
-//
-// HubConnectionLike, not @microsoft/signalr's HubConnection directly, so this
-// file's state machine can be unit-tested with a fake instead of a real
-// socket — the same reason peerLink.ts's codec is split out from the
-// RTCPeerConnection code that cannot run under Vitest.
 
 export type MatchmakingState =
   | "idle"
@@ -66,7 +61,7 @@ export class MatchmakingClient {
     // otherwise this side waits on "connecting" for a fighter who is gone.
     connection.on("OpponentLeft", () => this.opponentLeftCb?.());
     connection.onclose(() => {
-      // Only report failure if this wasn't a deliberate leave() — leave()
+      // Only report failure if this wasn't a deliberate leave() - leave()
       // already set state to "closed" itself; onclose can fire for that too
       // (stop() closing the connection), and re-marking it "failed" would
       // be wrong in that case.

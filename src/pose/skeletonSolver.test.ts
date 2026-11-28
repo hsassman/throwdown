@@ -124,11 +124,6 @@ describe("limb rigidity", () => {
     const before = spread(rawLengths);
     const after = spread(fixedLengths);
     // A real, quantified improvement - not "it changed something".
-    //
-    // Measured 0.280 (a 72% reduction in length variance) with the magnitude
-    // discriminator in skeletonSolver. The threshold is set just above that so
-    // this is a genuine regression guard: an earlier speed-based rule scored
-    // 0.549 and would fail here, which is precisely the point.
     expect(after).toBeLessThan(before * 0.35);
   });
 
@@ -167,14 +162,6 @@ describe("limb rigidity", () => {
 
     const solved = solver.update(jumped);
     // Clamped to one frame's worth of physically possible travel.
-    //
-    // The bound is not arbitrary: 18 torso-spans/sec at a torso of ~0.28
-    // normalized units over a 67 ms sample is ~0.34, and the teleport was
-    // ~0.9. So the assertion is that the jump was cut to the configured
-    // physical limit - my first draft asserted 0.25, which was tighter than
-    // the physics the constant encodes, and the solver was right.
-    //
-    // This bound halves as the pose rate rises, which the pipelining fix does.
     expect(Math.abs(solved.rightWrist.x - realX)).toBeLessThan(0.4);
     expect(Math.abs(solved.rightWrist.x - 0.05)).toBeGreaterThan(0.3);
     expect(solver.debug.rejected).toBeGreaterThan(0);

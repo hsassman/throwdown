@@ -10,11 +10,6 @@ import type { RollingStats } from "../debug/perfStats";
 // at pose rate, but nothing here needs to be read faster than a few times a
 // second, so the report is recomputed on an interval rather than on every
 // tick.
-//
-// The monitor instance is created once, here, and outlives whichever screen
-// happens to be open - a player who fought for two minutes and then opened
-// the Tracking screen should see those two minutes' worth of strike history,
-// not a monitor that just woke up.
 
 const POLL_MS = 400;
 

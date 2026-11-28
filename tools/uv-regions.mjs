@@ -1,16 +1,4 @@
 // Reports where each body part lives in the mesh's UV layout.
-//
-// Needed because the exported material carries no textures at all, so nothing
-// so far has had to know the UV layout - but painting a bruise on the jaw
-// means knowing which rectangle of texture space the head occupies.
-// TEXCOORD_0 survives in the shipped mesh only because strip-morphs.mjs passes
-// `keepAttributes: true`; the default prune dropped it precisely because no
-// material referenced it.
-//
-// Regions are derived the same way the morph targets were identified: by which
-// bone each vertex is skinned to. No rendering, no guessing.
-//
-// Usage: node tools/uv-regions.mjs [in.glb]
 
 import { NodeIO } from "@gltf-transform/core";
 

@@ -5,7 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
     /* "node" is here for the *.test.ts files under src/, which run in vitest's
-       Node environment — src/render/retargeting/mediapipeToMhrRig.test.ts reads
+       Node environment - src/render/retargeting/mediapipeToMhrRig.test.ts reads
        the exported .glb off disk to assert against the real rig. Tests stay
        inside this project (rather than being excluded) so `npm run build`
        keeps type-checking them. */

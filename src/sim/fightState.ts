@@ -1,17 +1,4 @@
 // The fight simulation: health, stamina, guard, knockdowns, rounds, scoring.
-//
-// Pure logic. No three.js, no React, no landmarks. It is handed resolved
-// strikes and a clock, and it produces state plus a stream of events. That
-// separation is what lets the whole thing be tested without a camera, and it
-// is the layer docs/ARCHITECTURE.md calls "simulation".
-//
-// Scoring is the ten-point must
-//
-// The universal system in boxing and MMA: the round winner gets 10, the loser
-// 9, minus one more for each knockdown, floor of 6. It is worth using the real
-// one rather than inventing a points system, because it is the thing players
-// already know how to read, and because it produces draws and split decisions
-// naturally - which is what makes a decision feel earned rather than arbitrary.
 
 import {
   attributesFor,
@@ -27,38 +14,10 @@ import { FIGHT_CONFIG } from "../config/tuning";
 /** What a fighter is protecting. */
 export type GuardPosture = "high" | "low" | "none";
 
-/**
- * A committed head movement, in the evading fighter's own frame.
- *
- * Left and right are that fighter's own left and right, not the puncher's.
- * `ImpactPoint.lateral` is expressed from the puncher's point of view (see
- * strikeGeometry.ts), so the two frames are mirrored and the conversion has to
- * happen exactly once, in `evades` below, where it is tested. Getting it
- * backwards would make every slip move the head into the punch, which would
- * still look like evasion and would be almost impossible to spot by eye.
- */
+/** A committed head movement, in the evading fighter's own frame. */
 export type Evasion = "none" | "slipLeft" | "slipRight" | "duck";
 
-/**
- * Whether a committed head movement takes the target off the line of a strike.
- *
- * The rules, and why they are these rules:
- *
- *   A slip moves the head sideways off the line of a punch travelling toward
- *   it. That beats a straight or rising punch, which have already committed to
- *   a line. It does not beat a hook, which curves around the outside and
- *   arrives where the head has just moved to - slipping into a hook is how
- *   people get knocked out, and a slip that beat everything would make the
- *   guard pointless.
- *
- *   A duck takes the head below every punch aimed at it, whatever its arc, and
- *   does nothing at all about a body shot. That makes duck and slip genuinely
- *   different choices rather than two names for the same move: the duck is
- *   the stronger answer to the head and the total non-answer to the body.
- *
- * Nothing here decides whether the punch was thrown accurately - perception
- * already resolved that. This only asks whether the target was still there.
- */
+/** Whether a committed head movement takes the target off the line of a strike. */
 export function evades(evasion: Evasion, strike: StrikeEvent): boolean {
   if (evasion === "none") return false;
   // Both slips and ducks are head movement. A body shot is not evaded by
@@ -78,28 +37,7 @@ export function evades(evasion: Evasion, strike: StrikeEvent): boolean {
   return !arrivesOnTargetsRight;
 }
 
-/**
- * Turns the player's measured body movement into a committed evasion.
- *
- * The evasion rules above were written, tested and wired for the CPU, and for
- * the player they were dead: nothing ever called `setEvasion` for them. A
- * player could duck under a right hand, watch their character duck, and take
- * the punch flush anyway, because the simulation was never told. Every piece
- * was present except the one line connecting them.
- *
- * Why it reads BodyMotion rather than DodgeDetector
- *
- * `dodgeDetector` classifies head movement relative to the shoulder line, which
- * is the better measurement of a slip in the abstract - but it needs a
- * calibration pass the fight does not have, and, more importantly, it is not
- * the signal that moves the character. `BodyMotion` is. Deriving the rule from
- * the same number that drives the animation is what guarantees the two can
- * never disagree, and "my character visibly ducked and the punch hit me anyway"
- * is a far worse failure than a slip measured slightly coarsely.
- *
- * `current` is the evasion already held, and it selects the exit threshold
- * rather than the entry one - see FIGHT_CONFIG.duckExit.
- */
+/** Turns the player's measured body movement into a committed evasion. */
 export function evasionFromBody(motion: BodyMotion, current: Evasion): Evasion {
   if (!motion.tracked) return "none";
 
@@ -121,17 +59,7 @@ export function evasionFromBody(motion: BodyMotion, current: Evasion): Evasion {
   return "none";
 }
 
-/**
- * Turns the player's measured hand height into a guard posture.
- *
- * The companion to `evasionFromBody`, and it closes the same kind of gap:
- * `setGuard` has always existed and the CPU has always used it, but nothing
- * ever called it for the player. Blocking - half of boxing's defence - was
- * simply unavailable to them, so the only way to avoid a punch was to move.
- *
- * `current` selects the exit threshold over the entry one; see
- * FIGHT_CONFIG.guardHighExit.
- */
+/** Turns the player's measured hand height into a guard posture. */
 export function guardFromBody(
   motion: BodyMotion,
   current: GuardPosture
@@ -229,16 +157,6 @@ export function guardCovers(d: DefenceSnapshot, strike: StrikeEvent): boolean {
 /**
  * A fighter's recent defence, so a strike can be judged against the defence
  * that was in place when it was thrown.
- *
- * A player's strike reaches the fight loop around 100ms after the punch -
- * inference, one sample of peak latch, a tick - and judged against the
- * defence of that later moment, a punch that arrived at an open head could be
- * scored as slipped by a move that started after it landed. Lag compensation
- * in the usual sense: the shot is judged where it was aimed. Bounded by
- * FIGHT_CONFIG.maxRewindMs.
- *
- * Only for strikes timed on this machine's clock. A networked strike carries
- * the other machine's timestamps, which mean nothing here.
  */
 export class DefenceHistory {
   private samples: { t: number; d: DefenceSnapshot }[] = [];
@@ -357,14 +275,7 @@ export class FightSim {
     this.phase = "fighting";
   }
 
-  /**
-   * Applies a resolved strike from `byId` to the other fighter.
-   *
-   * Takes the StrikeEvent from the perception layer directly, which is the
-   * whole payoff of the phase-2 rework: it already carries a region and a
-   * damage value derived from geometry, so this layer does no classification
-   * and cannot fail to understand a punch it has no name for.
-   */
+  /** Applies a resolved strike from `byId` to the other fighter. */
   applyStrike(byId: string, strike: StrikeEvent, defence?: DefenceSnapshot): void {
     if (this.phase !== "fighting") return;
     const attacker = this.fighters[byId];
@@ -479,16 +390,7 @@ export class FightSim {
     if (f && f.stunned <= 0) f.guard = guard;
   }
 
-  /**
-   * Commits a fighter to a head movement, or clears one.
-   *
-   * Starting an evasion costs stamina. It has to: a fighter who slips
-   * everything for free is strictly better than one who blocks, and the whole
-   * point of having both is that they are different trades. This is also why
-   * the cost is charged on entering the state rather than per second - it
-   * prices the decision, not the duration, so holding a slip an extra frame is
-   * not punished and spamming slips is.
-   */
+  /** Commits a fighter to a head movement, or clears one. */
   setEvasion(id: string, evasion: Evasion): void {
     const f = this.fighters[id];
     if (!f) return;
@@ -573,15 +475,7 @@ export class FightSim {
     this.betweenTimer = FIGHT_CONFIG.betweenRoundSeconds;
   }
 
-  /**
-   * Ten-point must for the round just finished.
-   *
-   * Winner 10, loser 9, minus one per knockdown taken, floored at 6. A round
-   * with no knockdowns and effectively equal damage is scored 10-10 rather
-   * than being forced to a winner - real judges avoid it, but a simulation
-   * that invents a winner from a 0.3% damage difference is producing noise and
-   * calling it a decision.
-   */
+  /** Ten-point must for the round just finished. */
   scoreRound(): Record<string, number> {
     const [a, b] = this.ids;
     const fa = this.fighters[a];

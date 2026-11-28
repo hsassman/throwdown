@@ -13,32 +13,6 @@ import { RENDER_CONFIG, TARGET_CONFIG } from "../config/tuning";
 
 // The punching dummy: an upper body on a sprung column, with lit target zones.
 // Two bodies, one stand
-//
-// The body is either:
-//
-//   "moulded" - generated geometry, a Century-BOB style urethane torso. No
-//   rig, no skinning, nothing that deforms. Safe to generate precisely because
-//   a BOB is a single moulded piece with no seams, cloth or fingers - the
-//   opposite of the procedural gloves/shorts/eyes this project built and threw
-//   away three times.
-//
-//   "figure" - the real character mesh, supplied by the caller, clipped off
-//   below the belt and plugged into the stand's collar. It is fully skinned,
-//   so it reacts to being hit and takes bruises like any other fighter.
-//
-// The stand, the spring, the target markers and the scoring are identical
-// either way. Only what is bolted on top changes.
-// Scale is baked into the geometry, not applied to the group
-//
-// Everything below is generated in torso units and multiplied by `scale` as it
-// is built, so the dummy's group sits at world scale.
-//
-// That is deliberate and load-bearing. A scaled group would also scale
-// anything parented into it, so the character figure would need a
-// compensating 1/scale - and a compensating scale buried in a parent chain is
-// exactly the thing that silently corrupts a skinned mesh's world matrices.
-// Raycasting to place the markers would need the same correction. Baking it
-// once, here, removes both problems.
 
 /** Vertical samples up the body. Enough that the shoulder line reads smooth. */
 const RINGS = 56;
@@ -56,12 +30,6 @@ export interface DummyOptions {
   /**
    * World height of the belt line - the origin of the torso-normalised space
    * the hit zones are defined in.
-   *
-   * This, not the floor, is what the dummy is anchored by. `strikeGeometry.ts`
-   * measures height 0 at the belt and 1.0 at the shoulder, so a dummy placed
-   * with its floor at y=0 puts every target at the wrong world height by
-   * however tall its stand happens to be - the chin ends up at chest height
-   * and nothing lines up with the player it is facing.
    */
   beltHeight?: number;
   /** Which body to build. Defaults to the generated one. */
@@ -243,13 +211,7 @@ export class PunchingDummy {
     this.group.rotation.y = Math.PI;
   }
 
-  /**
-   * A target marker sitting on the skin at a zone's position.
-   *
-   * The ring's radius is the zone's actual radius, so what the player aims at
-   * and what the drill scores are the same circle. A decorative marker at a
-   * different size would be a lie told in the most visible possible place.
-   */
+  /** A target marker sitting on the skin at a zone's position. */
   private buildMarker(zone: HitZone, s: number): ZoneMarker {
     const { lateral, height } = zone.centre;
     const depth = surfaceDepth(lateral, height, this.spec);
@@ -324,12 +286,6 @@ export class PunchingDummy {
     if (columnMat.map) this.disposables.push(columnMat.map);
 
     // The collar: a socket the body plugs into.
-    //
-    // It exists for the "figure" body specifically. Clipping a skinned mesh
-    // leaves an open cross-section - a torso is a shell, so cutting it shows
-    // the inside of the chest. The collar is a solid cap wide enough to cover
-    // that hole, and it reads as the mounting socket a real dummy's torso sits
-    // in rather than as a patch over a mistake.
     const collarTop = halfWidthAt(this.spec.base, this.spec) * s * 1.14;
     const collarHeight = (body === "figure" ? 0.3 : 0.16) * s;
     const collar = new THREE.Mesh(
@@ -386,19 +342,7 @@ export class PunchingDummy {
     return g;
   }
 
-  /**
-   * Re-seats every marker onto the surface of a supplied figure.
-   *
-   * The moulded body's surface is known analytically; a character's is not, so
-   * the markers are raycast onto the real mesh. Without this they sit at the
-   * moulded spec's depth, and wherever the character is thicker than that spec
-   * the marker is buried inside the chest - invisible, and silent about it.
-   *
-   * This reads the character mesh, and is allowed to: it decides where to draw
-   * a decal. The zone's position in torso units is unchanged and hit
-   * resolution never comes near this, so what you hit still does not depend on
-   * how it is drawn.
-   */
+  /** Re-seats every marker onto the surface of a supplied figure. */
   projectMarkersOnto(figure: THREE.Object3D): void {
     figure.updateMatrixWorld(true);
     this.group.updateMatrixWorld(true);
@@ -438,15 +382,7 @@ export class PunchingDummy {
     for (const [id, m] of this.markers) m.lit = id === zoneId ? 1 : 0;
   }
 
-  /**
-   * The physical reaction to being hit.
-   *
-   * Separate from `score` because the two are caused by different things. A
-   * dummy rocks when it is punched - always, including in free work where
-   * nothing is scored and no target is lit. Folding the rock into the scoring
-   * call would leave the dummy standing perfectly still while being hit
-   * whenever a drill was not running, which reads as broken hit detection.
-   */
+  /** The physical reaction to being hit. */
   impact(power: number): void {
     // An impulse rather than a set angle, so a fast combination compounds
     // instead of each punch resetting the last.
@@ -508,15 +444,7 @@ export class PunchingDummy {
     return m.ring.getWorldPosition(out);
   }
 
-  /**
-   * Disposes everything this built.
-   *
-   * Only what is in `disposables`, which is the list of things this class
-   * Created. A supplied figure belongs to the caller - and materials are
-   * shared across the stand's ribs by design, so traversing and disposing per
-   * mesh would double-dispose. This project has already been bitten by exactly
-   * that with SkeletonUtils.clone sharing materials by reference.
-   */
+  /** Disposes everything this built. */
   dispose(): void {
     for (const d of this.disposables) d.dispose();
   }

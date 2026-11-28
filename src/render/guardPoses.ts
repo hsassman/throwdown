@@ -4,24 +4,6 @@ import type { DrivenBoneName } from "./retargeting/rigJointMap";
 import type { GuardPosture } from "../sim/fightState";
 
 // ONE guard, one implementation, for both fighters.
-//
-// These tables lived inside opponentAnimator.ts, which meant only the CPU
-// fighter had a rest pose. The player's figure is driven from the camera, and
-// when there is nobody in frame — before they step in, or any time tracking
-// drops — every bone eased back toward its BIND rotation. The rig's bind pose
-// is a T-pose, so the first thing a new player saw of their own fighter was a
-// man standing with his arms out sideways.
-//
-// Extracted rather than duplicated for the reason crouch.ts was: two copies of
-// a guard drift, and a guard that differs between the two fighters is a guard
-// the player learns wrong.
-//
-// The angles are anatomical, not decorative. The upper arm hangs down and
-// slightly FORWARD and the forearm comes up and slightly IN, which leaves
-// about 55 degrees at the elbow — a real guard. An earlier version had the
-// upper arm dead vertical with the elbow flared and the forearm folded back on
-// it, which reads as a shrug and left the gloves at the sides of the head
-// rather than in front of it.
 
 /** An arm pose, as unit-ish directions in the FIGURE's own frame. */
 export interface ArmPose {
@@ -29,16 +11,10 @@ export interface ArmPose {
   lowarm: THREE.Vector3;
 }
 
-/**
- * The three arm poses everything is interpolated between.
- *
- * Expressed for the LEFT arm and mirrored in x for the right, so a change to
- * the guard cannot accidentally be made to one side only — precisely the
- * mirrored-handedness bug this project has already hit twice.
- */
+/** The three arm poses everything is interpolated between. */
 export const POSES: Record<"cocked" | "guard" | "extended", ArmPose> = {
   // Drawn back: elbow behind the ribs, glove up beside the ear. This is the
-  // telegraph, and it has to be large — it is the only warning the player
+  // telegraph, and it has to be large - it is the only warning the player
   // gets, and their own input arrives through a webcam at ~15 FPS, so a subtle
   // wind-up is not a wind-up.
   cocked: {
@@ -50,7 +26,7 @@ export const POSES: Record<"cocked" | "guard" | "extended", ArmPose> = {
     uparm: new THREE.Vector3(0.12, -0.93, 0.35),
     lowarm: new THREE.Vector3(-0.18, 0.8, 0.57),
   },
-  // Committed: the arm straight out along the punch. The `z` here is nominal —
+  // Committed: the arm straight out along the punch. The `z` here is nominal -
   // the opponent's `throw()` replaces the vertical component so the punch
   // actually points at what it is aimed at.
   extended: {
@@ -72,13 +48,7 @@ export const NO_GUARD: ArmPose = {
   lowarm: new THREE.Vector3(0.05, -0.75, 0.66),
 };
 
-/**
- * The two bones each hand's arm poses through.
- *
- * Named ARM_CHAIN, not ARM_BONES: mediapipeToMhrRig already exports an
- * ARM_BONES, which is a flat list of the four arm bones for limb measurement.
- * Two different shapes under one name is how a wrong-constant bug starts.
- */
+/** The two bones each hand's arm poses through. */
 export const ARM_CHAIN: Record<
   "left" | "right",
   { uparm: DrivenBoneName; lowarm: DrivenBoneName }
@@ -103,15 +73,7 @@ export function restPoseFor(guard: GuardPosture): ArmPose {
 const _world = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
 
-/**
- * Writes one arm's guard straight onto the rig.
- *
- * `figure` supplies the frame: the pose table is in the FIGURE's own axes, and
- * asking the rig for its world rotation rather than assuming one means a stage
- * that places a fighter at any angle still poses correctly. The rig's `l_*`
- * bones sit at +X, so the right arm is the left arm with x negated — mirrored
- * HERE, once, rather than by authoring two tables that could drift apart.
- */
+/** Writes one arm's guard straight onto the rig. */
 export function applyGuardArm(
   figure: THREE.Object3D,
   binds: Map<DrivenBoneName, BoneBindData>,

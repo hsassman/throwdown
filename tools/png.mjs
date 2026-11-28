@@ -1,15 +1,4 @@
 // A minimal PNG reader, so the smoke test can assert on PIXELS.
-//
-// Why this exists: every visual failure this project has had would have
-// survived a green unit suite — a mesh that renders as nothing, an arena built
-// into the wrong scene, a fighter lit from behind and reading as a silhouette.
-// The smoke test could already prove the app RUNS. This lets it prove
-// something is actually THERE.
-//
-// Handles exactly what Playwright's page.screenshot() produces: 8-bit RGB or
-// RGBA, non-interlaced, one IHDR and one or more IDAT chunks. Anything else
-// throws rather than guessing, because a reader that silently mis-decodes
-// would make every assertion built on it meaningless.
 
 import { inflateSync } from "node:zlib";
 

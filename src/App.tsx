@@ -66,32 +66,12 @@ type Screen = string | null;
 
 // Root view.
 // One screen at a time, chosen from the menu
-//
-// This replaces the tab strip the app grew during Milestones 0 and 1. That was
-// a developer's view of the project - one tab per milestone - and it made
-// every mode equally prominent regardless of whether it worked. The menu now
-// owns that decision and states plainly what is ready, rough, or not built.
-//
-// The camera and pose pipeline are owned here, above the screen, and stay
-// mounted across navigation. Tearing down MediaPipe on every menu press would
-// cost a second of re-initialisation each way, and the menu itself is driven
-// by the pose stream - so the tracking has to be running before the player can
-// choose anything.
 
 export default function App() {
   const { preferences, changePreference } = useUiPreferences();
   const [started, setStarted] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
-  /**
-   * Developer diagnostics: FPS, frame intervals, inference cost, ROI crop.
-   *
-   * Off by default, and that is a correctness point as much as a cosmetic one.
-   * This panel used to render on every screen, which made raw perf telemetry
-   * the most visually prominent thing on screen during a fight - the player
-   * read a wall of monospace numbers instead of watching the opponent. It is
-   * still one keypress away, and the Tracking screen shows it unconditionally
-   * because diagnosing the pipeline is that screen's entire job.
-   */
+  /** Developer diagnostics: FPS, frame intervals, inference cost, ROI crop. */
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   // ?mode=<id> opens a mode directly: shareable links, and tools that skip the menu.
   const [screen, setScreen] = useState<Screen>(() => {
@@ -207,25 +187,13 @@ export default function App() {
   /**
    * The player's live body channels, published by the renderer and read by the
    * fight loop to work out the gap between the fighters.
-   *
-   * The one BodyMotionTracker lives in the rig driver. Passing its output
-   * around by reference keeps it that way - a second tracker here would have
-   * its own neutral, and the two would disagree about where the player is
-   * standing, which is precisely the value the range depends on.
    */
   const bodyRef = useRef<BodyMotion | null>(null);
 
   /** Which venue the Stages screen is showing. */
   const [stage, setStage] = useState<StageId>("octagon");
 
-  /**
-   * The link to another player, when there is one.
-   *
-   * Nothing connects and no pose leaves the machine until the Same Network
-   * screen is open - a network layer that opened itself on mount would be
-   * streaming the player's tracked body somewhere before they asked for a
-   * fight.
-   */
+  /** The link to another player, when there is one. */
   const session = useSession({
     enabled: onLan,
     poseRef,
@@ -434,16 +402,7 @@ export default function App() {
   const stage3d = onDummy || inFight;
   const inMenu = screen === null;
 
-  /**
-   * Does the side panel hold anything beyond its own header?
-   *
-   * With the developer diagnostics hidden by default, a plain CPU fight has
-   * Nothing to put in that column - it was a quarter of the screen of empty
-   * background sitting beside the one thing the player is actually looking at.
-   * When there is nothing to show, the stage takes the whole width and the
-   * header floats over it, which is also simply the right way to present a
-   * fight.
-   */
+  /** Does the side panel hold anything beyond its own header? */
   const panelExtras =
     wardrobe ||
     onDummy ||
@@ -487,14 +446,6 @@ export default function App() {
   );
 
   // One tree, one <video>.
-  //
-  // This used to early-return a separate menu tree with its own <video> in it.
-  // React then unmounted one element and mounted another on every navigation,
-  // the webcam ref pointed at a fresh element with no stream, and the camera
-  // died the moment you entered a mode - live camera, green light, frozen
-  // picture, no error. So the camera block below is rendered once, at a stable
-  // position in the tree, and only its class changes between screens.
-  // The walkthrough shows the player themselves: half of it is framing.
   const camClass = stage3d
     ? "cam-inset"
     : coaching

@@ -2,9 +2,6 @@
 // shapes so the underlying pose model can be swapped (e.g. to MoveNet, one of
 // the fallbacks in the risk log) without touching the
 // perception, simulation or render layers.
-//
-// Ported from the Flap project's pose/poseTypes.ts and extended with the head
-// landmarks Shadow Box needs for dodge/duck detection (Milestone 2).
 
 export interface Keypoint {
   x: number; // normalized [0,1], relative to video width
@@ -19,13 +16,7 @@ export interface Keypoint {
   confidence: number; // visibility / presence score [0,1]
 }
 
-/**
- * The subset of the 33 BlazePose landmarks this project actually consumes.
- *
- * Arm chain (shoulder/elbow/wrist) drives punch classification; head landmarks
- * drive dodge/duck; hips give a torso reference for scale normalization so
- * thresholds work at different distances from the camera.
- */
+/** The subset of the 33 BlazePose landmarks this project actually consumes. */
 export interface PoseFrame {
   timestamp: number;
 
@@ -53,13 +44,6 @@ export interface PoseFrame {
   // Only the cosmetic retargeting layer (Track B) reads these: legs give the
   // character a stance, hand points give its fists an orientation. They are
   // optional for two reasons, and both are deliberate:
-  //
-  //  - Perception must not quietly grow a dependency on a landmark whose
-  //    thresholds have never been calibrated. Anything under perception/ that
-  //    wants one has to handle its absence explicitly.
-  //  - At a desk webcam the legs are frequently out of frame entirely, so
-  //    "absent" is the normal case, not an error. Consumers leave the
-  //    corresponding bones at rest rather than guessing.
   leftKnee?: Keypoint;
   rightKnee?: Keypoint;
   leftAnkle?: Keypoint;

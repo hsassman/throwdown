@@ -3,12 +3,6 @@ import type { StrikeEvent } from "../perception/strikeResolver";
 import { coarseZone, regionAt, type ImpactPoint } from "../perception/strikeGeometry";
 
 // A builder for synthetic strikes, shared by the training tests.
-//
-// It deliberately derives `zone` and `region` from the impact point using the
-// real strikeGeometry functions, rather than letting each test hand-write
-// them. A test fixture that carried a hand-chosen region would happily assert
-// that a punch to the temple scored as a liver shot, and the test would pass.
-// Everything a test can get wrong by hand, it gets right by construction here.
 
 export interface StrikeSpec {
   impact: ImpactPoint;

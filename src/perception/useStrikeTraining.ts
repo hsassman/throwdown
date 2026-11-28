@@ -7,28 +7,11 @@ import {
 } from "./strikeResolver";
 
 // Runs the strike resolver off the pose stream.
-//
-// Subscribed to the pose layer's strike stream rather than polling a ref once
-// per animation frame. Polling dropped every sample that arrived while a
-// frame was late - under load, in the middle of an exchange - and a punch is
-// only two or three samples long at 19 FPS, so one dropped sample could be the
-// whole strike. Nothing here depends on where the pose came from. Landed
-// strikes go into a queue the render layer drains, rather than through React
-// state - at pose rate a state update per strike would re-render the tree in
-// the middle of a combination.
 
 export interface StrikeTrainingHandle {
   /** Queue of strikes the renderer has not yet played. Drained by the caller. */
   strikeQueueRef: React.RefObject<StrikeEvent[]>;
-  /**
-   * Subscribes to every resolved strike.
-   *
-   * Separate from `strikeQueueRef` on purpose. The queue is drained by whoever
-   * reads it, so it supports exactly one consumer - the renderer, which plays
-   * each hit on the target. The simulation is a second, independent consumer
-   * that must see every strike too, and adding a second drainer would mean the
-   * two race and each gets roughly half the punches.
-   */
+  /** Subscribes to every resolved strike. */
   subscribe: (cb: (strike: StrikeEvent) => void) => () => void;
   /** Live reach/zone readout for the diagnostics panel. */
   debugRef: React.RefObject<StrikeDebugState | null>;

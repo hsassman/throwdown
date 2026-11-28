@@ -5,19 +5,6 @@ import type { HandSide } from "../perception/punchTypes";
 import { torsoScaleOf, type PoseFrame } from "../pose/poseTypes";
 
 // The first-run walkthrough, as a step machine with no React and no DOM.
-//
-// A new player arrives at a menu they are meant to drive with their hand, in
-// a game that needs them a couple of metres back with their hips in view. The
-// menu cannot teach that - by the time it works, the lesson has been learned.
-// So three things, in order, each one confirmed by the camera rather than by a
-// "Next" button: stand where you can be seen, guard up, throw one with each
-// hand. A step that the camera has confirmed is the only proof the player has
-// that the tracking works on their machine, in their room.
-//
-// Nothing here has its own idea of a guard or a punch. The guard is the
-// fight's own rule (guardHeightOf against FIGHT_CONFIG.guardHighEnter) and
-// the punches come from the one StrikeResolver, so what the walkthrough
-// accepts is exactly what a fight will count.
 
 export type FirstRunStep = "frame" | "guard" | "punch" | "ready";
 

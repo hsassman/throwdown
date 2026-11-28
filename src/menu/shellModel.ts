@@ -1,8 +1,5 @@
 // What the game offers, as one flat list. Big targets, one confirm to enter
 // anything: the main input is a hand held in the air.
-//
-// Every entry states what it is. Anything locked needs a `lockedReason`;
-// shellModel.test.ts enforces it.
 
 export type Availability = "ready" | "preview" | "locked";
 

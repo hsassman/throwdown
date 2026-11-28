@@ -2,34 +2,6 @@ import * as THREE from "three";
 import { FACE_CONFIG } from "../../config/tuning";
 
 // Visible facial damage: swelling, cuts, bleeding, and the eyes themselves.
-//
-// Two layers, because swelling and bleeding are not the same kind of thing.
-// Swelling changes the shape of a face - an eye closes because the tissue
-// around it puffs up until the lids meet, and a painted "swollen eye" on an
-// undeformed face reads as a smudge. Blood, bruising and the eyes are surface
-// colour, and deforming geometry for those would be absurd. Both are driven
-// from the same damage state, so an eye 70% swollen is 70% closed and 70%
-// discoloured.
-//
-// The first attempt scaled the `l_eye` / `r_eye` bones. Counting the actual
-// skin weights disproved it:
-//
-//     l_eye  totalWeight=0.00    dominantVerts=0
-//     r_eye  totalWeight=0.00    dominantVerts=0
-//     c_jaw  totalWeight=173.64  dominantVerts=178
-//
-// The eye bones carry no weight at all - this LOD has no eyeball geometry and
-// the eye area is plain head skin - so bone-scaled eye swelling was a silent
-// no-op. `c_jaw` is real, so cheek and jaw puff do go through the bones, and
-// eye closure drives generated eyelid geometry instead (see eyes.ts).
-//
-// The mesh's 117 morph targets would have given finer control, but FBX2glTF
-// dropped their names so they could not be addressed. The Blender pipeline
-// strips them and generates named damage morphs instead
-// (blender/scripts/06_eyes.py), which is the route this should eventually take.
-//
-// The lids rotate shut on an arc centred on the eyeball. A scaled lid would
-// slide through the eyeball surface; a real lid sweeps.
 
 /** Which facial structure took damage. Mirrors strikeGeometry's region ids. */
 export type FaceSite = "eyeLeft" | "eyeRight" | "cheekLeft" | "cheekRight" | "nose" | "jaw";
@@ -65,9 +37,6 @@ const SITES: FaceSite[] = [
 /**
  * Maps an anatomical region id from strikeGeometry onto the facial sites a hit
  * there would damage, with how much of the blow each one absorbs.
- *
- * A hook to the temple swells the eye on that side as well as the cheek, which
- * is why these are weighted lists rather than one site per region.
  */
 const REGION_TO_SITES: Record<string, [FaceSite, number][]> = {
   temple_left: [
@@ -104,15 +73,7 @@ const REGION_TO_SITES: Record<string, [FaceSite, number][]> = {
 export interface FaceDamageOptions {
   /** The figure whose bones are scaled. */
   root: THREE.Object3D;
-  /**
-   * Called when the damage state has changed and the texture needs a repaint.
-   *
-   * Deliberately a signal rather than a painter. The body texture rebuilds
-   * itself from a clean base on every repaint, so anything this class painted
-   * directly would be wiped on the next bruise tick. The painting is
-   * registered as an overlay on that texture instead, and this just says
-   * "something changed".
-   */
+  /** Called when the damage state has changed and the texture needs a repaint. */
   onChanged?: () => void;
 }
 
@@ -176,13 +137,7 @@ export class FaceDamage {
     this.applySwelling();
   }
 
-  /**
-   * Records a landed strike.
-   *
-   * `regionId` comes straight from strikeGeometry's anatomical table, so the
-   * damage model and the hit model cannot drift apart - there is no second
-   * mapping of "where did that land" to maintain.
-   */
+  /** Records a landed strike. */
   hit(regionId: string, power: number): void {
     const targets = REGION_TO_SITES[regionId];
     if (!targets || targets.length === 0) return;
@@ -247,14 +202,7 @@ export class FaceDamage {
     }
   }
 
-  /**
-   * Pushes the damage state onto the bones.
-   *
-   * The eye bone is scaled down along the lid axis as swelling rises, not up.
-   * Scaling it up would bulge the eyeball outward like a cartoon, whereas a
-   * real swollen eye closes because the surrounding tissue squeezes it shut.
-   * The jaw bone takes a small outward scale for a puffed cheek.
-   */
+  /** Pushes the damage state onto the bones. */
   private applySwelling(): void {
     const cfg = FACE_CONFIG;
 

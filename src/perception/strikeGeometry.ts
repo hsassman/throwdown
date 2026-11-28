@@ -1,36 +1,8 @@
 // Where a strike lands and how it arrived, as continuous quantities.
-//
-// The original design classified a punch into {jab, cross, hook, uppercut} and
-// keyed everything downstream off that label, which made the four-way
-// classifier load-bearing - and it is the least reliable thing in the project
-// (~19%).
-//
-// That was a modelling mistake, not just a risk. A strike has a landing point
-// and an arrival direction, both continuous, and an anatomical mesh can be
-// struck anywhere. "Jab" names one small neighbourhood of that space: a useful
-// description, a terrible primitive. So the model inverts:
-//
-//   before   landmarks -> classify into 4 types -> look up canned effect
-//   after    landmarks -> continuous (impact point, approach vector)
-//                      -> region and damage fall out of geometry
-//                      -> a punch name is derived last, for the HUD only
-//
-// Which means nothing fails to land because the classifier could not name it;
-// the target map can be refined without touching perception; a liver shot and
-// a shoulder graze differ by where they landed; and the classifier is free to
-// be wrong, because it drives a caption.
-//
-// Standing rules from strikeResolver.ts hold here too: landmarks only, never
-// the character mesh, and MediaPipe's z is never read.
 
 import { STRIKE_CONFIG } from "../config/tuning";
 
-/**
- * Where a strike landed, in the target's own body frame, in torso units.
- *
- * Body frame rather than image coordinates so the numbers survive the player
- * walking around the room, standing closer, or being a different size.
- */
+/** Where a strike landed, in the target's own body frame, in torso units. */
 export interface ImpactPoint {
   /**
    * Offset from the midline. Expressed from the puncher's point of view, so
@@ -102,13 +74,7 @@ interface RegionRule extends BodyRegion {
   side?: -1 | 1;
 }
 
-/**
- * The anatomical map. First match wins, so narrower entries come first.
- *
- * Heights are in shoulder-to-hip units, which makes them proportional to the
- * fighter rather than absolute: a tall fighter's chin is still at ~1.25 of
- * their own torso. That is the reason for normalising at all.
- */
+/** The anatomical map. First match wins, so narrower entries come first. */
 const REGIONS: RegionRule[] = [
   // --- Head -------------------------------------------------------------
   {
@@ -319,14 +285,7 @@ export function allRegions(): BodyRegion[] {
   }));
 }
 
-/**
- * Classifies how a strike arrived, from its velocity at impact.
- *
- * This is the one place a punch "type" still appears, and it is deliberately
- * not a trained classifier or a scoring contest between four hypotheses. It is
- * a direction, bucketed. It cannot fail in a way that loses a hit, because the
- * hit has already been resolved by the time this is called.
- */
+/** Classifies how a strike arrived, from its velocity at impact. */
 export function approachOf(vx: number, vy: number, vz: number): Approach {
   const mag = Math.hypot(vx, vy, vz);
   if (mag < 1e-6) {
@@ -350,19 +309,7 @@ export function approachOf(vx: number, vy: number, vz: number): Approach {
   return { x: nx, y: ny, z: nz, directness, arc };
 }
 
-/**
- * Damage for a landed strike.
- *
- * Multiplicative rather than additive so the three inputs stay independently
- * tunable, and so a weak strike to a strong target cannot out-damage a
- * committed one to a weak target purely by table value.
- *
- * The arc bonus is where boxing knowledge enters: an upward strike to the
- * chin rotates the head, which is what actually produces a knockout, whereas
- * the same force straight into the chin mostly pushes someone backwards. So
- * "rising" is rewarded on the chin and jaw specifically - not everywhere,
- * which would just be a flat bonus for uppercuts.
- */
+/** Damage for a landed strike. */
 export function damageOf(
   region: BodyRegion,
   power: number,
@@ -376,14 +323,7 @@ export function damageOf(
   return region.damage * power * rotational;
 }
 
-/**
- * Coarse 2x3 zone for the landing point.
- *
- * Kept because the texture map and the training target's reaction animations
- * are authored against it. It is now derived from the continuous point rather
- * than being the primary measurement, which is the whole change: the fine
- * position exists first, and this is a lossy view of it.
- */
+/** Coarse 2x3 zone for the landing point. */
 export function coarseZone(point: ImpactPoint): {
   height: "head" | "body";
   lane: "left" | "centre" | "right";

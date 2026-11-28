@@ -63,7 +63,7 @@ describe("pose frames", () => {
   it("keeps the timestamp to sub-millisecond precision", () => {
     // Carried as a float64 for this reason: performance.now() runs into the
     // millions of milliseconds in a long session, where a float32 has already
-    // lost whole milliseconds — and the timestamp is what the latency estimate
+    // lost whole milliseconds - and the timestamp is what the latency estimate
     // and the pose predictor both key off.
     const sent = { ...frame(), timestamp: 9_876_543.211 };
     const got = decode(encode({ kind: "pose", frame: sent }));

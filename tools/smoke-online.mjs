@@ -1,22 +1,5 @@
 // End-to-end test of online play: the real .NET matchmaking server and two
 // headless browsers, each pressing "Find a match".
-//
-// The unit tests cover the hub, the queue and the client state machines one
-// at a time. This is the only check that they agree with each other over a
-// real socket and a real WebRTC connection - the same reason smoke-shell.mjs
-// opens two pages for Same Network.
-//
-// Needs three things running (CI does all three, see .github/workflows/ci.yml):
-//   1. The server:   Cors__AllowedOrigins__0=http://localhost:4173 \
-//                    dotnet run --project server/Throwdown.Server --urls http://localhost:5160
-//   2. A build that points at it, served:
-//                    VITE_MATCHMAKING_URL=http://localhost:5160/hubs/matchmaking npm run build
-//                    npm run preview
-//   3. This script:  node tools/smoke-online.mjs
-//
-// Fake camera, like smoke-shell.mjs: enough for the app to start, not a test
-// of tracking. Two pages on one machine connect over host candidates, so no
-// STUN or TURN server is needed for this test.
 
 import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";

@@ -1,22 +1,4 @@
 // Impact sound, synthesised. No audio files.
-//
-// Procedural rather than samples for three reasons. Licensing: the stack has
-// to be licence-clean and this project has already been bitten once, when the
-// glove mesh from 3D_models/ turned out to be ripped game content. Free sound
-// packs are the same trap with worse provenance. Continuity: the hit model is
-// continuous in position, power and approach angle, so a glancing graze and a
-// flush right hand are two points on one curve rather than two files. Size: a
-// few kB against several MB.
-//
-// A punch is three layers, and the synthesis reproduces them:
-//   Slap  a wideband noise transient, glove leather on skin. Short, bright,
-//         and most of the perceived crack.
-//   Thud  a low body resonance, tissue and bone. Longer and pitched; what
-//         makes a shot feel heavy rather than sharp.
-//   Tail  room. Short in a gym, longer in an arena.
-//
-// Head shots are brighter and shorter (bone near the surface), body shots
-// darker and longer (mass and air). That axis does most of the work.
 
 import type { StrikeEvent } from "../perception/strikeResolver";
 import { getSharedAudioContext } from "./sharedContext";

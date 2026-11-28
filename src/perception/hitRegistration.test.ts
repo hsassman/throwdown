@@ -7,21 +7,6 @@ import type { Keypoint, PoseFrame } from "../pose/poseTypes";
 // End-to-end hit registration: synthetic punches, with landmark noise, at the
 // pose rates the game actually runs at, through the filter that really sits
 // in front of the resolver.
-//
-// strikeResolver.test.ts checks the resolver's rules on clean input. This
-// file checks the numbers those rules add up to - how many real punches
-// register, and how many non-punches do not - because every one of the
-// problems fixed alongside it passed the rule-level tests:
-//
-// - The display filter lagged straight punches thrown down the lens so badly
-//   that none of them registered.
-// - The speed gate read on-screen speed only, which a straight barely has.
-// - Speed from two consecutive samples was dominated by jitter.
-// - Power depended on where in the punch the camera happened to sample.
-//
-// Same caveat as perception/synthetic.ts: these are idealised motions. They
-// prove the pipeline does not throw away punches a clean signal contains; they
-// say nothing about how clean the real signal is.
 
 /** Seeded, so a failure reproduces. */
 function makeNoise(seed: number) {

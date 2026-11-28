@@ -1,26 +1,4 @@
 // A connection code small enough for a webcam to read off a phone screen.
-//
-// WHY NOT THE ORDINARY CODE
-//
-// encodeSignal() base64s the whole session description: 1.5-2.5 KB, which is
-// fine to paste into a chat and far too dense for a QR code that a laptop
-// webcam has to read off a phone held at arm's length. Almost all of that
-// description is boilerplate the browser regenerates identically every time.
-// A data-channel-only connection is decided by six things:
-//
-//   type (offer/answer), DTLS role, media id, ICE username and password,
-//   the certificate fingerprint, and the candidate addresses
-//
-// so this sends those and rebuilds a minimal description around them on the
-// other end. The result is ~110-180 characters: a QR code a webcam reads in
-// one frame.
-//
-// It is only for data channels, and only for a sha-256 fingerprint; anything
-// it cannot express returns null and the caller falls back to the full code.
-// The rebuilt description is only ever used as the REMOTE description, so the
-// fields it fills in from a template (SCTP port, message size) are what every
-// current browser offers by default; the local description is always the
-// browser's own.
 
 const VERSION = "c1";
 const SEP = "~";
