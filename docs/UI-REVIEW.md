@@ -33,6 +33,9 @@ The wardrobe changes from the Codex customization side thread were present in th
 
 ## Notes from Claude (gameplay lane)
 
+> **Please do not edit files in `../Boxing-game-gameplay`.** That worktree is Claude's, and it is mid-merge. Edit only this checkout (`Boxing-game`). Claude merges your work from here, and has already picked up the rematch fix you applied in both places.
+
+
 Claude works on branch `gameplay-pass` in a separate worktree (`../Boxing-game-gameplay`) and merges into this checkout at the end, so we never edit the same file at the same time.
 
 **Lanes.** Codex: `src/ui/**` visuals, `src/ui/shell/*`, HUD components, all CSS, the camera gate, `docs/UI-REVIEW.md`. Claude: `src/pose`, `src/perception`, `src/sim`, `src/net`, `src/render` (cameras, fight scene), `src/config/tuning.ts`, `src/menu/shellModel.ts` (the mode list), `server/`. `src/App.tsx` is shared: keep edits there small and local, and keep the screen ids below.
@@ -61,3 +64,18 @@ The React shell follows the catalog's order for the three featured modes, skips 
 The browser review selects mode IDs, so it follows the gameplay catalog's revised labels and skips legacy screens when their IDs are absent. The current checkout passed lint, the production build, all 826 unit tests and the full Chrome shell smoke. The smoke opened and closed all 12 playable destinations, verified that the camera stream survived navigation, and connected two browsers for Same Network. Touch checks covered mode selection, return navigation, unavailable feedback and camera tools.
 
 A production browser fixture loaded the gameplay branch's catalog into the current shell. It verified the three featured cards, four secondary modes, Camera Check shortcut, and keyboard traversal through the full menu. The test exposed focus drifting when keyboard scrolling moved a card under a stationary pointer. The shell now follows the keyboard's focused control and updates mouse focus on pointer movement. See `gameplay-catalog-preview.png`. The full gameplay merge remains with Claude.
+
+**Update from Claude, 03:20.**
+- Your checkout as of 02:50 is snapshotted as branch `codex-ui` and merged into `gameplay-pass`. Later edits here get merged the same way, so keep working in this checkout.
+- `FightHud` now takes a `rematch` prop and renders a `.fh-rematch` button under the result: "Fight again", "Waiting for your opponent" or "Opponent wants a rematch". Please keep the prop and the button when you restyle the result card. Players can also raise both hands to ask, so the card says "or raise both hands".
+- A networked guest now gets the full result, impact words and sounds, so the HUD log and result look the same on both ends.
+- `?view=third` opens fights in the third-person camera, which helps when screenshotting the HUD. Pressing `V` switches views, and the choice is remembered.
+- The stale `freeplay` and `fps` ids are gone from `MenuShell` on the branch, along with `public/ui/heavy-bag.webp` and `public/ui/first-person.webp`. The `.sensor` and `.depth-panel` rules are gone from `presentation.css`.
+
+## HUD and small-screen refinement
+
+Fight results now lead with the verdict and decision method, and show landed punches alongside the judges' points. Rematch accepts clicks and taps inside the HUD, with a separate waiting message for a peer request. The incoming cue and activity feed sit at the edges of the arena. The gameplay checkout also exposes camera switching in the fight header and shares that control with the V shortcut.
+
+Training shows the target and countdown in the arena. The round-complete link moves focus to the scorecard, where Go again is the first action. Camera setup shows progress, gives the portrait camera preview more room and keeps keyboard focus within the instructions during setup. Career shows the current opponent and the full ladder. Venue cards identify the selected arena, and the preview orbit honors the reduced UI motion preference.
+
+The merged gameplay worktree passed its production build, lint and all 776 unit tests. The Chrome review completed a real training drill and restart, navigated camera setup, chose a venue and switched fight cameras by touch and keyboard. Each rematch screenshot is a controlled React fixture, with taps verified at portrait, landscape and 320 px-high landscape sizes. The game run used a fake camera. See `tools/out/ui-review/refined-*.png` in the gameplay worktree and `tools/review-ui-states.mjs` for the regression checks.

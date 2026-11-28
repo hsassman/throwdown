@@ -1,24 +1,23 @@
-import type { FightHudState } from "../sim/useFight";
+import type { ReactNode } from "react";
+import type { FightHudState, FightResult } from "../sim/useFight";
 import "./fightHud.css";
-
-// The in-fight overlay.
-//
-// Laid out the way a broadcast graphic is - both fighters' bars mirrored across
-// a central clock - because that is the arrangement people can read without
-// looking at it, which matters here more than usual: the player is physically
-// throwing punches and will catch this in peripheral vision at best.
-//
-// Stamina sits under health as a thinner bar rather than beside it, because the
-// two are read at different moments. Health is glanced at constantly; stamina
-// is checked when deciding whether to commit to a combination.
 
 interface Props {
   hud: FightHudState;
-  /** Shown over the opponent while they wind up. This is the only reason the
-   *  CPU's telegraph is legible to a player who is looking at the character
-   *  rather than at an animation they have learned. */
   showWindup?: boolean;
+  rematch?: { onRematch: () => void; waiting: boolean; opponentReady: boolean } | null;
 }
+
+const RESULT_TITLE: Record<FightResult["kind"], string> = {
+  win: "You win",
+  loss: "Opponent wins",
+  draw: "Draw",
+};
+const RESULT_METHOD: Record<FightResult["reason"], string> = {
+  ko: "Knockout",
+  tko: "Technical knockout",
+  decision: "Judges’ decision",
+};
 
 function clock(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -31,11 +30,13 @@ function Bars({
   name,
   health,
   stamina,
+  children,
 }: {
   side: "left" | "right";
   name: string;
   health: number;
   stamina: number;
+  children?: ReactNode;
 }) {
   return (
     <div className={`fh-fighter fh-${side}`} data-critical={health <= 25}>
@@ -63,12 +64,14 @@ function Bars({
       >
         <span style={{ width: `${Math.max(0, Math.min(1, stamina)) * 100}%` }} />
       </div>
+      {children}
     </div>
   );
 }
 
-export function FightHud({ hud, showWindup = true }: Props) {
+export function FightHud({ hud, showWindup = true, rematch = null }: Props) {
   const over = hud.phase === "stopped" || hud.phase === "decision";
+  const result = hud.result;
 
   return (
     <div className="fight-hud">
@@ -81,7 +84,7 @@ export function FightHud({ hud, showWindup = true }: Props) {
         />
         <div className="fh-centre">
           <div className="fh-round">Round {hud.round}</div>
-          <div className={`fh-clock ${hud.clock < 10 ? "is-low" : ""}`}>
+          <div className={`fh-clock ${hud.phase === "fighting" && hud.clock < 10 ? "is-low" : ""}`}>
             {clock(hud.clock)}
           </div>
           {hud.phase === "between" && <div className="fh-phase">Rest</div>}
@@ -91,32 +94,21 @@ export function FightHud({ hud, showWindup = true }: Props) {
           name="Opponent"
           health={hud.opponent.health}
           stamina={hud.opponent.stamina}
-        />
+        >
+          {!over && showWindup && hud.windup > 0 && (
+            <div className="fh-windup" aria-label="Opponent winding up" role="status">
+              <span>Incoming</span>
+              <i aria-hidden="true"><b style={{ transform: `scaleX(${hud.windup})` }} /></i>
+            </div>
+          )}
+        </Bars>
       </div>
 
-      {showWindup && hud.windup > 0 && (
-        // Deliberately loud. The whole design of the CPU rests on its wind-up
-        // being readable, and 260ms is not long enough to notice something
-        // subtle while you are also moving.
-        <div className="fh-windup" role="status" aria-label="Opponent winding up">
-          <span style={{ transform: `scaleX(${hud.windup})` }} />
-        </div>
-      )}
-
       {hud.count && (
-        // The count.
-        //
-        // A readout of the simulation's own knockdown window, not a second
-        // rule running beside it: the sim gives a downed fighter
-        // `knockdownSeconds` and then stands them up, and this is that timer
-        // as the number a spectator would hear. An independent 1-to-10 count
-        // that gated nothing would be theatre, and a count that reached ten
-        // while the fighter got up at eight would be a lie.
         <div className="fh-count" role="status" aria-live="assertive">
           <strong>{hud.count.at}</strong>
           <span>{hud.count.who === "player" ? "You are down" : "Opponent down"}</span>
           {hud.count.who === "player" && hud.getUp !== null && (
-            // FPS Mode's get-up: gloves up fills this and stands you up early.
             <div className="fh-getup" role="meter" aria-label="Get up" aria-valuenow={Math.round(hud.getUp * 100)} aria-valuemin={0} aria-valuemax={100}>
               <em>Gloves up to get up!</em>
               <i><b style={{ transform: `scaleX(${hud.getUp})` }} /></i>
@@ -126,26 +118,51 @@ export function FightHud({ hud, showWindup = true }: Props) {
       )}
 
       {over && (
-        <div className="fh-result" role="status">
-          <p className="fh-result-label">Fight result</p>
-          <strong className="fh-result-title">{hud.log[0] ?? "Fight over"}</strong>
-          <div className="fh-cards">
-            {Object.entries(hud.cards).map(([id, score]) => (
-              <span key={id}>
-                {id === "player" ? "You" : "Opponent"} <strong>{score}</strong>
-              </span>
-            ))}
+        <section className="fh-result" aria-labelledby="fight-result-title" data-outcome={result?.kind}>
+          <div className="fh-result-heading" role="status">
+            <p className="fh-result-label">{result ? RESULT_METHOD[result.reason] : "Fight result"}</p>
+            <h2 id="fight-result-title" className="fh-result-title">
+              {result ? RESULT_TITLE[result.kind] : hud.log[0] ?? "Fight over"}
+            </h2>
           </div>
-        </div>
+          <dl className="fh-cards" aria-label="Bout statistics">
+            <Scorecard name="You" points={hud.cards.player} landed={hud.player.landed} />
+            <Scorecard name="Opponent" points={hud.cards.opponent} landed={hud.opponent.landed} />
+          </dl>
+          {rematch && (
+            <div className="fh-result-actions">
+              <button type="button" className="fh-rematch" onClick={rematch.onRematch} disabled={rematch.waiting}>
+                {rematch.waiting ? "Rematch requested" : "Fight again"}
+              </button>
+              <p className="fh-rematch-hint" role="status">
+                {rematch.waiting
+                  ? "Waiting for your opponent."
+                  : rematch.opponentReady
+                    ? "Your opponent is ready."
+                    : "You can also raise both hands."}
+              </p>
+            </div>
+          )}
+        </section>
       )}
 
-      {!over && <ul className="fh-log" aria-live="polite">
+      {!over && <ul className="fh-log" aria-label="Fight activity">
         {hud.log.slice(0, 3).map((line, i) => (
           <li key={`${line}-${i}`} style={{ opacity: 1 - i * 0.18 }}>
             {line}
           </li>
         ))}
       </ul>}
+    </div>
+  );
+}
+
+function Scorecard({ name, points, landed }: { name: string; points?: number; landed: number }) {
+  return (
+    <div className="fh-scorecard">
+      <dt>{name}</dt>
+      <dd><strong>{landed}</strong> Landed</dd>
+      {typeof points === "number" && <dd><strong>{points}</strong> Points</dd>}
     </div>
   );
 }

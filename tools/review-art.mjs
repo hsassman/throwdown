@@ -88,7 +88,7 @@ async function review(view, name) {
     await scroll.evaluate((el) => { el.scrollTop = 0; });
     let hasPhoneCamera = false;
     const screens = [
-      ["dummy", ".thud:has(.thud-target, .thud-done)", "training"],
+      ["dummy", ".thud-score", "training"],
       ["freeplay", ".thud-profile", "free-work", false, true],
       ["cpu", ".fh-clock", "fight"],
       ["fps", ".fh-clock", "first-person", false, true],

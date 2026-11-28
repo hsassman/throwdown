@@ -1,192 +1,147 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import type { DummyTrainingHandle } from "../training/useDummyTraining";
+import type { CoachingNote } from "../training/adaptation";
 import { TRAINING_CONFIG } from "../config/tuning";
 import "./trainingHud.css";
 
-// The training read-out.
-// What it shows, and why it is this and not more
-//
-// A player mid-round can read roughly one number and one word. Everything that
-// matters while punching is on the dummy itself - the lit ring, its colour on
-// impact, the dummy rocking back. This panel carries what you look at between
-// rounds: the three component scores, the streak, and what the system has
-// worked out about your form.
-//
-// The countdown bar is the exception, because a target with an invisible
-// deadline is just an unfair target.
+type TargetState = Pick<DummyTrainingHandle, "litRef" | "running" | "finished">;
+
+export function TrainingTargetHud({ training }: { training: TargetState }) {
+  const { finished, litRef, running } = training;
+  const timeRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const targetRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!running || finished) return;
+    const time = timeRef.current;
+    const label = labelRef.current;
+    const counter = targetRef.current;
+    if (!time || !label || !counter) return;
+
+    let animation = 0;
+    let previousTarget = null as typeof litRef.current;
+    const tick = (now: number) => {
+      const target = litRef.current;
+      if (target !== previousTarget) {
+        label.textContent = target
+          ? target.hand ? target.zone.label + " / " + target.hand + " hand" : target.zone.label
+          : "Get ready";
+        counter.textContent = target ? String(target.index).padStart(2, "0") : "";
+        previousTarget = target;
+      }
+      const remaining = target ? (target.expiresAt - now) / TRAINING_CONFIG.windowMs : 0;
+      time.style.transform = `scaleX(${Math.max(0, Math.min(1, remaining))})`;
+      animation = requestAnimationFrame(tick);
+    };
+    animation = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animation);
+  }, [finished, litRef, running]);
+
+  if (finished) {
+    return <a className="thud-stage-result" href="#training-results">Round complete <span>View results</span></a>;
+  }
+  if (!running) return null;
+  return (
+    <div className="thud-target" aria-label="Training target">
+      <div className="thud-target-content">
+        <span className="thud-target-label" ref={labelRef} role="status">Get ready</span>
+        <span className="thud-target-number" ref={targetRef} aria-hidden="true" />
+      </div>
+      <div className="thud-target-track" aria-hidden="true">
+        <div className="thud-target-bar" ref={timeRef} />
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   training: DummyTrainingHandle;
-  /** False in free work, where nothing is lit and nothing is scored. */
   scored: boolean;
-  /** Starts another round. */
   onRestart: () => void;
 }
 
+const NOTE_LABEL: Record<CoachingNote["kind"], string> = {
+  setup: "Camera setup",
+  technique: "Technique",
+  progress: "Next round",
+};
+
 export function TrainingHud({ training, scored, onRestart }: Props) {
-  const { stats, lastOutcome, notes, profile, storageError, running, finished } =
-    training;
-  const barRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLDivElement>(null);
-
-  // The countdown is written straight to the DOM rather than held in state.
-  // It changes every frame; a state update per frame would re-render this
-  // whole panel sixty times a second to move one bar.
-  useEffect(() => {
-    if (!running) return;
-    let raf = 0;
-    const tick = () => {
-      raf = requestAnimationFrame(tick);
-      const lit = training.litRef.current;
-      const bar = barRef.current;
-      const label = labelRef.current;
-      if (!bar || !label) return;
-      if (!lit) {
-        bar.style.transform = "scaleX(0)";
-        label.textContent = "-";
-        return;
-      }
-      const left = (lit.expiresAt - performance.now()) / TRAINING_CONFIG.windowMs;
-      bar.style.transform = `scaleX(${Math.max(0, Math.min(1, left))})`;
-      label.textContent = lit.hand
-        ? `${lit.zone.label} · ${lit.hand} hand`
-        : lit.zone.label;
-    };
-    tick();
-    return () => cancelAnimationFrame(raf);
-  }, [running, training.litRef]);
-
-  // A finished round has to offer the way on. Without this the drill runs its
-  // twelve targets, stops, and leaves the player standing in front of a dummy
-  // that has silently stopped asking for anything - indistinguishable from the
-  // tracking having died.
-  if (scored && finished) {
-    return (
-      <div className="thud">
-        <div className="thud-done">
-          <div className="thud-done-score">{pct(stats.score)}</div>
-          <div className="thud-done-label">Round score</div>
-        </div>
-        <div className="thud-stats">
-          <Stat label="Accuracy" value={pct(stats.accuracy)} />
-          <Stat label="Power" value={pct(stats.power)} />
-          <Stat label="Timing" value={pct(stats.timing)} />
-          <Stat label="Landed" value={`${stats.landed}/${stats.presented}`} />
-        </div>
-        {profile.bestRoundScore > 0 && stats.score >= profile.bestRoundScore && (
-          <p className="thud-best">Best round yet.</p>
-        )}
-        {notes.length > 0 && (
-          <ul className="thud-notes">
-            {notes.map((n, i) => (
-              <li key={i} data-kind={n.kind}>
-                <span className="thud-note-kind">
-                  {n.kind === "setup" ? "Setup" : n.kind === "technique" ? "Form" : "Next"}
-                </span>
-                {n.text}
-              </li>
-            ))}
-          </ul>
-        )}
-        <button className="thud-again" onClick={onRestart}>
-          Go again
-        </button>
-      </div>
-    );
-  }
+  const { stats, lastOutcome, notes, profile, storageError, finished } = training;
+  const recap = scored && finished;
+  const best = profile.bestRoundScore > 0 && stats.score >= profile.bestRoundScore;
 
   return (
-    <div className="thud">
+    <section className="thud" aria-label={recap ? "Training results" : "Training stats"}
+      id={recap ? "training-results" : undefined} tabIndex={recap ? -1 : undefined}>
       {scored && (
-        <div className="thud-target">
-          <div className="thud-target-label" ref={labelRef}>
-            -
+        <>
+          <div className="thud-score" data-recap={recap} role={recap ? "status" : undefined}>
+            <div>
+              <h3>{recap ? "Round score" : "Live score"}</h3>
+              <strong>{pct(stats.score)}</strong>
+            </div>
+            <div className="thud-score-side">
+              {best && recap && <span className="thud-best">Personal best</span>}
+              <span>{stats.landed}/{stats.presented} landed</span>
+            </div>
           </div>
-          <div className="thud-target-track">
-            <div className="thud-target-bar" ref={barRef} />
-          </div>
-        </div>
+          {recap && <button type="button" className="thud-again" onClick={onRestart}>Go again</button>}
+          <dl className="thud-stats">
+            <Stat label="Accuracy" value={stats.landed > 0 ? pct(stats.accuracy) : "–"} />
+            <Stat label="Power" value={stats.landed > 0 ? pct(stats.power) : "–"} />
+            <Stat label="Timing" value={stats.landed > 0 ? pct(stats.timing) : "–"} />
+          </dl>
+          <p className="thud-line">
+            {!recap && <span>Streak {stats.streak}</span>}
+            <span>Best streak {stats.bestStreak}</span>
+            {stats.reactionMs > 0 && <span>{Math.round(stats.reactionMs)} ms average</span>}
+            {stats.stray > 0 && <span className="thud-warn">{stats.stray} off target</span>}
+          </p>
+        </>
       )}
 
-      {scored && (
-        <div className="thud-stats">
-          <Stat label="Accuracy" value={pct(stats.accuracy)} />
-          <Stat label="Power" value={pct(stats.power)} />
-          <Stat label="Timing" value={pct(stats.timing)} />
-          <Stat label="Score" value={pct(stats.score)} emphasis />
-        </div>
-      )}
-
-      {scored && (
-        <div className="thud-line">
-          <span>
-            {stats.landed}/{stats.presented} landed
-          </span>
-          <span>streak {stats.streak}</span>
-          <span>best {stats.bestStreak}</span>
-          {stats.reactionMs > 0 && <span>{Math.round(stats.reactionMs)}ms</span>}
-          {/* Strays are shown because they make the scored figures flattering:
-              punches thrown at nothing are not counted against accuracy, so a
-              player spraying between targets would otherwise look accurate. */}
-          {stats.stray > 0 && <span className="thud-warn">{stats.stray} stray</span>}
-        </div>
-      )}
-
-      {lastOutcome && scored && (
-        <div className="thud-last" data-good={lastOutcome.accuracy >= 0.5}>
+      {lastOutcome && scored && !recap && (
+        <div className="thud-last" data-kind={lastOutcome.kind}>
           <strong>{lastOutcome.zone.label}</strong>
-          <span>
-            {Math.round(lastOutcome.accuracy * 100)}% ·{" "}
-            {lastOutcome.strike?.region.label ?? "-"} ·{" "}
-            {Math.round(lastOutcome.reactionMs)}ms
+          <span>{lastOutcome.kind === "expired"
+            ? "Window closed"
+            : lastOutcome.kind === "wrong-hand"
+              ? "Wrong hand"
+              : `${pct(lastOutcome.accuracy)} accuracy · ${Math.round(lastOutcome.reactionMs)} ms`}
           </span>
         </div>
       )}
 
       {notes.length > 0 && (
-        <ul className="thud-notes">
-          {notes.map((n, i) => (
-            <li key={i} data-kind={n.kind}>
-              {/* Setup and technique are visually distinct on purpose. Telling
-                  a player to fix their form when the real cause is a high
-                  camera makes them change something that was fine. */}
-              <span className="thud-note-kind">
-                {n.kind === "setup" ? "Setup" : n.kind === "technique" ? "Form" : "Next"}
-              </span>
-              {n.text}
-            </li>
-          ))}
-        </ul>
+        <details className="thud-coaching" open={recap || undefined}>
+          <summary>Coaching notes</summary>
+          <ul className="thud-notes">
+            {notes.map((note) => (
+              <li key={note.kind + ":" + note.zoneId}>
+                <strong>{NOTE_LABEL[note.kind]}</strong>
+                <span>{note.text}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       <div className="thud-profile">
-        <span>{profile.totalStrikes} punches recorded</span>
-        <span>{profile.rounds} rounds</span>
-        {profile.bestRoundScore > 0 && <span>best {pct(profile.bestRoundScore)}</span>}
+        <span>{profile.totalStrikes} {profile.totalStrikes === 1 ? "punch" : "punches"} recorded</span>
+        <span>{profile.rounds} {profile.rounds === 1 ? "round" : "rounds"}</span>
+        {profile.bestRoundScore > 0 && <span>Best round {pct(profile.bestRoundScore)}</span>}
       </div>
-
-      {storageError && <p className="thud-err">{storageError}</p>}
-    </div>
+      {storageError && <p className="thud-err" role="status">{storageError}</p>}
+    </section>
   );
 }
 
-function Stat({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div className="thud-stat" data-emphasis={emphasis ? "true" : "false"}>
-      <div className="thud-stat-value">{value}</div>
-      <div className="thud-stat-label">{label}</div>
-    </div>
-  );
+function Stat({ label, value }: { label: string; value: string }) {
+  return <div className="thud-stat"><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
-function pct(v: number): string {
-  return `${Math.round(v * 100)}%`;
+function pct(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }

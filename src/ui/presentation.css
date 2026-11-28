@@ -142,10 +142,10 @@ button, input, textarea, select { font-family: inherit; }
   border-radius: 15px;
   animation: surface-in .23s var(--ui-ease) both;
 }
-.app .panel :is(.vs-head, .fighter-panel legend, .fighter-notice, .spanel-title, .thud-target-label, .tpanel-score-label, .harness h2, .cpanel-name) {
+.app .panel :is(.vs-head, .fighter-panel legend, .fighter-notice, .spanel-title, .tpanel-score-label, .harness h2, .cpanel-name) {
   color: var(--ui-ink);
 }
-.app .panel :is(.thud-stat-label, .thud-note-kind, .thud-profile, .vs-detail, .vs-code label, .cpanel-blurb, .muted, .hud-label, .hud-note, .hud-sub, .spanel-advice, .tpanel-note) {
+.app .panel :is(.vs-detail, .vs-code label, .cpanel-blurb, .muted, .hud-label, .hud-note, .hud-sub, .spanel-advice, .tpanel-note) {
   color: var(--ui-muted);
 }
 .app .panel :is(.vs-btn, .fighter-reset, .fighter-option, .vs-copy, .harness button, .hud button) {
@@ -170,36 +170,38 @@ button, input, textarea, select { font-family: inherit; }
   border-radius: 8px;
   color: var(--ui-ink);
 }
-.app .panel .thud-notes li { border: 0; border-radius: 8px; background: #33283f; }
-.app .panel .thud-stat { background: #342c45; border-radius: 9px; border-color: transparent; }
-.app .panel .thud-stat[data-emphasis="true"] { background: #4a395f; }
-.app .panel :is(.thud-stat-value, .thud-done-score) { color: #f3e8ff; }
-.app .panel .thud-target { background: linear-gradient(94deg, #171122eb, #1b1026aa), url('/ui/training.webp') 65% 42% / cover; border-color: var(--ui-border); border-radius: 12px; }
-.app .panel .thud-target-bar { background: #e0c8ff; }
-.app .panel .thud-done { background: linear-gradient(95deg, #150f21f0, #21152bce), url('/ui/kit.webp') 70% center / cover; border-color: var(--ui-border); }
 .app .panel .tpanel-score { background: #302641; border-color: var(--ui-border); }
-.app .panel .cpanel-art { border-radius: 10px; }
 .app .panel :is(.punch-label, .log-type, .guide-title, .guide-hand) { color: #e4caff; }
-.app .panel :is(.report, .guide, .dodge, .thud-last, .cpanel-next) { background: #1b1526; border-color: var(--ui-border); }
+.app .panel :is(.report, .guide, .dodge) { background: #1b1526; border-color: var(--ui-border); }
 .app .vs-chip { background: #171122f4; border-color: var(--ui-border); color: var(--ui-ink); border-radius: 11px; }
 .app .depth-panel { background: #1c1529f0; border-color: var(--ui-border); border-radius: 11px; }
 .app .framing-prompt { background: #231724f5; border-color: #e8abd36b; color: #ffd8ee; }
+.app[data-fight-camera="first"] {
+  --fight-preview-width: min(20vw, 146px);
+  --fight-preview-top: calc(var(--immersive-head, 0px) + 112px);
+}
+.app[data-fight-camera="first"] .stage .cam-inset {
+  top: var(--fight-preview-top);
+  bottom: auto;
+  width: var(--fight-preview-width);
+}
+.app[data-fight-camera="first"] .framing-prompt {
+  top: calc(var(--fight-preview-top) + var(--fight-preview-width) * .75 + 6px);
+  right: 10px;
+  bottom: auto;
+  left: auto;
+  max-width: min(29%, 176px);
+  text-align: end;
+}
+@media (max-height: 470px) and (orientation: landscape) {
+  .app[data-fight-camera="first"] {
+    --fight-preview-width: min(16vw, 112px);
+    --fight-preview-top: calc(var(--immersive-head, 0px) + 88px);
+  }
+}
 .app .stage-btn { background: #1b1428f5; border-radius: 13px; border-color: #ffffff3d; color: #fff; }
 .app .stage-btn[aria-pressed="true"] { border-color: #e3c7ff; box-shadow: 0 0 0 1px #e3c7ff; }
 .app .stage-btn-copy > span { color: var(--ui-muted); }
-.app .firstrun {
-  color: var(--ui-ink);
-  background: #21192e;
-  border-color: #ecd8ff42;
-  border-radius: 18px;
-  box-shadow: 0 0 0 100vmax #090711bf, 0 20px 55px #0007;
-}
-.app .firstrun-title { color: var(--ui-ink); }
-.app .firstrun-body { color: var(--ui-muted); }
-.app .firstrun-btn { background: #3a2c4f; border-color: var(--ui-border); color: var(--ui-ink); }
-.app .firstrun-btn:hover { background: #54406e; }
-.app .firstrun-go { background: #e0c8ff; color: #211630; }
-.app .firstrun-go:hover { background: #f4e7ff; }
 .app .impact-good { color: #eee0ff; }
 .app .impact-neutral { color: #f4eef9; }
 .app .impact-bad { color: #ffc3d2; }

@@ -1,57 +1,53 @@
-import type { CareerProfile } from "../training/career";
-import { currentOpponent, isComplete } from "../training/career";
+﻿import { CAREER_LADDER, currentOpponent, type CareerProfile, type FightOutcome } from "../training/career";
 import "./careerPanel.css";
-
-// The side-panel view of the career ladder: record, who's next, and what just
-// happened. The fight itself is shown by FightHud, same as "Fight the CPU" —
-// this only answers the question FightHud doesn't: why THIS opponent, and
-// what does winning get you.
 
 interface Props {
   profile: CareerProfile;
-  /** Set right after a fight on this screen resolves, cleared on the next one. */
-  lastOutcome: "win" | "loss" | "draw" | null;
+  lastOutcome: FightOutcome | null;
 }
+
+const OUTCOME_COPY: Record<FightOutcome, string> = {
+  win: "Win recorded.",
+  loss: "Loss recorded. Your next bout is a rematch.",
+  draw: "Draw recorded. Your next bout is a rematch.",
+};
 
 export function CareerPanel({ profile, lastOutcome }: Props) {
   const opponent = currentOpponent(profile);
   const { wins, losses, draws } = profile.record;
 
   return (
-    <div className="cpanel">
-      <img className="cpanel-art" src="/ui/career.webp" alt="" />
-      <div className="cpanel-record">
-        <span className="cpanel-w">{wins}W</span>
-        <span className="cpanel-l">{losses}L</span>
-        <span className="cpanel-d">{draws}D</span>
-      </div>
-
-      {lastOutcome && (
-        <p className={`cpanel-outcome cpanel-${lastOutcome}`}>
-          {lastOutcome === "win"
-            ? "Won — moving up the ladder."
-            : lastOutcome === "loss"
-              ? "Lost — same opponent next time."
-              : "Draw — same opponent next time."}
-        </p>
-      )}
-
-      {opponent ? (
-        <div className="cpanel-next">
-          <div className="cpanel-rank">Rung {profile.rank + 1}</div>
-          <div className="cpanel-name">{opponent.name}</div>
-          <p className="cpanel-blurb">{opponent.blurb}</p>
+    <section className="cpanel" aria-label="Career record and opponents">
+      <div className="cpanel-poster">
+        <div className="cpanel-poster-copy">
+          <p>{opponent ? (lastOutcome ? "Next opponent" : "Current opponent") : "Career complete"}</p>
+          <h3 className="cpanel-name">{opponent?.name ?? "Ladder cleared"}</h3>
         </div>
-      ) : (
-        isComplete(profile) && (
-          <div className="cpanel-next">
-            <div className="cpanel-name">Ladder cleared</div>
-            <p className="cpanel-blurb">
-              You have beaten every opponent currently in the game. Nothing left to fight yet.
-            </p>
-          </div>
-        )
-      )}
-    </div>
+      </div>
+      {opponent && <p className="cpanel-blurb">{opponent.blurb}</p>}
+
+      <dl className="cpanel-record" aria-label="Career record">
+        <div><dt>Wins</dt><dd>{wins}</dd></div>
+        <div><dt>Losses</dt><dd>{losses}</dd></div>
+        <div><dt>Draws</dt><dd>{draws}</dd></div>
+      </dl>
+      {lastOutcome && <p className="cpanel-outcome" data-outcome={lastOutcome} role="status">{OUTCOME_COPY[lastOutcome]}</p>}
+
+      <div className="cpanel-roster">
+        <h4>Opponents <span>{profile.rank}/{CAREER_LADDER.length} cleared</span></h4>
+        <ol aria-label="Career ladder">
+          {CAREER_LADDER.map((fighter, i) => {
+            const current = profile.rank === i;
+            const cleared = i < profile.rank;
+            return (
+              <li key={fighter.id} aria-current={current ? "step" : undefined}>
+                <span>{fighter.name}</span>
+                <small>{cleared ? "Cleared" : current ? "Active" : "Upcoming"}</small>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
   );
 }

@@ -181,7 +181,7 @@ export const MenuShell = memo(function MenuShell({ poseRef, cameraReady, cameraP
   }
 
   return (
-    <main className="shell" ref={camera.containerRef}>
+    <main className="shell" ref={camera.containerRef} inert={pointerPaused}>
       <header className="shell-head">
         <div className="shell-identity"><BrandMark compact /><span>ShadowBox</span></div>
         <div className="shell-actions">

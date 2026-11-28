@@ -12,11 +12,11 @@ import { NEUTRAL_HEAD_STATE, type HeadState } from "./perception/dodgeDetector";
 import type { BodyMotion } from "./perception/bodyMotion";
 import type { LoadStatus } from "./render/BoxerModel";
 import type { StageId } from "./render/ArenaView";
-import { STAGES } from "./menu/shellModel";
+import { VenuePicker } from "./ui/VenuePicker";
 import type { TargetDebugState } from "./render/TrainingTarget";
 import { useStrikeTraining } from "./perception/useStrikeTraining";
 import { useDummyTraining } from "./training/useDummyTraining";
-import { TrainingHud } from "./ui/TrainingHud";
+import { TrainingHud, TrainingTargetHud } from "./ui/TrainingHud";
 import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
 import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
@@ -499,6 +499,7 @@ export default function App() {
       className={`app ${
         inMenu ? "app-menu" : wardrobe ? "app-boxer app-wardrobe" : stage3d ? "app-boxer" : "app-wide"
       }${immersive ? " app-immersive" : ""}${connecting ? " app-connect" : ""}`}
+      data-fight-camera={onFps ? "first" : undefined}
     >
       <div className="stage">
         {inMenu && (
@@ -581,30 +582,12 @@ export default function App() {
         {screen === "stages" && (
           <Suspense fallback={null}>
             <>
-              <ArenaView stage={stage} />
-              <div className="stage-picker" role="group" aria-label="Venue">
-                {STAGES.filter((v) => v.id !== "gym").map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="stage-btn"
-                    aria-pressed={stage === v.id}
-                    onClick={() => setStage(v.id as StageId)}
-                  >
-                    <img
-                      src={v.id === "ring" ? "/ui/venue.webp" : "/ui/cage.webp"}
-                      alt=""
-                    />
-                    <span className="stage-btn-copy">
-                      <strong>{v.title}</strong>
-                      <span>{v.blurb}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <ArenaView stage={stage} autoRotate={!preferences.reducedMotion} />
+              <VenuePicker stage={stage} onSelect={setStage} />
             </>
           </Suspense>
         )}
+        {onDummy && screen === "dummy" && <TrainingTargetHud training={training} />}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
         {!inMenu && <FramingPrompt issue={framingIssue} />}
         {depth.status.state !== "off" && (

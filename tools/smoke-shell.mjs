@@ -383,7 +383,7 @@ try {
   // and more than one fires on a single navigation. Without a guard each call
   // banked another round, and a single visit logged three.
   const profileText = (await page.locator(".thud-profile").textContent()) ?? "";
-  const rounds = Number(profileText.match(/(\d+) rounds/)?.[1] ?? -1);
+  const rounds = Number(profileText.match(/(\d+) rounds?\b/)?.[1] ?? -1);
   check("one visit logs exactly one round", rounds === 1, `"${profileText.trim()}"`);
   await page.screenshot({ path: `${OUT}/shell-freework.png` });
   step(`saved ${OUT}/shell-freework.png`);
@@ -535,7 +535,7 @@ try {
   const careerText = await page.locator(".cpanel").textContent();
   check(
     "career panel shows a clean record and the first rung",
-    /0W/.test(careerText ?? "") && /The Tune-Up/.test(careerText ?? ""),
+    /Wins0/.test(careerText ?? "") && /The Tune-Up/.test(careerText ?? ""),
     careerText?.slice(0, 200)
   );
   await page.screenshot({ path: `${OUT}/shell-career.png` });
