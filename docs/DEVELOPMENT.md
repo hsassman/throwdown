@@ -37,6 +37,9 @@ both.
   immediately when the player is lost.
 - CPU punches resolve when the glove arrives, not when the arm starts out; the
   player flinches only on clean hits; punches turn the shoulders and lean in.
+- In first person the CPU stands off at its preferred gap between exchanges and
+  steps in to striking range only to throw, instead of standing at punching
+  distance all fight.
 - The camera inset shows only the skeleton by default.
 - Recorded sounds from Openverse with a credits file.
 - A design pass against Apple's Human Interface Guidelines foundations (safe
