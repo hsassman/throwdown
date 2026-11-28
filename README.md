@@ -22,7 +22,7 @@ directly to your opponent, peer to peer.
 | ![Camera gate](docs/images/gate-desktop.webp) | ![Main menu](docs/images/menu-desktop.webp) |
 | **Start.** One tap to enable the camera; everything after is driven by your body. | **Menu.** Three primary modes and the rest one tap away. Point and hold your hand to select. |
 | ![Third-person fight](docs/images/fight-third-person-desktop.webp) | ![Training](docs/images/training-desktop.webp) |
-| **Third person.** `V` or Settings switches the fight camera behind your fighter. | **Training.** Lit targets on a dummy, scored on accuracy, power and timing. |
+| **Third person.** Pick first or third person before each match; `V` switches mid-fight. | **Training.** Lit targets on a dummy, scored on accuracy, power and timing. |
 | ![Career](docs/images/career-desktop.webp) | ![Your Fighter](docs/images/fighter-desktop.webp) |
 | **Career.** Four opponents in order; your record is saved on the device. | **Your Fighter.** Skin, hair, kit colour, finish, laces, soles and wraps. |
 | ![Venue](docs/images/venue-desktop.webp) | ![Camera Check](docs/images/camera-check-desktop.webp) |

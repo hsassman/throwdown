@@ -40,6 +40,10 @@ both.
 - In first person the CPU stands off at its preferred gap between exchanges and
   steps in to striking range only to throw, instead of standing at punching
   distance all fight.
+- Fights ask for first or third person before they open.
+- Online: a player paired with someone who had already closed their tab goes
+  straight back into the queue, and searching again after an opponent leaves
+  shows the search instead of "Disconnected".
 - The camera inset shows only the skeleton by default.
 - Recorded sounds from Openverse with a credits file.
 - A design pass against Apple's Human Interface Guidelines foundations (safe

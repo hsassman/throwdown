@@ -58,12 +58,18 @@ Every on-screen control also works with a tap or a click.
 
 ![First-person fight](images/fight-first-person-desktop.webp)
 
+- **Choose your view.** Fight, Career, Play a Friend and Online ask for first
+  or third person before the match opens, with the view you used last
+  focused. Back or `Escape` returns to the menu.
+
+![Choose your view](images/view-choice-desktop.webp)
+
 - **Rounds:** three rounds of three minutes.
 - **First person.** The default view. The camera is at your fighter's eyes and
   your gloves are at the bottom of the screen. The fighters stay on one line:
   the CPU stands off at its preferred distance between exchanges and steps in
   to throw, then back out, so the fight is about timing, defence and the guard.
-- **Third person.** Press `V` or turn it on in Settings. The camera sits behind
+- **Third person.** Choose it before the match, press `V`, or turn it on in Settings. The camera sits behind
   your fighter and both fighters move: the CPU circles, steps in to throw and
   backs out again, and your real steps change the range.
 - **The CPU telegraphs.** Every CPU punch has a visible wind-up: 0.55 s at

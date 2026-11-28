@@ -388,8 +388,27 @@ try {
   // than a stand-in: the CPU circles, closes range and throws whether or not a
   // player is there. What cannot be checked here is the player landing a
   // punch, which needs a body in frame.
-  await page.locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: /^Fight$/ }) }).first().click();
+  const fightRow = page.locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: /^Fight$/ }) }).first();
+  await fightRow.click();
+  // A fight asks which camera to fight in before it opens.
+  await page.waitForSelector(".shell-view-panel", { timeout: 15000 });
+  check("a fight asks for a camera view first", (await page.locator("[data-view]").count()) === 2);
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".mode-grid-featured", { timeout: 15000 });
+  check("Escape on the view step returns to the menu", (await page.locator(".shell-view-panel").count()) === 0);
+  await fightRow.click();
+  await page.locator('[data-view="view-third"]').click();
   await page.waitForSelector(".fight-hud", { timeout: 45000 });
+  check("choosing Third person opens a third-person fight",
+    (await page.locator(".app[data-fight-camera]").count()) === 0);
+  await page.locator(".back-btn").click();
+  await page.waitForSelector(".shell", { timeout: 45000 });
+  await fightRow.click();
+  check("the view used last is focused", (await page.locator('[data-view="view-third"][data-focused="true"]').count()) === 1);
+  await page.locator('[data-view="view-first"]').click();
+  await page.waitForSelector(".fight-hud", { timeout: 45000 });
+  check("choosing First person opens a first-person fight",
+    (await page.locator('.app[data-fight-camera="first"]').count()) === 1);
 
   const firstClock = await page.locator(".fh-clock").textContent();
   // Long enough for a contender to get through a tempo gap and a telegraph.
@@ -527,6 +546,7 @@ try {
 
   // --- Career ---
   await rows.filter({ hasText: "Career" }).first().click();
+  await page.locator('[data-view="view-first"]').click();
   await page.waitForSelector(".fight-hud", { timeout: 45000 });
   await page.waitForSelector(".cpanel", { timeout: 45000 });
   const careerText = await page.locator(".cpanel").textContent();
@@ -564,6 +584,7 @@ try {
 
     const openLan = async (pg) => {
       await pg.locator(".shell-row").filter({ hasText: "Play a Friend" }).first().click();
+      await pg.locator('[data-view="view-first"]').click();
       await pg.waitForSelector(".vs", { timeout: 45000 });
     };
     await openLan(page);
@@ -737,6 +758,10 @@ try {
   for (const title of [...playable, ...cameraTools]) {
     if (cameraTools.includes(title)) await page.getByRole("button", { name: title, exact: true }).click();
     else await page.locator(".shell-row", { has: page.locator(".shell-row-title", { hasText: new RegExp(`^${title}$`) }) }).first().click();
+    // Fights stop at the camera choice first.
+    const view = page.locator('[data-view="view-first"]');
+    await page.locator('[data-view="view-first"], .back-btn').first().waitFor({ timeout: 30000 });
+    if (await view.count()) await view.click();
     // Every mode puts a back button on screen, wherever it sits.
     await page.waitForSelector(".back-btn", { timeout: 30000 });
     entered += 1;
@@ -765,6 +790,9 @@ try {
         ?.textContent ?? ""
   );
   await page.keyboard.press("Enter");
+  // A fight's camera choice has the last-used view focused, so Enter again takes it.
+  await page.locator(".shell-view-panel, .back-btn").first().waitFor({ timeout: 30000 });
+  if (await page.locator(".shell-view-panel").count()) await page.keyboard.press("Enter");
   await page.waitForSelector(".back-btn", { timeout: 30000 });
   const opened = await page.locator(".screen-title").textContent();
   check(

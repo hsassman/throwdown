@@ -82,7 +82,7 @@
 .shell-title { margin: 0; font-size: clamp(3.25rem, 7vw, 7.4rem); }
 .shell-hero-copy p { position: relative; margin: 1.35rem 0 0; color: #eee7fa; font-size: clamp(.875rem, 1.45vw, 1.1rem); font-weight: 600; }
 
-.shell-list > h2, .shell-settings-panel h2 {
+.shell-list > h2, .shell-settings-panel h2, .shell-view-panel h2 {
   margin: 0 0 12px;
   font-size: clamp(1.15rem, 1.7vw, 1.5rem);
   letter-spacing: -.03em;
@@ -175,8 +175,8 @@
 .shell-detail-title { color: var(--ui-ink); flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
 .shell-detail-body { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.shell-settings-panel { max-width: 1040px; padding-top: clamp(22px, 5vh, 62px); }
-.shell-settings-panel h1 { margin: 0 0 18px; line-height: 1; font-size: clamp(2.5rem, 6vw, 5.15rem); letter-spacing: -.065em; }
+.shell-settings-panel, .shell-view-panel { max-width: 1040px; padding-top: clamp(22px, 5vh, 62px); }
+.shell-settings-panel h1, .shell-view-panel h1 { margin: 0 0 18px; line-height: 1; font-size: clamp(2.5rem, 6vw, 5.15rem); letter-spacing: -.065em; }
 .shell-settings-panel section { margin-bottom: 28px; }
 .presentation-option {
   display: flex;
@@ -198,6 +198,36 @@
 .presentation-option:is(:hover, [data-focused="true"]) { background: #382c50; }
 .presentation-option small { display: block; color: var(--ui-muted); font-size: .82rem; }
 .preference-state { min-width: 36px; text-align: center; font-size: .86rem; }
+
+.mode-grid-views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mode-grid-views .mode-image { object-position: center 35%; }
+.view-last {
+  flex: none;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--ui-accent);
+  color: #160f22;
+  font-size: .75rem;
+  font-weight: 750;
+}
+.view-note { margin: 12px 0 0; color: var(--ui-muted); font-size: .86rem; }
+.view-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 16px 0 10px;
+  border: 1px solid #ffffff19;
+  border-radius: 12px;
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.view-back svg { width: 18px; }
+.view-back:is(:hover, :focus-visible, [data-focused="true"]) { background: #382c50; outline: 2px solid #e4d3ff; outline-offset: -2px; }
 [aria-pressed="true"] > .preference-state { color: var(--ui-accent); font-weight: 800; }
 
 .shell-cursor {
@@ -251,11 +281,14 @@
   .shell-row-blurb { font-size: .8rem; }
 }
 
-@media (max-width: 440px) { .shell-inputs { display: none; } }
+@media (max-width: 440px) {
+  .shell-inputs { display: none; }
+  .mode-grid-views { grid-template-columns: minmax(0, 1fr); }
+}
 @media (hover: none) { .shell-inputs li:has(kbd) { display: none; } }
 @media (max-height: 500px) and (orientation: landscape) {
   .shell-head, .shell-footer { min-height: 43px; }
-  .shell-content:not(.shell-settings-panel) {
+  .shell-content:not(.shell-settings-panel, .shell-view-panel) {
     display: grid;
     grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
     align-items: start;
@@ -274,6 +307,12 @@
   .mode-grid-secondary .shell-row { min-height: 84px; padding: 9px; }
   .mode-grid-secondary .shell-row-title { font-size: .93rem; }
   .mode-icon { display: none; }
+  .shell-view-panel { padding-top: 8px; }
+  .shell-view-panel h1 { margin-bottom: 4px; font-size: 1.7rem; }
+  .shell-view-panel h2 { margin-bottom: 8px; }
+  .mode-grid-views .shell-row { min-height: 140px; padding: 10px; }
+  .view-note { display: none; }
+  .view-back { margin-top: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
