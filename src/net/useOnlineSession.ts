@@ -10,6 +10,7 @@ import { usePeerChannel, type PeerChannelOptions } from "./usePeerChannel";
 // offer and answer the Play a Friend codes carry.
 
 const UNREACHABLE = "Could not reach the other fighter.";
+const NO_LINK: LinkStatus = { state: "idle", latency: null, detail: null };
 
 export function useOnlineSession(options: PeerChannelOptions) {
   const channel = usePeerChannel(options);
@@ -17,7 +18,7 @@ export function useOnlineSession(options: PeerChannelOptions) {
   const clientRef = useRef<MatchmakingClient | null>(null);
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [matchStatus, setMatchStatus] = useState<MatchmakingStatus>({ state: "idle", detail: null });
-  const [linkStatus, setLinkStatus] = useState<LinkStatus>({ state: "idle", latency: null, detail: null });
+  const [linkStatus, setLinkStatus] = useState<LinkStatus>(NO_LINK);
   const [role, setRole] = useState<"host" | "guest" | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -26,19 +27,26 @@ export function useOnlineSession(options: PeerChannelOptions) {
     connectTimerRef.current = null;
   };
 
+  /** Ends the current pairing, if any, and closes its hub connection. */
+  const dropMatch = useCallback(async () => {
+    clearConnectTimer();
+    detach();
+    const client = clientRef.current;
+    clientRef.current = null;
+    setRole(null);
+    await client?.leave().catch(() => {});
+  }, [detach]);
+
   /** Ends a pairing that never became a fight, and says why. */
   const abandonMatch = useCallback(
     async (reason: string) => {
-      clearConnectTimer();
-      detach();
-      const client = clientRef.current;
-      clientRef.current = null;
-      setRole(null);
-      await client?.leave().catch(() => {});
+      await dropMatch();
       setMatchStatus({ state: "failed", detail: reason });
     },
-    [detach]
+    [dropMatch]
   );
+
+  const findMatchRef = useRef<() => Promise<void>>(async () => {});
 
   const findMatch = useCallback(async () => {
     const serverUrl = NET_CONFIG.matchmakingUrl;
@@ -47,6 +55,10 @@ export function useOnlineSession(options: PeerChannelOptions) {
       return;
     }
     setBusy(true);
+    // A new search ends whatever came before, so an old hub connection is not
+    // left queued or paired on the server.
+    await dropMatch();
+    setLinkStatus(NO_LINK);
     // No automatic reconnect: a new connection id has no slot in the queue.
     // withCredentials false: different origins, no cookies, and the server
     // does not send Access-Control-Allow-Credentials.
@@ -59,11 +71,14 @@ export function useOnlineSession(options: PeerChannelOptions) {
 
     // Resolves once onMatched has built the link; an offer can arrive first.
     let linkReady: Promise<PeerLink | null> = Promise.resolve(null);
+    /** The pairing became a fight; from then on the link's own close reports a departure. */
+    let fought = false;
 
     client.onOpponentLeft(() => {
-      // Once the link is open, its own close reports a departure.
-      if (linkRef.current?.state === "open") return;
-      void abandonMatch("Your opponent left before the fight started. Find another match.");
+      if (clientRef.current !== client || fought) return;
+      // Paired with someone already gone (the server hears of a closed tab a
+      // little late): back into the queue rather than back to the menu.
+      void findMatchRef.current();
     });
 
     client.onMatched(({ opponentConnectionId, isOfferer }) => {
@@ -78,8 +93,13 @@ export function useOnlineSession(options: PeerChannelOptions) {
         if (clientRef.current !== client) return null;
         const link = new PeerLink(iceServers);
         link.onStatus((next) => {
+          // A dropped link still reports its channel closing; only the current one counts.
+          if (linkRef.current !== link) return;
           setLinkStatus(next);
-          if (next.state === "open") clearConnectTimer();
+          if (next.state === "open") {
+            fought = true;
+            clearConnectTimer();
+          }
           if (next.state === "closed" || next.state === "failed") {
             setRole(null);
             reset();
@@ -123,7 +143,8 @@ export function useOnlineSession(options: PeerChannelOptions) {
     } finally {
       setBusy(false);
     }
-  }, [linkRef, attach, reset, abandonMatch]);
+  }, [linkRef, attach, reset, abandonMatch, dropMatch]);
+  findMatchRef.current = findMatch;
 
   const leave = useCallback(() => {
     clearConnectTimer();

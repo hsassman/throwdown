@@ -163,8 +163,9 @@ try {
   check("the remaining player is offered Find a match again", true);
 
   // --- A player who leaves the queue is not matched with anyone ---------------
-  // C queues and leaves; D then queues. D must wait, not be paired with C's
-  // dead connection.
+  // C queues and leaves; D then queues. D must end up waiting, not paired with
+  // C's dead connection. The server can hear of C's closed page after D has
+  // joined; D is then told its opponent left and goes back into the queue.
   const c = await openPlayer("C");
   await findMatch(c.page);
   await c.page.waitForFunction(
@@ -186,6 +187,15 @@ try {
   const dHead = await headline(d.page);
   check("a player who left the queue is not matched", /Finding an opponent/.test(dHead ?? ""), dHead ?? "");
   await d.context.close();
+
+  // --- A player whose opponent left can search again --------------------------
+  await findMatch(b.page);
+  await b.page.waitForFunction(
+    () => document.querySelector(".vs-head strong")?.textContent?.includes("Finding an opponent"),
+    undefined,
+    { timeout: TIMEOUT }
+  );
+  check("a player whose opponent left can search again", true, await headline(b.page));
   await b.context.close();
 } catch (err) {
   console.log(`  FAIL  threw: ${err.message.split("\n")[0]}`);
