@@ -8,7 +8,7 @@ import { DebugHud } from "./ui/DebugHud";
 import type { BodyMotion } from "./perception/bodyMotion";
 import type { LoadStatus } from "./render/BoxerModel";
 import type { StageId } from "./render/ArenaView";
-import { STAGES } from "./menu/shellModel";
+import { VenuePicker } from "./ui/VenuePicker";
 import type { TargetDebugState } from "./render/TrainingTarget";
 import { useStrikeTraining } from "./perception/useStrikeTraining";
 import { useDummyTraining } from "./training/useDummyTraining";
@@ -550,27 +550,8 @@ export default function App() {
         {screen === "stages" && (
           <Suspense fallback={null}>
             <>
-              <ArenaView stage={stage} />
-              <div className="stage-picker" role="group" aria-label="Venue">
-                {STAGES.filter((v) => v.id !== "gym").map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="stage-btn"
-                    aria-pressed={stage === v.id}
-                    onClick={() => setStage(v.id as StageId)}
-                  >
-                    <img
-                      src={v.id === "ring" ? "/ui/venue.webp" : "/ui/cage.webp"}
-                      alt=""
-                    />
-                    <span className="stage-btn-copy">
-                      <strong>{v.title}</strong>
-                      <span>{v.blurb}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <ArenaView stage={stage} autoRotate={!preferences.reducedMotion} />
+              <VenuePicker stage={stage} onSelect={setStage} />
             </>
           </Suspense>
         )}

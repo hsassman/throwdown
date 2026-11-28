@@ -11,6 +11,7 @@ import {
   PERCEPTION_CONFIG,
   RENDER_CONFIG,
   TARGET_CONFIG,
+  deadzone,
 } from "../../config/tuning";
 import { applyClench, captureHandBind, type HandBind } from "./handRig";
 import {
@@ -69,6 +70,24 @@ const _ankle = new THREE.Vector3();
 const _hipFoot = new THREE.Vector3();
 const _flinchDir = new THREE.Vector3();
 const _flinchAxis = new THREE.Vector3();
+const _stepQuat = new THREE.Quaternion();
+const ARM_KEYS = ["leftElbow", "rightElbow", "leftWrist", "rightWrist"] as const;
+
+/**
+ * The pose with any elbow or wrist under `minConfidence` marked as missing.
+ * A copy; the caller's pose is left alone.
+ */
+export function dropUnsureArms(pose: PoseFrame, minConfidence: number): PoseFrame {
+  let out: PoseFrame | null = null;
+  for (const key of ARM_KEYS) {
+    const k = pose[key];
+    if (k && k.confidence < minConfidence) {
+      out ??= { ...pose };
+      out[key] = { ...k, confidence: 0 };
+    }
+  }
+  return out ?? pose;
+}
 const _flinchUp = new THREE.Vector3(0, 1, 0);
 const _flinchFwd = new THREE.Vector3();
 const _flinchLeft = new THREE.Vector3();
@@ -108,6 +127,9 @@ export interface RigDebugState {
   stale: string[];
 }
 
+/** The leg bones the camera can drive, ignored while `plantLegs` is on. */
+const LEG_BONES = ["l_upleg", "l_lowleg", "r_upleg", "r_lowleg"] as const;
+
 export class RigDriver {
   private binds: Map<DrivenBoneName, BoneBindData>;
   private root: THREE.Object3D;
@@ -131,6 +153,20 @@ export class RigDriver {
   /** Locked position (FPS Mode): the figure ignores stepping toward or away
    *  from the camera and only slips sideways and crouches. */
   lockDepth = false;
+  /**
+   * Fights: the figure's legs ignore the camera completely and stand in a
+   * planted boxing stance (the foot solver below), bending only for a duck or
+   * a knockdown. The tracker's leg landmarks are guesses whenever the legs are
+   * close to the frame edge or blurred, and following them sent the legs
+   * kicking about on screen.
+   */
+  plantLegs = false;
+  /**
+   * Fights: small movements between punches no longer sway, rock or twist the
+   * figure - only real slips, ducks and punches move it. See the steady*
+   * values in RENDER_CONFIG.
+   */
+  steadyBody = false;
   private shownDepth = 0;
   /** Torso yaw, radians. */
   private torsoTurn = 0;
@@ -277,8 +313,19 @@ export class RigDriver {
     const torso = pose ? torsoOf(pose) : null;
     const live = this.tracked && pose && torso !== null;
     const measuredTargets = live
-      ? computeBoneTargets(pose, mirrored, this.limbFull, torso)
+      ? computeBoneTargets(
+          this.steadyBody ? dropUnsureArms(pose, RENDER_CONFIG.steadyArmConfidence) : pose,
+          mirrored,
+          this.limbFull,
+          torso
+        )
       : {};
+    if (this.plantLegs) {
+      for (const bone of LEG_BONES) {
+        delete (measuredTargets as Record<string, unknown>)[bone];
+        this.held.delete(bone);
+      }
+    }
     const fade = this.holdMissingTargets(measuredTargets, dt);
 
     applyPoseToRig(this.binds, measuredTargets, live ? this.headAngles : null);
@@ -310,7 +357,16 @@ export class RigDriver {
         RENDER_CONFIG.boneSmoothingTauFast,
         t
       );
-      shown.slerp(target, smoothingAlpha(dt, tau));
+      if (this.steadyBody) {
+        // Same chase, but never faster than steadyMaxBoneSpeed: a one-frame
+        // landmark glitch can no longer fling the arm across the screen.
+        _stepQuat.copy(shown).slerp(target, smoothingAlpha(dt, tau));
+        const step = angleBetween(shown, _stepQuat);
+        const max = RENDER_CONFIG.steadyMaxBoneSpeed * dt;
+        shown.slerp(_stepQuat, step > max ? max / step : 1);
+      } else {
+        shown.slerp(target, smoothingAlpha(dt, tau));
+      }
       bind.bone.quaternion.copy(shown);
     }
 
@@ -362,7 +418,9 @@ export class RigDriver {
     // The figure faces +Z, so a step toward the camera moves it along -Z in
     // the behind-view. `depthGain` is separate from rootGain because the depth
     // channel carries the cameraDistance assumption and wants its own dial.
-    this.root.rotation.y = this.rootHomeYaw + this.shownTurn * RENDER_CONFIG.turnGain;
+    this.root.rotation.y =
+      this.rootHomeYaw +
+      this.shownTurn * (this.steadyBody ? RENDER_CONFIG.steadyTurnGain : RENDER_CONFIG.turnGain);
     // The fall, about the root - which sits at the feet, so the body pitches
     // over from the ground rather than sinking through it. The player's figure
     // faces +Z with the opponent in front of it, and a negative rotation about
@@ -376,6 +434,7 @@ export class RigDriver {
       this.shownHurt > 0.01
         ? Math.sin(this.wobbleT * KNOCKDOWN_ANIM.wobbleHz * Math.PI * 2) *
           KNOCKDOWN_ANIM.wobble *
+          (this.steadyBody ? RENDER_CONFIG.steadyWobbleScale : 1) *
           this.shownHurt
         : 0;
     this.root.position.set(
@@ -391,7 +450,7 @@ export class RigDriver {
 
     // 4. The feet. Runs last, because it solves the legs against where the body
     //    actually ended up this frame - see updateFeet.
-    this.updateFeet(dt, !!(measuredTargets.l_upleg || measuredTargets.r_upleg));
+    this.updateFeet(dt, !this.plantLegs && !!(measuredTargets.l_upleg || measuredTargets.r_upleg));
 
     // 5. The flinch, composed on top of everything above.
     this.updateFlinch(dt);
@@ -710,15 +769,22 @@ export class RigDriver {
     this.motion = body;
 
     const clamp = RENDER_CONFIG.rootClamp;
+    const steady = this.steadyBody;
+    const lateral = steady ? deadzone(body.lateral, RENDER_CONFIG.steadyLateralDeadzone) : body.lateral;
+    const vertical =
+      steady && body.vertical > 0
+        ? deadzone(body.vertical, RENDER_CONFIG.steadyVerticalDeadzone)
+        : body.vertical;
     this.rootOffset.set(
-      THREE.MathUtils.clamp(body.lateral * (mirrored ? -1 : 1), -clamp, clamp),
-      THREE.MathUtils.clamp(body.vertical, -clamp, clamp)
+      THREE.MathUtils.clamp(lateral * (mirrored ? -1 : 1), -clamp, clamp),
+      THREE.MathUtils.clamp(vertical, -clamp, clamp)
     );
     this.rootDepth = this.lockDepth ? 0 : THREE.MathUtils.clamp(body.depth, -clamp, clamp);
     // Turn is mirrored with the view, exactly like lateral: in the reflected
     // view the character's near shoulder is the other one, and a turn that did
     // not mirror would rotate the body away from the arm driving it.
-    this.torsoTurn = body.turn * (mirrored ? -1 : 1);
+    const turn = steady ? deadzone(body.turn, RENDER_CONFIG.steadyTurnDeadzone) : body.turn;
+    this.torsoTurn = turn * (mirrored ? -1 : 1);
   }
 
   /**

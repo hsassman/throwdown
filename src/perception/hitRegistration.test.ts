@@ -194,7 +194,10 @@ describe("strike timing and robustness", () => {
     return 20 * frameMs;
   };
 
-  it("timestamps a strike at the interpolated crossing, not the later sample", () => {
+  it("timestamps a strike no later than the interpolated crossing", () => {
+    // A motion punch (STRIKE_CONFIG.motionPushGain) registers mid-push, before
+    // the fixed reach threshold, so the timestamp may be earlier than the
+    // crossing; it must never be the later sample.
     const r = new StrikeResolver();
     let t = settle(r);
     const events: StrikeEvent[] = [];
@@ -208,7 +211,6 @@ describe("strike timing and robustness", () => {
     expect(events).toHaveLength(1);
     expect(crossingSample).toBeGreaterThan(0);
     expect(events[0].timestamp).toBeLessThanOrEqual(crossingSample);
-    expect(events[0].timestamp).toBeGreaterThan(crossingSample - 50);
   });
 
   it("resolves at most one sample after the crossing", () => {
@@ -250,11 +252,13 @@ describe("strike timing and robustness", () => {
     const r = new StrikeResolver();
     let t = settle(r);
     let events: StrikeEvent[] = [];
+    // Stop on the sample where the strike starts (it is then waiting for the
+    // fist's peak), whichever rule started it.
+    const pending = () => (r as unknown as { hands: { right: { pending: unknown } } }).hands.right.pending;
     for (let i = 1; i <= 6 && events.length === 0; i++) {
       t += 50;
-      const before = r.debug.reach.right;
       events = r.update(clean(lerp(GUARD, HOOK, i / 6), t, true));
-      if (before < 1 && r.debug.reach.right >= 1) break;
+      if (pending()) break;
     }
     expect(events).toHaveLength(0);
     const lost = clean(HOOK, (t += 50), false);

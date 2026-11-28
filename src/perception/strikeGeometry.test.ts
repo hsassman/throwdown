@@ -163,12 +163,13 @@ describe("resolver still honours the standing rules", () => {
       const r = new StrikeResolver();
       const out = [];
       for (let i = 0; i < 12; i++) {
-        out.push(...r.update(frame(i * 40, 0.58 - i * 0.03, 0.4 - i * 0.004, z)));
+        out.push(...r.update(frame(i * 20, 0.58 - i * 0.03, 0.4 - i * 0.004, z)));
       }
       return out;
     };
     const clean = run(0);
     const poisoned = run(999);
+    expect(clean.length).toBeGreaterThan(0);
     expect(poisoned.length).toBe(clean.length);
     for (let i = 0; i < clean.length; i++) {
       expect(poisoned[i].impact).toEqual(clean[i].impact);
@@ -180,10 +181,13 @@ describe("resolver still honours the standing rules", () => {
 
   it("attaches a region and a finite damage to every strike it emits", () => {
     // The guarantee that replaced "the classifier must name it first".
+    // A quick thrust out of the guard (20ms apart): a slow sweep is no longer
+    // a punch - see STRIKE_CONFIG.maxThrustMs.
     const r = new StrikeResolver();
     const events = [];
+    for (let i = -3; i < 0; i++) r.update(frame(i * 20, 0.58, 0.4)); // in the guard
     for (let i = 0; i < 20; i++) {
-      events.push(...r.update(frame(i * 40, 0.58 - i * 0.03, 0.42 - i * 0.006)));
+      events.push(...r.update(frame(i * 20, 0.58 - i * 0.03, 0.42 - i * 0.006)));
     }
     expect(events.length).toBeGreaterThan(0);
     for (const e of events) {

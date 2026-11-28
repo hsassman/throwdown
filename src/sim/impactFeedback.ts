@@ -1,6 +1,7 @@
 // What a punch should FEEL like, separate from what it IS.
 
 import type { FightEvent } from "./fightState";
+import type { PunchKind } from "../perception/strikeResolver";
 
 export type ImpactKind =
   /** Your punch landed. */
@@ -24,6 +25,8 @@ export interface Impact {
   at: number;
   /** Increasing id, so several readers can each track what they've seen. */
   seq: number;
+  /** The punch type, for a punch that landed, when the strike carried one. */
+  punch?: PunchKind;
 }
 
 /** Maps a sim event to an impact from the player's point of view, or null
@@ -159,9 +162,20 @@ export interface Popup {
 }
 
 /** The word shown for an impact, or null for none (being hit uses a flash). */
-export function popupFor(impact: Pick<Impact, "kind" | "power">): Popup | null {
+const PUNCH_WORD: Record<PunchKind, string> = {
+  straight: "STRAIGHT!",
+  hook: "HOOK!",
+  uppercut: "UPPERCUT!",
+};
+
+export function popupFor(impact: Pick<Impact, "kind" | "power" | "punch">): Popup | null {
   switch (impact.kind) {
     case "landed":
+      // Wii-style: say which punch landed, sized by how hard it was.
+      if (impact.punch) {
+        const size = impact.power >= 0.85 ? 2 : impact.power >= 0.6 ? 1 : 0;
+        return { text: PUNCH_WORD[impact.punch], tone: "good", size };
+      }
       if (impact.power >= 0.85) return { text: "HUGE!", tone: "good", size: 2 };
       if (impact.power >= 0.6) return { text: "HARD!", tone: "good", size: 1 };
       return { text: "HIT", tone: "good", size: 0 };
@@ -199,8 +213,9 @@ export class ImpactLog {
   private items: Impact[] = [];
   private next = 1;
 
-  push(kind: ImpactKind, power: number, at: number): Impact {
-    const impact = { kind, power, at, seq: this.next++ };
+  push(kind: ImpactKind, power: number, at: number, punch?: PunchKind): Impact {
+    const impact: Impact = { kind, power, at, seq: this.next++ };
+    if (punch) impact.punch = punch;
     this.items.push(impact);
     if (this.items.length > 16) this.items.splice(0, this.items.length - 16);
     return impact;

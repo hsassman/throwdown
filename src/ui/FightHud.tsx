@@ -84,7 +84,7 @@ export function FightHud({ hud, showWindup = true, rematch = null }: Props) {
         />
         <div className="fh-centre">
           <div className="fh-round">Round {hud.round}</div>
-          <div className={`fh-clock ${hud.clock < 10 ? "is-low" : ""}`}>
+          <div className={`fh-clock ${hud.phase === "fighting" && hud.clock < 10 ? "is-low" : ""}`}>
             {clock(hud.clock)}
           </div>
           {hud.phase === "between" && <div className="fh-phase">Rest</div>}

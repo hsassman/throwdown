@@ -1,0 +1,31 @@
+﻿.stage-picker-hint {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: #17111eea;
+  color: var(--ui-ink);
+  font-size: .8rem;
+}
+
+.app .stage-btn-current {
+  color: var(--ui-accent);
+  font-size: .72rem;
+  font-weight: 760;
+}
+
+.app .stage-btn { min-height: 72px; transition: background .18s var(--ui-ease); }
+.app .stage-btn[aria-pressed="true"] { background: #342745; }
+.app .stage-btn-copy { align-content: center; min-height: 54px; }
+.app .stage-btn-current + strong { line-height: 1.08; }
+
+@media (max-width: 640px) {
+  .app .stage-btn-copy { min-height: 70px; }
+  .stage-picker-hint { font-size: .74rem; }
+}
+
+[data-ui-reduced] .app .stage-btn { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app .stage-btn { transition: none; }
+}

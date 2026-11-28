@@ -1,4 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
+import { SlowDetector } from "./slowDetector";
 import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
@@ -138,7 +139,7 @@ const _dirPos = new THREE.Vector3();
 
 /** Render resolution bounds. Kept under the device pixel ratio because this
  * competes with pose inference for the same GPU. */
-const MAX_PIXEL_RATIO = isDemoMode() ? DEMO_PRESET.maxPixelRatio : 1.75;
+const MAX_PIXEL_RATIO = isDemoMode() ? DEMO_PRESET.maxPixelRatio : 1.25;
 const MIN_PIXEL_RATIO = 0.75;
 
 export type LoadStatus = "loading" | "ready" | "error";
@@ -339,7 +340,10 @@ export function BoxerModel({
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
     const demo = isDemoMode();
     const renderer = new THREE.WebGLRenderer({
-      antialias: demo ? DEMO_PRESET.antialias : true,
+      // Off everywhere: multisample anti-aliasing is a full-screen cost every
+      // frame, paid on the same GPU as pose tracking, and gameplay feeling
+      // responsive matters far more than smooth edges. (?demo already did this.)
+      antialias: demo ? DEMO_PRESET.antialias : false,
       alpha: wardrobe,
     });
     // Required for the punching dummy: the character figure used as its body
@@ -1112,7 +1116,7 @@ export function BoxerModel({
     // camera. It is restored whenever anything else holds the camera.
     const BASE_FOV = camera.fov;
     let fpsActive = false;
-    let fpsScanFrame = 0;
+    let fpsScanAt = -Infinity;
     let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
     let playerEyes: [THREE.Object3D, THREE.Object3D] | null = null;
     let playerHead: THREE.Object3D | null = null;
@@ -1223,7 +1227,7 @@ export function BoxerModel({
       fpsActive = false;
       fpsCam = null;
       fpsRoll = 0;
-      fpsScanFrame = 0;
+      fpsScanAt = -Infinity;
       setOwnHead(true);
       syncGlow(null);
       controls.enabled = true;
@@ -1250,6 +1254,10 @@ export function BoxerModel({
     const onPhone =
       typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
     let liteOn = false;
+    // Any machine, any fight mode: if the scene is visibly starving pose
+    // tracking, the same extras come off for the rest of the session. See
+    // slowDetector.ts.
+    const slowness = new SlowDetector();
     const shadowsOff: THREE.Mesh[] = [];
     const setLite = (on: boolean) => {
       liteOn = on;
@@ -1325,6 +1333,7 @@ export function BoxerModel({
       // oscillating between two levels. Also gives resolution up when pose
       // tracking is starved - see resolutionGovernor.ts.
       let nextRatio = governor.frame(rawDt);
+      slowness.frame(rawDt);
       if (now - lastPoseCheck > 500) {
         lastPoseCheck = now;
         const gaps = poseIntervalHolder.current;
@@ -1332,6 +1341,7 @@ export function BoxerModel({
         const mean = gaps && gaps.size >= 10 ? gaps.compute().mean : null;
         const inferMean = infer && infer.size >= 10 ? infer.compute().mean : null;
         nextRatio = governor.poseInterval(mean, inferMean) ?? nextRatio;
+        slowness.poseInterval(mean, inferMean);
       }
       if (nextRatio !== null && nextRatio !== pixelRatio) {
         pixelRatio = nextRatio;
@@ -1567,18 +1577,32 @@ export function BoxerModel({
       }
 
       stepDirector(dt);
-      if (driver) driver.lockDepth = fpsRef.current;
+      if (driver) {
+        driver.lockDepth = fpsRef.current;
+        // In a fight (or on the punching dummy) the legs stand planted rather
+        // than copying the camera's guesses at the player's legs.
+        driver.plantLegs = !!(showTargetRef.current || dummyRef.current);
+        driver.steadyBody = driver.plantLegs;
+      }
       const wantFps = fpsRef.current && (showTargetRef.current || dummyRef.current);
-      if ((wantFps && onPhone) !== liteOn) setLite(wantFps && onPhone);
+      const inBout = !!(showTargetRef.current || dummyRef.current);
+      // Every fight - FPS Mode included - runs light: no shadow pass, no crowd,
+      // resolution capped at 1x, so the GPU goes to pose tracking and your
+      // fighter keeps up with you. The slowness detector still covers any
+      // other view.
+      const wantLite = inBout || (wantFps && onPhone) || slowness.slow;
+      if (wantLite !== liteOn) setLite(wantLite);
       if (wantFps) {
         fpsActive = true;
         // The camera is driven every frame; dragging it would fight that.
         // Re-asserted each frame because the knockdown director re-enables
         // the controls when it hands the camera back.
         if (!directorOwns) controls.enabled = false;
-        // Materials only change at load or on an appearance change, so the
-        // scan runs a few times a second; the glow itself updates every frame.
-        const rescan = ++fpsScanFrame % 15 === 1;
+        // Materials only change at load or on an appearance change, so the scan
+        // runs four times a second by the clock; the glow updates every frame.
+        const nowMs = performance.now();
+        const rescan = nowMs - fpsScanAt >= 250;
+        if (rescan) fpsScanAt = nowMs;
         syncGlow(opponentHolder.current?.current?.windup ?? 0, rescan);
         if (!placeFpsCamera(dt) && !directorOwns) {
           followOpponent(dt);

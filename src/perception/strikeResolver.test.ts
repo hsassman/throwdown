@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { StrikeResolver, zoneOf } from "./strikeResolver";
+import { StrikeResolver, punchKindOf, zoneOf } from "./strikeResolver";
 import { STRIKE_CONFIG } from "../config/tuning";
 import { midpoint, type Keypoint, type PoseFrame } from "../pose/poseTypes";
 
@@ -200,5 +200,143 @@ describe("zoneOf", () => {
       torso
     );
     expect(there).toEqual(here);
+  });
+});
+
+describe("Wii-style punches", () => {
+  /** Hands down by the hips: not a guard. */
+  const LOW: Arm = { elbow: [0.42, 0.56], wrist: [0.43, 0.72] };
+  /** A lower guard, fists at the chest, for throwing an uppercut from. */
+  const CHEST: Arm = { elbow: [0.41, 0.58], wrist: [0.45, 0.5] };
+  /** Uppercut: fist driven up past the face. */
+  const UPPER: Arm = { elbow: [0.41, 0.36], wrist: [0.44, 0.14] };
+
+  /** `steps` frames 66ms apart from one posture to another. */
+  function move(from: Arm, to: Arm, steps: number, t0: number): PoseFrame[] {
+    return Array.from({ length: steps }, (_, i) => pose(lerpArm(from, to, (i + 1) / steps), t0 + (i + 1) * 66));
+  }
+  function hold(arm: Arm, n: number, t0: number): PoseFrame[] {
+    return Array.from({ length: n }, (_, i) => pose(arm, t0 + i * 66));
+  }
+
+  it("a quick punch from the guard counts", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, move(GUARD, STRAIGHT, 2, 660)).length + run(r, hold(STRAIGHT, 3, 900)).length).toBe(1);
+  });
+
+  it("an arm swung up from the side, hands never in the guard, does not count", () => {
+    const r = new StrikeResolver();
+    run(r, hold(LOW, 10, 0));
+    const swung = [...move(LOW, HOOK, 2, 660), ...hold(HOOK, 3, 860), ...move(HOOK, LOW, 2, 1060)];
+    expect(run(r, swung)).toEqual([]);
+  });
+
+  it("waving an arm that is already out does not count, however fast", () => {
+    const r = new StrikeResolver();
+    run(r, hold(LOW, 10, 0));
+    const OUT_A: Arm = { elbow: [0.26, 0.4], wrist: [0.12, 0.3] };
+    const OUT_B: Arm = { elbow: [0.25, 0.46], wrist: [0.1, 0.56] };
+    let t = 660;
+    const frames: PoseFrame[] = [];
+    for (let k = 0; k < 6; k++) {
+      frames.push(...move(k % 2 ? OUT_B : OUT_A, k % 2 ? OUT_A : OUT_B, 2, t));
+      t += 132;
+    }
+    expect(run(r, frames)).toEqual([]);
+  });
+
+  it("a slow reach out of the guard does not count", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    // ~1.3 s from guard to full extension: a reach, not a punch.
+    expect(run(r, [...move(GUARD, STRAIGHT, 20, 660), ...hold(STRAIGHT, 4, 2060)])).toEqual([]);
+  });
+
+  it("after a punch the fist has to come back to the guard before the next one counts", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, [...move(GUARD, STRAIGHT, 2, 660), ...hold(STRAIGHT, 2, 860)]).length).toBe(1);
+    // Dropped to the hips instead of back up to the guard, then thrown again.
+    const again = [...move(STRAIGHT, LOW, 3, 1000), ...hold(LOW, 4, 1200), ...move(LOW, STRAIGHT, 2, 1460), ...hold(STRAIGHT, 2, 1600)];
+    expect(run(r, again)).toEqual([]);
+    // Back to the guard, then thrown: counts.
+    const proper = [...move(STRAIGHT, GUARD, 3, 1800), ...hold(GUARD, 4, 2000), ...move(GUARD, STRAIGHT, 2, 2264), ...hold(STRAIGHT, 2, 2400)];
+    expect(run(r, proper).length).toBe(1);
+  });
+
+  it("names the three punches by direction", () => {
+    const straight = new StrikeResolver();
+    run(straight, atGuard(10));
+    const s = run(straight, [...move(GUARD, STRAIGHT, 2, 660), ...hold(STRAIGHT, 3, 860)]);
+    expect(s.map((e) => e.kind)).toEqual(["straight"]);
+
+    const hook = new StrikeResolver();
+    run(hook, atGuard(10));
+    const h = run(hook, [...move(GUARD, HOOK, 2, 660), ...hold(HOOK, 3, 860)]);
+    expect(h.map((e) => e.kind)).toEqual(["hook"]);
+
+    const upper = new StrikeResolver();
+    run(upper, hold(CHEST, 10, 0));
+    const u = run(upper, [...move(CHEST, UPPER, 2, 660), ...hold(UPPER, 3, 860)]);
+    expect(u.map((e) => e.kind)).toEqual(["uppercut"]);
+  });
+});
+
+describe("punchKindOf", () => {
+  it("up wins: uppercut; sideways wins: hook; forward or no clear winner: straight", () => {
+    expect(punchKindOf({ x: 0.2, y: 3, z: 0.5 })).toBe("uppercut");
+    expect(punchKindOf({ x: -3, y: 0.4, z: 0.5 })).toBe("hook");
+    expect(punchKindOf({ x: 0.2, y: 0.1, z: 6 })).toBe("straight");
+    expect(punchKindOf({ x: 1, y: 1, z: 2 })).toBe("straight");
+    // Downward travel is never an uppercut.
+    expect(punchKindOf({ x: 0, y: -3, z: 0 })).toBe("straight");
+  });
+});
+
+describe("motion punches (camera can't see full extension)", () => {
+  function move(from: Arm, to: Arm, steps: number, t0: number): PoseFrame[] {
+    return Array.from({ length: steps }, (_, i) => pose(lerpArm(from, to, (i + 1) / steps), t0 + (i + 1) * 66));
+  }
+  function hold(arm: Arm, n: number, t0: number): PoseFrame[] {
+    return Array.from({ length: n }, (_, i) => pose(arm, t0 + i * 66));
+  }
+  /** A punch that only gets 30% of the way to a full hook: well out past
+   *  the guard, but short of the fixed reach threshold. */
+  const SHORT = lerpArm(GUARD, HOOK, 0.3);
+
+  it("counts a quick push out of the guard that never reaches full measured extension", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    const events = run(r, [...move(GUARD, SHORT, 2, 660), ...hold(SHORT, 3, 860)]);
+    // The case this exists for: the fixed threshold was never crossed.
+    expect(r.debug.reach.right).toBeLessThan(1);
+    expect(events).toHaveLength(1);
+    expect(events[0].power).toBeGreaterThan(0);
+  });
+
+  it("one push is one punch, however long it is held out", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, [...move(GUARD, HOOK, 3, 660), ...hold(HOOK, 15, 900)])).toHaveLength(1);
+  });
+
+  it("two quick punches with a pull-back between them both count", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    const frames = [
+      ...move(GUARD, SHORT, 2, 660),
+      ...move(SHORT, GUARD, 2, 800),
+      ...hold(GUARD, 2, 1000),
+      ...move(GUARD, SHORT, 2, 1100),
+      ...hold(SHORT, 2, 1260),
+    ];
+    expect(run(r, frames)).toHaveLength(2);
+  });
+
+  it("a slow push the same distance still does not count", () => {
+    const r = new StrikeResolver();
+    run(r, atGuard(10));
+    expect(run(r, [...move(GUARD, SHORT, 20, 660), ...hold(SHORT, 3, 2060)])).toEqual([]);
   });
 });

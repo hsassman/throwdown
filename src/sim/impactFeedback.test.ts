@@ -65,6 +65,12 @@ describe("shake", () => {
 });
 
 describe("popupFor", () => {
+  it("names the punch that landed, Wii-style, sized by power", () => {
+    expect(popupFor({ kind: "landed", power: 0.4, punch: "hook" })).toEqual({ text: "HOOK!", tone: "good", size: 0 });
+    expect(popupFor({ kind: "landed", power: 0.7, punch: "straight" })?.size).toBe(1);
+    expect(popupFor({ kind: "landed", power: 0.9, punch: "uppercut" })).toEqual({ text: "UPPERCUT!", tone: "good", size: 2 });
+  });
+
   it("says how hard a landed punch was", () => {
     expect(popupFor({ kind: "landed", power: 0.4 })?.text).toBe("HIT");
     expect(popupFor({ kind: "landed", power: 0.7 })?.text).toBe("HARD!");

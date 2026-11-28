@@ -210,7 +210,7 @@ export function useFight(options: UseFightOptions) {
       if (logRef.current.length > 12) logRef.current.pop();
       pushBounded(fightEventQueueRef.current, e);
       const kind = impacts.kind(e, PLAYER);
-      if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now());
+      if (kind) impactLogRef.current.push(kind, impactPower(e), performance.now(), e.type === "land" ? e.punch : undefined);
       const a = audioRef.current;
       if (a && strike) {
         // A blocked punch emits block then land; it should sound once, muffled.

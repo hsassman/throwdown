@@ -169,8 +169,20 @@
   .app-immersive .fh-fighter { padding-block: 6px; }
   .app-immersive .fh-count { top: 58px; padding-block: 8px; }
   .fh-log { top: 60px; }
-  .fh-result { max-height: calc(100% - 96px); top: 55%; }
+  .fh-result { max-height: calc(100% - 96px); top: 55%; padding: 12px 16px; }
   .fh-result-title { font-size: min(2rem, 8vh); }
+  .fh-cards, .fh-result-actions { margin-top: 9px; }
+}
+
+@media (max-height: 360px) and (orientation: landscape) {
+  .fh-result {
+    display: grid;
+    align-items: center;
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    gap: 8px 12px;
+  }
+  .fh-cards, .fh-result-actions { margin-top: 0; }
+  .fh-result-actions { grid-column: 1 / -1; }
 }
 
 [data-ui-contrast] :is(.fh-fighter, .fh-centre, .fh-count, .fh-result, .fh-log li) {
