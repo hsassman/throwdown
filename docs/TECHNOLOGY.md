@@ -175,7 +175,10 @@ the measurements behind each decision.
   attack (circling, telegraph, striking, recovering, hurt), footwork and head
   movement. It manages range, telegraphs every punch (0.55, 0.38 or 0.26 s by
   difficulty), defends the side you have been attacking, and slips, ducks and
-  blocks as different moves. Its punch is resolved when the glove arrives
+  blocks as different moves. In first person its feet stay on the fight line:
+  it stands off at the preferred gap (about 0.96 m between bodies) and steps in
+  to striking range (0.79 m) for each combination, arriving before the first
+  punch lands. Its punch is resolved when the glove arrives
   (0.15 s after release), and the animation drives it with a shoulder turn, a
   lean and a dip into the legs on body shots.
 - **Lag compensation.** Every strike is judged against the defence that was up

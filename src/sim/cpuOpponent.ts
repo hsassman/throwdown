@@ -5,6 +5,9 @@ import type { Evasion, GuardPosture } from "./fightState";
 import type { ImpactPoint } from "../perception/strikeGeometry";
 import { CPU_CONFIG, FIGHT_GEOMETRY } from "../config/tuning";
 
+/** Locked depth between exchanges: back from striking range to the preferred gap. */
+const LOCKED_STANDOFF = FIGHT_GEOMETRY.strikingRange - FIGHT_GEOMETRY.preferredRange;
+
 export type CpuState = "circling" | "telegraph" | "striking" | "recovering" | "hurt";
 
 /** What the feet are doing. Independent of what the hands are doing, on purpose. */
@@ -172,10 +175,9 @@ export class CpuOpponent {
   private evadeCooldown = 0;
 
   /**
-   * Locked position (FPS Mode). The feet stay planted at the neutral gap, on
-   * the centre line: no advancing, retreating or circling. Head movement -
-   * slips left and right, and the duck - still works, so the only ways the
-   * body moves are left, right and down.
+   * Locked position (first person). The feet stay on the centre line with no
+   * circling: they hold the preferred gap between exchanges and step in to
+   * striking range for a combination. Slips and the duck still work.
    */
   locked = false;
 
@@ -466,9 +468,8 @@ export class CpuOpponent {
     c.lateral = clamp(c.lateral, -CPU_CONFIG.lateralLimit, CPU_CONFIG.lateralLimit);
     c.depth = clamp(c.depth, -CPU_CONFIG.depthLimit, CPU_CONFIG.depthLimit);
     if (this.locked) {
-      // Feet planted on the centre line at the neutral gap.
       c.lateral = 0;
-      c.depth = 0;
+      c.depth = this.exchanging() ? 0 : LOCKED_STANDOFF;
     }
 
     // Where the other fighter's side of the gap is, in this fighter's frame.
@@ -501,6 +502,12 @@ export class CpuOpponent {
       this.shown.depth = Math.max(-CPU_CONFIG.depthLimit, ceiling);
       c.depth = Math.min(c.depth, this.shown.depth);
     }
+  }
+
+  /** Throwing a combination, from the wind-up of its first punch to the
+   *  recovery of its last. */
+  private exchanging(): boolean {
+    return this.state === "telegraph" || this.state === "striking" || this.state === "recovering";
   }
 
   private setGuard(g: GuardPosture): GuardPosture | undefined {

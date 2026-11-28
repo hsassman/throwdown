@@ -475,24 +475,39 @@ describe("determinism", () => {
   });
 });
 
-describe("locked position (FPS Mode)", () => {
-  // The locked gap is the neutral one: both depth channels are held at 0.
+describe("locked position (first person)", () => {
   const atLockedGap = see({ range: FIGHT_GEOMETRY.neutralRange, opponentThrowing: true });
 
-  it("never steps in, backs off or circles", () => {
+  /** Steps a locked CPU with the range its own depth makes, as useFight does,
+   *  and records the range at every strike and while circling. */
+  function lockedBout(seed: number, seconds: number) {
+    const ai = new CpuOpponent("champion", seed);
+    ai.locked = true;
+    const dt = 1 / 60;
+    const atStrike: number[] = [];
+    const circling: number[] = [];
+    for (let t = 0; t < seconds; t += dt) {
+      const range = FIGHT_GEOMETRY.neutralRange - ai.stance.depth;
+      const intent = ai.update(dt, see({ range, opponentThrowing: true }));
+      expect(ai.footwork).toBe("hold");
+      // Sideways only as far as a slip takes the head.
+      expect(Math.abs(ai.stance.lateral)).toBeLessThanOrEqual(CPU_CONFIG.slipTravel + 1e-6);
+      if (intent.strike) atStrike.push(range);
+      if (ai.state === "circling") circling.push(range);
+    }
+    return { atStrike, circling };
+  }
+
+  it("stands at the preferred gap between exchanges", () => {
+    const { circling } = lockedBout(7, 30);
+    expect(Math.max(...circling)).toBeCloseTo(FIGHT_GEOMETRY.preferredRange, 2);
+  });
+
+  it("steps in to striking range for every punch", () => {
     for (const seed of [1, 7, 11, 23]) {
-      const ai = new CpuOpponent("champion", seed);
-      ai.locked = true;
-      const dt = 1 / 60;
-      let maxDepth = 0;
-      for (let t = 0; t < 30; t += dt) {
-        ai.update(dt, atLockedGap);
-        expect(ai.footwork).toBe("hold");
-        maxDepth = Math.max(maxDepth, Math.abs(ai.stance.depth));
-        // Sideways only as far as a slip takes the head.
-        expect(Math.abs(ai.stance.lateral)).toBeLessThanOrEqual(CPU_CONFIG.slipTravel + 1e-6);
-      }
-      expect(maxDepth).toBeLessThan(1e-6);
+      const { atStrike } = lockedBout(seed, 30);
+      expect(atStrike.length).toBeGreaterThan(3);
+      for (const r of atStrike) expect(r - FIGHT_GEOMETRY.strikingRange).toBeLessThan(0.05);
     }
   });
 

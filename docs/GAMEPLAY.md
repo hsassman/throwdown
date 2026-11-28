@@ -38,7 +38,7 @@ slips, ducks, your guard and your footwork.
 | Guard | Hands up at the chin covers the head; hands at the ribs covers the body. A blocked punch does a fraction of the damage and costs the blocker stamina. |
 | Slip | Move your head and shoulders sideways. A slip beats a straight or rising punch, but not a hook, which curves around to where your head went. |
 | Duck | Drop your head. A duck gets under any head punch and does nothing about a body shot. |
-| Step | Step towards or away from the camera (third-person fights only; first person holds both fighters at range). |
+| Step | Step towards or away from the camera (third-person fights only; in first person the CPU sets the distance). |
 | Get up | When knocked down in a CPU fight, hold both gloves up at your face to rise early. |
 | Rematch | When a fight ends, raise both hands over your head and hold them there. |
 | Menu | Point your hand at a card and hold it still until the ring fills. |
@@ -60,8 +60,9 @@ Every on-screen control also works with a tap or a click.
 
 - **Rounds:** three rounds of three minutes.
 - **First person.** The default view. The camera is at your fighter's eyes and
-  your gloves are at the bottom of the screen. Both fighters hold the neutral
-  gap, so the fight is about timing, defence and the guard.
+  your gloves are at the bottom of the screen. The fighters stay on one line:
+  the CPU stands off at its preferred distance between exchanges and steps in
+  to throw, then back out, so the fight is about timing, defence and the guard.
 - **Third person.** Press `V` or turn it on in Settings. The camera sits behind
   your fighter and both fighters move: the CPU circles, steps in to throw and
   backs out again, and your real steps change the range.

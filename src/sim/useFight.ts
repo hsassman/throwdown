@@ -110,8 +110,8 @@ export interface UseFightOptions {
   /** A downed player can get up early by holding their gloves up. CPU fights
    *  only, and fixed when the fight starts. */
   getUp?: boolean;
-  /** Holds both fighters at the neutral gap: slips and ducks only. CPU fights
-   *  only, and fixed when the fight starts. */
+  /** Keeps both fighters on one line: the player's steps are ignored and the
+   *  CPU steps in only to throw. CPU fights only, and fixed when the fight starts. */
   locked?: boolean;
 }
 
