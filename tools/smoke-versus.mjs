@@ -87,7 +87,12 @@ try {
   await guest.evaluate(() => window.__shadowboxNet.rematch());
   await waitFor(host, (b) => (window.__shadowboxDebug().hud?.clock ?? 0) > b + 2, before, 15000).catch(() => {});
   const after = await debug(host);
-  check("both asking restarts the fight", (after.hud?.clock ?? 0) > before + 2 && after.hud?.player.landed === 0, `${before} -> ${after.hud?.clock}`);
+  // The fake player keeps punching, so a fresh fight may have a landed punch already.
+  check(
+    "both asking restarts the fight",
+    (after.hud?.clock ?? 0) > before + 2 && (after.hud?.player.landed ?? 99) < (h.hud?.player.landed ?? 0),
+    `${before} -> ${after.hud?.clock}, landed ${h.hud?.player.landed} -> ${after.hud?.player.landed}`
+  );
   check("and the requests are cleared", !after.rematch.local && !after.rematch.remote);
 } catch (e) {
   console.log("FAIL  run aborted:", e.message);
