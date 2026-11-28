@@ -484,7 +484,10 @@ export default function App() {
             />
           </Suspense>
         )}
-        {coaching && <FirstRunCard state={firstRun} onDone={finishFirstRun} />}
+        {coaching && (
+          <FirstRunCard state={firstRun} onDone={finishFirstRun}
+            preview={{ visible: preferences.showCamera, onToggle: () => changePreference("showCamera") }} />
+        )}
         {wardrobe && (
           <Suspense fallback={<p className="wardrobe-preview-hint">Loading preview…</p>}>
             <BoxerModel
@@ -585,7 +588,7 @@ export default function App() {
             mirrored
             showRaw={showRaw}
           />
-          {camClass !== "cam-hidden" && (
+          {camClass !== "cam-hidden" && !coaching && (
             <button
               type="button"
               className="cam-toggle"

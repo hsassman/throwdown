@@ -66,6 +66,10 @@
 .firstrun-hands small { color: var(--ui-muted); font-size: .75rem; }
 .firstrun-hands > span[data-done="true"] small { color: var(--ui-accent); font-weight: 750; }
 
+.firstrun-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.firstrun-preview { display: inline-flex; align-items: center; gap: 7px; }
+.firstrun-preview svg { width: 17px; height: 17px; }
+
 .firstrun-btn {
   min-height: 44px;
   padding: 5px 14px;

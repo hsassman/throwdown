@@ -79,3 +79,9 @@ Fight results now lead with the verdict and decision method, and show landed pun
 Training shows the target and countdown in the arena. The round-complete link moves focus to the scorecard, where Go again is the first action. Camera setup shows progress, gives the portrait camera preview more room and keeps keyboard focus within the instructions during setup. Career shows the current opponent and the full ladder. Venue cards identify the selected arena, and the preview orbit honors the reduced UI motion preference.
 
 The merged gameplay worktree passed its production build, lint and all 776 unit tests. The Chrome review completed a real training drill and restart, navigated camera setup, chose a venue and switched fight cameras by touch and keyboard. Each rematch screenshot is a controlled React fixture, with taps verified at portrait, landscape and 320 px-high landscape sizes. The game run used a fake camera. See `tools/out/ui-review/refined-*.png` in the gameplay worktree and `tools/review-ui-states.mjs` for the regression checks.
+
+### Follow-up on the integrated build
+
+The first-person webcam inset now sits above the glove area. The setup preview toggle is inside the modal's keyboard cycle. Chrome verified both preview states and verified that the fight-camera choice persists after returning to the game.
+
+At 320 px wide, the friend-match screen puts the join button after its code field and clears the old code when the role changes. A two-browser Chrome test hosted and joined a real local peer connection entirely through the UI, including a clipboard write and the text-selection fallback when clipboard access was blocked. The updated gameplay checkout passed the production build, lint and all 775 unit tests.

@@ -199,7 +199,7 @@ button, input, textarea, select { font-family: inherit; }
 .app .vs-chip { background: #171122f4; border-color: var(--ui-border); color: var(--ui-ink); border-radius: 11px; }
 .app .framing-prompt { background: #231724f5; border-color: #e8abd36b; color: #ffd8ee; }
 .app[data-fight-camera="first"] {
-  --fight-preview-width: min(20vw, 146px);
+  --fight-preview-width: clamp(74px, 20vw, 146px);
   --fight-preview-top: calc(var(--immersive-head, 0px) + 112px);
 }
 .app[data-fight-camera="first"] .stage .cam-inset {
@@ -217,7 +217,7 @@ button, input, textarea, select { font-family: inherit; }
 }
 @media (max-height: 470px) and (orientation: landscape) {
   .app[data-fight-camera="first"] {
-    --fight-preview-width: min(16vw, 112px);
+    --fight-preview-width: clamp(74px, 16vw, 112px);
     --fight-preview-top: calc(var(--immersive-head, 0px) + 88px);
   }
 }

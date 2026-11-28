@@ -227,3 +227,35 @@
   background: #111214;
 }
 .vs-head { color: #f4d5a7; font-weight: 700; }
+
+.vs-friend .vs-join {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: #ffffff06;
+}
+
+.app .panel .vs-friend .vs-primary:not(:disabled) {
+  background: var(--ui-accent);
+  color: #241631;
+  font-weight: 780;
+}
+.app .panel .vs-friend .vs-primary:hover:not(:disabled) { background: #f5e7ff; }
+
+.vs-friend :is(.vs-field, .vs-code label) {
+  font-size: .86rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.vs-copy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vs-copy-actions .vs-copy { flex: none; min-height: 44px; }
+.vs-copy-actions > span { flex: 1 1 92px; min-width: 0; font-size: .8rem; color: var(--ui-muted); }
+.stage:has(.vs-chip) .fh-log { top: 151px; }
+
+@media (pointer: coarse) {
+  .vs-friend textarea:not([readonly]) { font-size: 1rem; }
+  .vs-chip { left: 8px; }
+  .vs-chip .vs-chip-leave { min-height: 44px; min-width: 44px; border-radius: 7px; }
+}

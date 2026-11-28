@@ -99,7 +99,18 @@ async function gameReview() {
     assert.equal(await dialog.getAttribute("aria-modal"), "true");
     assert.equal(await page.locator(".shell").getAttribute("inert"), "");
     assert.equal(await dialog.locator('[aria-current="step"]').textContent(), "1Frame");
+    const setupPreview = dialog.getByRole("button", { name: "Camera preview", exact: true });
     await page.keyboard.press("Tab");
+    if (await setupPreview.count()) {
+      assert.equal(await page.locator(":focus").getAttribute("aria-label"), "Camera preview");
+      await page.keyboard.press("Space");
+      assert.equal(await setupPreview.getAttribute("aria-pressed"), "true");
+      assert.equal(await page.locator(".cam-coach.cam-skeleton").count(), 0);
+      await shot(page, "refined-phone-setup-preview");
+      await page.keyboard.press("Space");
+      assert.equal(await setupPreview.getAttribute("aria-pressed"), "false");
+      await page.keyboard.press("Shift+Tab");
+    }
     assert.match(await page.locator(":focus").textContent(), /Skip setup/);
     await shot(page, "refined-phone-onboarding");
     await page.keyboard.press("Escape");
@@ -150,15 +161,28 @@ async function gameReview() {
     if (await camera.count()) {
       await assertTouchable(camera);
       await camera.tap();
-      await button(page, "Switch camera to first person").waitFor();
-      assert.equal(await page.evaluate(() => localStorage.getItem("shadowbox.view")), "third");
+      const switchToFirst = button(page, "Switch camera to first person");
+      await switchToFirst.waitFor();
+      await page.goto(base + "/?firstrun=0");
+      await button(page, "Enable camera").tap();
+      await mode(page, "cpu").tap();
+      await switchToFirst.waitFor();
       await page.keyboard.press("v");
       await camera.waitFor();
-      assert.equal(await page.evaluate(() => localStorage.getItem("shadowbox.view")), "first");
       assert.ok(await page.locator(".cam-inset").evaluate((element) => {
         const stage = element.closest(".stage").getBoundingClientRect();
         return element.getBoundingClientRect().bottom < stage.top + stage.height * 2 / 3;
       }), "First-person camera preview should stay above the gloves");
+      const previewSwitch = button(page, "Show my camera");
+      if (await previewSwitch.count()) {
+        await assertTouchable(previewSwitch);
+        await previewSwitch.tap();
+        const hidePreview = button(page, "Hide my camera, show only the skeleton");
+        await hidePreview.waitFor();
+        assert.equal(await hidePreview.getAttribute("aria-pressed"), "true");
+        await hidePreview.tap();
+        await previewSwitch.waitFor();
+      }
       await shot(page, "refined-phone-fight-camera");
     }
     console.log("Verified camera setup, live drill, recap, restart, career and venue selection in the game");
@@ -167,11 +191,81 @@ async function gameReview() {
   }
 }
 
+async function friendReview() {
+  const settings = { viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true };
+  const host = await browser.newPage({ ...settings, permissions: ["camera", "clipboard-read", "clipboard-write"] });
+  const guest = await browser.newPage({ ...settings, permissions: ["camera"] });
+  await guest.addInitScript(() => {
+    if (navigator.clipboard) {
+      Object.defineProperty(navigator.clipboard, "writeText", {
+        value: () => Promise.reject(new Error("Clipboard unavailable in this test")),
+      });
+    }
+  });
+  try {
+    async function openInvite(page) {
+      await page.goto(base + "/?firstrun=0");
+      await button(page, "Enable camera").tap();
+      await mode(page, "lan").tap();
+      await button(page, "Host a fight").waitFor();
+    }
+    await openInvite(host);
+    await openInvite(guest);
+    const join = button(guest, "Join with a code");
+    const invite = guest.getByLabel("Their host code");
+    assert.equal(await join.isDisabled(), true);
+    assert.equal(await invite.getAttribute("autocapitalize"), "none");
+    assert.ok((await invite.boundingBox()).y < (await join.boundingBox()).y);
+    await shot(guest, "refined-friend-match-join");
+
+    await host.bringToFront();
+    await host.getByLabel("Their host code").fill("old-host-code-to-clear-123");
+    await button(host, "Host a fight").tap();
+    const outgoing = host.locator(".vs-code textarea");
+    await outgoing.waitFor();
+    assert.equal(await host.getByLabel("Your friend's reply code").inputValue(), "");
+    const hostCode = await outgoing.inputValue();
+    const copy = button(host, "Copy code");
+    await copy.scrollIntoViewIfNeeded();
+    await assertTouchable(copy);
+    await copy.tap();
+    await host.getByText("Code copied.", { exact: true }).waitFor();
+    assert.equal(await host.evaluate(() => navigator.clipboard.readText()), hostCode);
+    await shot(host, "refined-friend-match-host");
+
+    await guest.bringToFront();
+    await invite.fill(hostCode);
+    await join.tap();
+    const reply = guest.locator(".vs-code textarea");
+    await reply.waitFor();
+    const replyCode = await reply.inputValue();
+    await button(guest, "Copy code").tap();
+    await guest.getByText("Code selected.", { exact: false }).waitFor();
+    assert.ok(await reply.evaluate((field) => (
+      document.activeElement === field && field.selectionStart === 0 && field.selectionEnd === field.value.length
+    )));
+    await shot(guest, "refined-friend-match-reply");
+
+    await host.bringToFront();
+    await host.getByLabel("Your friend's reply code").fill(replyCode);
+    await button(host, "Start the fight").tap();
+    await host.locator(".vs-chip").waitFor();
+    await guest.locator(".vs-chip").waitFor();
+    await assertTouchable(button(host, "Leave"));
+    await shot(host, "refined-friend-match-connected");
+    console.log("Verified touch invite, clipboard copy, selection fallback and local peer connection");
+  } finally {
+    await host.close();
+    await guest.close();
+  }
+}
+
 try {
   await fixtureReview(portrait, "refined-portrait-fight");
   await fixtureReview(landscape, "refined-landscape-fight");
   await fixtureReview({ width: 640, height: 320 }, "refined-compact-fight");
   await gameReview();
+  await friendReview();
 } finally {
   await browser.close();
 }
