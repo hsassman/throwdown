@@ -133,4 +133,77 @@ public class MatchmakingQueueTests
         Assert.Null(queue.Leave("conn-1"));
         Assert.False(queue.Join("conn-2").IsMatched);
     }
+
+    [Fact]
+    public void ARoomCodeIsFourReadableCharacters()
+    {
+        var code = new MatchmakingQueue().OpenRoom("host");
+
+        Assert.Equal(MatchmakingQueue.CodeLength, code.Length);
+        Assert.All(code, c => Assert.Contains(c, MatchmakingQueue.CodeAlphabet));
+    }
+
+    [Fact]
+    public void EnteringTheCodePairsTheGuestWithTheHost()
+    {
+        var queue = new MatchmakingQueue();
+        var code = queue.OpenRoom("host");
+
+        var result = queue.JoinRoom($" {code.ToLowerInvariant()} ", "guest");
+
+        Assert.True(result.IsMatched);
+        Assert.Equal("host", result.OpponentConnectionId);
+        Assert.True(queue.AreMatched("guest", "host"));
+    }
+
+    [Fact]
+    public void AWrongCodeOrTheHostsOwnDoesNotPair()
+    {
+        var queue = new MatchmakingQueue();
+        var code = queue.OpenRoom("host");
+
+        Assert.False(queue.JoinRoom(code == "AAAA" ? "BBBB" : "AAAA", "guest").IsMatched);
+        Assert.False(queue.JoinRoom(code, "host").IsMatched);
+        Assert.True(queue.JoinRoom(code, "guest").IsMatched);
+    }
+
+    [Fact]
+    public void ARoomTakesOneGuest()
+    {
+        var queue = new MatchmakingQueue();
+        var code = queue.OpenRoom("host");
+        queue.JoinRoom(code, "guest");
+
+        Assert.False(queue.JoinRoom(code, "late").IsMatched);
+    }
+
+    [Fact]
+    public void AHostWhoLeavesClosesTheRoom()
+    {
+        var queue = new MatchmakingQueue();
+        var code = queue.OpenRoom("host");
+
+        Assert.Null(queue.Leave("host"));
+        Assert.False(queue.JoinRoom(code, "guest").IsMatched);
+    }
+
+    [Fact]
+    public void HostingAgainReplacesTheOldRoom()
+    {
+        var queue = new MatchmakingQueue();
+        var first = queue.OpenRoom("host");
+        var second = queue.OpenRoom("host");
+
+        if (first != second) Assert.False(queue.JoinRoom(first, "guest").IsMatched);
+        Assert.True(queue.JoinRoom(second, "guest").IsMatched);
+    }
+
+    [Fact]
+    public void RoomsAndTheQueueStaySeparate()
+    {
+        var queue = new MatchmakingQueue();
+        queue.OpenRoom("host");
+
+        Assert.False(queue.Join("stranger").IsMatched);
+    }
 }

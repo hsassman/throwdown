@@ -29,6 +29,40 @@ public sealed class MatchmakingHub : Hub
         await Clients.Client(result.OpponentConnectionId!).SendAsync("Matched", result.MatchId, Context.ConnectionId, false);
     }
 
+    /// <summary>Opens a room for a friend to join by code. The host answers the joiner's offer.</summary>
+    public async Task<string> HostRoom()
+    {
+        await NotifyOpponentLeft(_queue.Leave(Context.ConnectionId));
+        return _queue.OpenRoom(Context.ConnectionId);
+    }
+
+    /// <summary>Joins a friend's room. False when no room has that code.</summary>
+    public async Task<bool> JoinRoom(string code)
+    {
+        // Codes are short; a connection that keeps guessing is cut off.
+        var misses = Context.Items.TryGetValue(MissesKey, out var m) ? (int)m! : 0;
+        if (misses >= MaxMisses)
+        {
+            throw new HubException("Too many wrong codes. Reload and try again.");
+        }
+
+        await NotifyOpponentLeft(_queue.Leave(Context.ConnectionId));
+        var result = _queue.JoinRoom(code ?? "", Context.ConnectionId);
+        if (!result.IsMatched)
+        {
+            Context.Items[MissesKey] = misses + 1;
+            return false;
+        }
+
+        // The offerer hosts the fight, so the room's creator offers and the joiner answers.
+        await Clients.Caller.SendAsync("Matched", result.MatchId, result.OpponentConnectionId, false);
+        await Clients.Client(result.OpponentConnectionId!).SendAsync("Matched", result.MatchId, Context.ConnectionId, true);
+        return true;
+    }
+
+    private const string MissesKey = "roomMisses";
+    private const int MaxMisses = 10;
+
     public Task RelayOffer(string targetConnectionId, string sdp)
     {
         EnsureMatched(targetConnectionId);

@@ -63,6 +63,39 @@ public class HubTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task AFriendJoinsByCodeAndTheRoomsCreatorHostsTheFight()
+    {
+        await using var host = await ConnectAsync();
+        await using var guest = await ConnectAsync();
+        var hostMatched = ExpectMatched(host);
+        var guestMatched = ExpectMatched(guest);
+
+        var code = await host.InvokeAsync<string>("HostRoom");
+        Assert.False(await guest.InvokeAsync<bool>("JoinRoom", code == "AAAA" ? "BBBB" : "AAAA"));
+        Assert.True(await guest.InvokeAsync<bool>("JoinRoom", code.ToLowerInvariant()));
+
+        var timeout = TimeSpan.FromSeconds(10);
+        var (hostId, hostOffers) = await hostMatched.Task.WaitAsync(timeout);
+        var (guestId, guestOffers) = await guestMatched.Task.WaitAsync(timeout);
+        Assert.Equal(hostId, guestId);
+        Assert.True(hostOffers); // the offerer is the fight's host
+        Assert.False(guestOffers);
+        await host.InvokeAsync("RelayOffer", guest.ConnectionId!, "sdp"); // and they may now signal
+    }
+
+    [Fact]
+    public async Task GuessingCodesIsCutOff()
+    {
+        await using var guesser = await ConnectAsync();
+        for (var i = 0; i < 10; i++)
+        {
+            await guesser.InvokeAsync<bool>("JoinRoom", "ZZZZ");
+        }
+
+        await Assert.ThrowsAsync<HubException>(() => guesser.InvokeAsync<bool>("JoinRoom", "ZZZZ"));
+    }
+
+    [Fact]
     public async Task RelayToAStrangerIsRefused()
     {
         await using var a = await ConnectAsync();
