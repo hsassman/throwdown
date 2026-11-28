@@ -65,11 +65,10 @@ async function measure(query) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`${BASE}/?firstrun=0&${query}`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/?firstrun=0&mode=cpu&${query}`, { waitUntil: "networkidle" });
   await page.locator(".gate-btn").click();
   // A tracked pose, not just a loaded model: the fake player has to be found.
   await page.waitForFunction(() => !!window.__shadowboxPose?.(), null, { timeout: 90_000 });
-  await page.locator(".shell-row").filter({ hasText: "Fight the CPU" }).first().click();
   // The fight hides the diagnostics, and the perf hook lives in them.
   await page.keyboard.press("Backquote");
   await page.waitForFunction(() => typeof window.__shadowboxPerf === "function", null, { timeout: 15_000 });

@@ -11,7 +11,7 @@ import { CpuOpponent, type CpuPerception } from "./cpuOpponent";
 import { attributesFor, drainOf, fatigueMultiplier, morphWeightsFor } from "./attributes";
 import { approachOf, damageOf, regionAt, coarseZone } from "../perception/strikeGeometry";
 import type { StrikeEvent } from "../perception/strikeResolver";
-import type { WeightClass } from "../menu/menuModel";
+import type { WeightClass } from "./attributes";
 import { FIGHT_CONFIG, FIGHT_GEOMETRY, STRIKE_CONFIG } from "../config/tuning";
 import type { BodyMotion } from "../perception/bodyMotion";
 

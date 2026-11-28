@@ -15,7 +15,7 @@ import { CpuOpponent, type Difficulty } from "./cpuOpponent";
 import { createImpactAudio, type ImpactAudio } from "../audio/impactAudio";
 import { approachOf, coarseZone, damageOf, regionAt } from "../perception/strikeGeometry";
 import type { StrikeEvent } from "../perception/strikeResolver";
-import type { WeightClass } from "../menu/menuModel";
+import type { WeightClass } from "./attributes";
 import type { BodyMotion } from "../perception/bodyMotion";
 import type { OpponentVisualState } from "../render/opponentAnimator";
 import type { NetFightState } from "../net/protocol";

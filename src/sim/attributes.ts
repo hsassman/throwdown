@@ -28,8 +28,27 @@
 // multiplier - and 1v1 should probably lock both fighters to one class until
 // it has been played.
 
-import type { WeightClass } from "../menu/menuModel";
-import { WEIGHT_LIMITS } from "../menu/menuModel";
+export type WeightClass =
+  | "flyweight"
+  | "bantamweight"
+  | "featherweight"
+  | "lightweight"
+  | "welterweight"
+  | "middleweight"
+  | "lightheavy"
+  | "heavyweight";
+
+/** Upper bound of each class, kg. Standard commission limits. */
+export const WEIGHT_LIMITS: Record<WeightClass, number> = {
+  flyweight: 56.7,
+  bantamweight: 61.2,
+  featherweight: 65.8,
+  lightweight: 70.3,
+  welterweight: 77.1,
+  middleweight: 83.9,
+  lightheavy: 93.0,
+  heavyweight: 120.2,
+};
 
 export interface FighterAttributes {
   /**

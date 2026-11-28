@@ -19,7 +19,7 @@ import {
   fatigueMultiplier,
   type FighterAttributes,
 } from "./attributes";
-import type { WeightClass } from "../menu/menuModel";
+import type { WeightClass } from "./attributes";
 import type { StrikeEvent } from "../perception/strikeResolver";
 import type { BodyMotion } from "../perception/bodyMotion";
 import { FIGHT_CONFIG } from "../config/tuning";
@@ -197,6 +197,14 @@ export interface FightRules {
   enforceFouls: boolean;
   stoppages: boolean;
 }
+
+export const DEFAULT_RULES: FightRules = {
+  rounds: 3,
+  roundSeconds: 180,
+  damageScale: 1,
+  enforceFouls: true,
+  stoppages: true,
+};
 
 /** The part of a fighter a strike is judged against. */
 export interface DefenceSnapshot {

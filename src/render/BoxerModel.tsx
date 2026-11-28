@@ -1,5 +1,5 @@
 import { ResolutionGovernor } from "./resolutionGovernor";
-import { FPS_CAMERA, approach, fpsCameraPose, fpsLean, isGhostPart } from "./fpsCamera";
+import { FPS_CAMERA, approach, fpsCameraPose, fpsFov, fpsLean, isGlove } from "./fpsCamera";
 import { DEMO_PRESET, isDemoMode } from "../config/demoMode";
 import type { RollingStats } from "../debug/perfStats";
 import { ImpactLog, TimeWarp, hitStopFor, shakeFor, shakeOffset } from "../sim/impactFeedback";
@@ -228,11 +228,7 @@ interface Props {
   recentreSignal?: number;
   /** Adds the second humanoid - a training target that reacts to hits. */
   showTarget?: boolean;
-  /**
-   * FPS mode: the camera sits just behind the player's own head looking at
-   * the opponent, and the player's fighter is drawn see-through so it never
-   * blocks the view. Only takes effect in a duel. See fpsCamera.ts.
-   */
+  /** First person: the camera at the player's eyes. Only takes effect in a duel. */
   fps?: boolean;
   /** Strikes to play on the target. The ref is read and drained by the render
    * loop rather than passed as a prop, because hits arrive at pose rate and
@@ -1303,39 +1299,31 @@ export function BoxerModel({
       }
     };
 
-    // --- FPS mode --------------------------------------------------------
+    // --- First person ------------------------------------------------------
     //
-    // The camera rides just behind the player's own head, and the player's
-    // fighter is drawn see-through so the opponent is always visible through
-    // them. Everything else - the fight, the arena, both fighters' animation -
-    // is exactly what the third-person view shows.
-    //
-    // The player's materials are cloned before being made transparent: the
-    // opponent is a clone of the same asset and shares material objects with
-    // it, and fading a shared material would fade the opponent too.
+    // The camera rides at the player's eyes. The head bone is collapsed while
+    // it does, because from inside the head the mouth and eye sockets face the
+    // camera. It is restored whenever anything else holds the camera.
     const BASE_FOV = camera.fov;
     let fpsActive = false;
     let fpsScanFrame = 0;
     let fpsCam: { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } } | null = null;
+    let playerEyes: [THREE.Object3D, THREE.Object3D] | null = null;
     let playerHead: THREE.Object3D | null = null;
     let opponentHead: THREE.Object3D | null = null;
-    const ghostOriginals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
-    const ghosted = new WeakSet<THREE.Material>();
     const _head = new THREE.Vector3();
+    const _eyeR = new THREE.Vector3();
     const _oppHead = new THREE.Vector3();
-    /** Smoothed camera roll for the dodge lean, radians. */
     let fpsRoll = 0;
-    /** The opponent's glove materials, swapped for clones that can glow
-     *  during a wind-up without lighting up the player's gloves too (the two
-     *  fighters share material objects). */
+    // The opponent's glove materials, swapped for clones that can glow during
+    // a wind-up without lighting the player's gloves (the figures share materials).
     const glowOriginals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
     const glowing = new WeakSet<THREE.Material>();
     const glowMats = new Set<THREE.MeshStandardMaterial>();
     const glowColor = new THREE.Color(FPS_CAMERA.windupGlow);
 
-    /** Lights the opponent's gloves in proportion to their wind-up, 0-1.
-     *  `null` puts the original materials back. Re-checked every frame, like
-     *  syncGhost, because the kit tint swaps the glove materials after load. */
+    /** Lights the opponent's gloves with their wind-up, 0-1. `null` restores them.
+     *  Rescanned because the kit tint swaps glove materials after load. */
     const syncGlow = (windup: number | null, rescan = true) => {
       if (windup === null) {
         for (const [mesh, orig] of glowOriginals) mesh.material = orig;
@@ -1347,7 +1335,7 @@ export function BoxerModel({
       if (!opponentRoot) return;
       if (rescan) opponentRoot.traverse((o) => {
         const mesh = o as THREE.Mesh;
-        if (!mesh.isMesh || isGhostPart([mesh.name, mesh.parent?.name ?? ""])) return;
+        if (!mesh.isMesh || !isGlove([mesh.name, mesh.parent?.name ?? ""])) return;
         const mat = mesh.material;
         const mats = Array.isArray(mat) ? mat : [mat];
         if (mats.every((x) => glowing.has(x))) return;
@@ -1363,82 +1351,45 @@ export function BoxerModel({
         glowOriginals.set(mesh, mat);
         mesh.material = Array.isArray(mat) ? mat.map(clone) : clone(mat);
       });
-      // Eased in so the glow builds through the wind-up and is brightest
-      // just before the punch leaves.
+      // Eased in, brightest just before the punch leaves.
       const k = Math.max(0, Math.min(1, windup)) ** 1.5 * 1.4;
       for (const m of glowMats) m.emissive.copy(glowColor).multiplyScalar(k);
     };
 
-    const ghostMaterial = (m: THREE.Material): THREE.Material => {
-      if (ghosted.has(m)) return m;
-      // Lambert rather than a clone of the original (standard/physical):
-      // the see-through body covers a big part of the screen and is drawn on
-      // top of the opponent, so every pixel of it is shaded twice. At 28%
-      // opacity the specular and bump detail a standard material pays for
-      // are invisible anyway. Same texture and colour, so bruises still show.
-      const src = m as THREE.MeshStandardMaterial;
-      const g = new THREE.MeshLambertMaterial({
-        map: src.map ?? null,
-        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
-        side: m.side,
-      });
-      g.transparent = true;
-      g.opacity = FPS_CAMERA.playerOpacity;
-      // Without this the see-through body still writes depth and hides the
-      // far half of itself and anything behind it in odd patches.
-      g.depthWrite = false;
-      ghosted.add(g);
-      return g;
+    const setOwnHead = (shown: boolean) => {
+      if (!playerHead) return;
+      playerHead.scale.setScalar(shown ? 1 : 1e-4);
+      playerHead.updateMatrixWorld(true);
     };
 
-    /** Keeps the player's meshes see-through while FPS mode is on. Checked
-     *  every frame rather than once, because skins and appearance changes
-     *  swap materials after load. */
-    const syncGhost = (on: boolean, rescan = true) => {
-      if (!playerRoot) return;
-      if (on && !rescan) return;
-      if (!on) {
-        for (const [mesh, orig] of ghostOriginals) {
-          const now = mesh.material;
-          (Array.isArray(now) ? now : [now]).forEach((x) => ghosted.has(x) && x.dispose());
-          mesh.material = orig;
-        }
-        ghostOriginals.clear();
-        return;
-      }
-      playerRoot.traverse((o) => {
-        const mesh = o as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        // The gloves stay solid: where your fists are is the one thing you
-        // must always see. Everything else fades.
-        if (!isGhostPart([mesh.name, mesh.parent?.name ?? ""])) return;
-        const mat = mesh.material;
-        const already = Array.isArray(mat) ? mat.every((x) => ghosted.has(x)) : ghosted.has(mat);
-        if (already) return;
-        ghostOriginals.set(mesh, mat);
-        mesh.material = Array.isArray(mat) ? mat.map(ghostMaterial) : ghostMaterial(mat);
-      });
-    };
-
-    /** Places the camera for FPS mode. Returns false when it can't (no duel,
+    /** Places the first-person camera. False when it can't (no opponent yet,
      *  the director holds the camera, the model isn't loaded). */
     const placeFpsCamera = (dt: number): boolean => {
       const duel = showTargetRef.current || dummyRef.current;
-      if (!duel || directorOwns || !playerRoot || !opponentRoot?.visible) return false;
+      if (!duel || directorOwns || !playerRoot || !opponentRoot?.visible) {
+        setOwnHead(true);
+        return false;
+      }
+      if (!playerEyes) {
+        const l = playerRoot.getObjectByName("l_eye");
+        const r = playerRoot.getObjectByName("r_eye");
+        if (l && r) playerEyes = [l, r];
+      }
       playerHead ??= playerRoot.getObjectByName("c_head") ?? null;
       opponentHead ??= opponentRoot.getObjectByName("c_head") ?? null;
-      if (!playerHead || !opponentHead) return false;
-      playerHead.getWorldPosition(_head);
+      if (!playerEyes || !opponentHead) return false;
+      // Eyes read with the head at full size, then the head collapses for the render.
+      setOwnHead(true);
+      playerEyes[0].getWorldPosition(_head);
+      playerEyes[1].getWorldPosition(_eyeR);
+      _head.add(_eyeR).multiplyScalar(0.5);
+      setOwnHead(false);
       opponentHead.getWorldPosition(_oppHead);
-      // Dodge lean: the camera slides and tilts with the player's slip, on
-      // top of the head's own movement, so slipping a punch feels like
-      // getting out of its way.
       const motion = driverRef.current?.bodyMotion;
       const lean = fpsLean(motion?.tracked ? motion.lateral : 0);
-      // Locked position: the two fighters face each other down one fixed
-      // line, so the camera looks straight down it rather than turning to
-      // follow the opponent's slips. Their slips move them across the frame,
-      // the player's own slips move the camera.
+      // The fighters face each other down one fixed line, so the camera looks
+      // straight down it: their slips move them across the frame, the
+      // player's own slips move the camera.
       _oppHead.x = _head.x;
       const goal = fpsCameraPose(_head, _oppHead, FPS_CAMERA, lean.side);
       fpsCam = fpsCam
@@ -1452,8 +1403,9 @@ export function BoxerModel({
       camera.lookAt(controls.target);
       fpsRoll += (lean.roll - fpsRoll) * (1 - Math.exp(-dt / FPS_CAMERA.tau));
       camera.rotateZ(-fpsRoll);
-      if (camera.fov !== FPS_CAMERA.fov) {
-        camera.fov = FPS_CAMERA.fov;
+      const fov = fpsFov(camera.aspect);
+      if (Math.abs(camera.fov - fov) > 1e-3) {
+        camera.fov = fov;
         camera.updateProjectionMatrix();
       }
       return true;
@@ -1464,7 +1416,7 @@ export function BoxerModel({
       fpsCam = null;
       fpsRoll = 0;
       fpsScanFrame = 0;
-      syncGhost(false);
+      setOwnHead(true);
       syncGlow(null);
       controls.enabled = true;
       if (camera.fov !== BASE_FOV) {
@@ -1826,11 +1778,9 @@ export function BoxerModel({
         // Re-asserted each frame because the knockdown director re-enables
         // the controls when it hands the camera back.
         if (!directorOwns) controls.enabled = false;
-        // The material scans walk both figures; materials only change at load
-        // or on an appearance change, so they run a few times a second rather
-        // than every frame. The glow's brightness still updates every frame.
+        // Materials only change at load or on an appearance change, so the
+        // scan runs a few times a second; the glow itself updates every frame.
         const rescan = ++fpsScanFrame % 15 === 1;
-        syncGhost(true, rescan);
         syncGlow(opponentHolder.current?.current?.windup ?? 0, rescan);
         if (!placeFpsCamera(dt) && !directorOwns) {
           followOpponent(dt);

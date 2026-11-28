@@ -4,10 +4,6 @@ import { useWebcam } from "./capture/useWebcam";
 import { usePoseTracking } from "./pose/usePoseTracking";
 import { PoseOverlay } from "./ui/PoseOverlay";
 import { DebugHud } from "./ui/DebugHud";
-import { PunchHarness } from "./ui/PunchHarness";
-import { PunchGuide } from "./ui/PunchGuide";
-import { DodgeIndicator } from "./ui/DodgeIndicator";
-import { NEUTRAL_HEAD_STATE, type HeadState } from "./perception/dodgeDetector";
 // Type-only: erased at build, so neither pulls three.js into the main bundle.
 import type { BodyMotion } from "./perception/bodyMotion";
 import type { LoadStatus } from "./render/BoxerModel";
@@ -21,18 +17,16 @@ import { BodyChannels, TrackingPanel } from "./ui/TrackingPanel";
 import { SystemPanel } from "./ui/SystemPanel";
 import { useSystemMonitor } from "./diag/useSystemMonitor";
 import { useFight } from "./sim/useFight";
+import { DEFAULT_RULES } from "./sim/fightState";
 import { unlockAudio } from "./audio/sharedContext";
 import { useWakeLock } from "./ui/useWakeLock";
 import { FightHud } from "./ui/FightHud";
 import { ImpactPopups } from "./ui/ImpactPopups";
 import { FramingPrompt } from "./ui/FramingPrompt";
 import { useFramingCoach } from "./perception/useFramingCoach";
-import { useDepthMap } from "./depth/useDepthMap";
-import { DepthPanel } from "./ui/DepthPanel";
 import { FirstRunCard } from "./ui/FirstRunCard";
 import { markFirstRunDone, shouldShowFirstRun } from "./onboarding/firstRun";
 import { useFirstRun } from "./onboarding/useFirstRun";
-import { DEFAULT_RULES } from "./menu/menuModel";
 import { ITEM_BY_ID } from "./menu/shellModel";
 import { currentOpponent, recordResult, type FightOutcome } from "./training/career";
 import { loadCareerProfile, saveCareerProfile } from "./training/careerStore";
@@ -47,10 +41,7 @@ import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import type { NetFightState } from "./net/protocol";
 import type { StrikeEvent } from "./perception/strikeResolver";
 import { VersusChip, VersusPanel } from "./ui/VersusPanel";
-import { CameraLinkPanel } from "./ui/CameraLinkPanel";
-import { useCameraLink } from "./sensor/useCameraLink";
 import type { RigDebugState } from "./render/retargeting/rigDriver";
-import type { PunchType, Stance } from "./perception/punchTypes";
 import "./App.css";
 
 // Lazy-loaded: these pull in three.js and GLTFLoader, which a player who never
@@ -97,7 +88,11 @@ export default function App() {
    * because diagnosing the pipeline is that screen's entire job.
    */
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [screen, setScreen] = useState<Screen>(null);
+  // ?mode=<id> opens a mode directly: shareable links, and tools that skip the menu.
+  const [screen, setScreen] = useState<Screen>(() => {
+    const id = new URLSearchParams(window.location.search).get("mode");
+    return id && ITEM_BY_ID.has(id) ? id : null;
+  });
   const [appearance, setAppearance] = useState(loadFighterAppearance);
   const [draftAppearance, setDraftAppearance] = useState<FighterAppearance | null>(null);
   const previewAppearance = useDeferredValue(draftAppearance ?? appearance);
@@ -127,13 +122,14 @@ export default function App() {
     resetStats,
   } = usePoseTracking(videoRef, started && camStatus === "ready");
 
-  const onDummy = screen === "dummy" || screen === "freeplay";
+  const onDummy = screen === "dummy";
   const inCareer = screen === "career";
   const onLan = screen === "lan";
   const onInternet = screen === "internet";
-  // FPS mode is the CPU bout with a different camera: same fight, same rules.
-  const onFps = screen === "fps";
-  const inFight = screen === "cpu" || onFps || inCareer || onLan || onInternet;
+  const inFight = screen === "cpu" || inCareer || onLan || onInternet;
+  // First person is the default view; V switches to the camera behind the fighter.
+  const [thirdPerson, setThirdPerson] = useState(false);
+  const firstPerson = !thirdPerson;
 
   // The first-run walkthrough, over the menu, once the camera is tracking.
   const [firstRunPending, setFirstRunPending] = useState(
@@ -163,18 +159,6 @@ export default function App() {
   // The walkthrough runs it too: its punch step counts what a fight would.
   const strike = useStrikeTraining(subscribeStrikePose, onDummy || inFight || coaching);
 
-  // Monocular depth, off unless asked for (?depth=1, or D in game): a second
-  // network on the GPU pose needs. See DEPTH_CONFIG.
-  const [depthOn, setDepthOn] = useState(
-    () => new URLSearchParams(window.location.search).get("depth") === "1"
-  );
-  const depth = useDepthMap(
-    videoRef,
-    poseRef,
-    subscribeStrikePose,
-    depthOn && camStatus === "ready" && (onDummy || inFight)
-  );
-
   // Tells the player when the camera cannot see them well enough to play -
   // the menu, the dummy and the fight, the screens played with the body.
   const framingIssue = useFramingCoach(
@@ -203,8 +187,6 @@ export default function App() {
   const training = useDummyTraining({
     enabled: onDummy,
     subscribe: strike.subscribe,
-    // Free work is the same dummy with nothing lit and nothing scored.
-    targets: screen === "freeplay" ? 0 : undefined,
   });
 
   /**
@@ -229,10 +211,6 @@ export default function App() {
    * streaming the player's tracked body somewhere before they asked for a
    * fight.
    */
-  // The phone as a second camera. Only while its screen is open, for the same
-  // reason as the two sessions below.
-  const onPhoneCam = screen === "phonecam";
-  const cameraLink = useCameraLink({ enabled: onPhoneCam, videoRef, localPoseRef: rawPoseRef });
   const session = useSession({
     enabled: onLan,
     poseRef,
@@ -275,8 +253,10 @@ export default function App() {
     remoteStrikeRef: onInternet ? onlineSession.remoteStrikeQueueRef : session.remoteStrikeQueueRef,
     remoteStateRef: onInternet ? onlineSession.remoteStateRef : session.remoteStateRef,
     publishState,
-    getUp: onFps,
-    locked: onFps,
+    // First person holds both fighters on one line and lets a downed player
+    // get up by raising their gloves. CPU fights only.
+    getUp: firstPerson,
+    locked: firstPerson,
   });
 
   // Re-snapshot the opponent and reset the double-record guard each time the
@@ -344,10 +324,10 @@ export default function App() {
         e.preventDefault();
         setShowDiagnostics((v) => !v);
       }
-      // D for depth - but not while typing, e.g. a connection code.
+      // V for the camera, but not while typing a connection code.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]");
-      if ((e.key === "d" || e.key === "D") && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setDepthOn((v) => !v);
+      if ((e.key === "v" || e.key === "V") && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setThirdPerson((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -384,10 +364,6 @@ export default function App() {
       if (frames.length > 600) frames.shift();
     });
   }, [subscribeStrikePose]);
-
-  if (new URLSearchParams(window.location.search).has("guides")) {
-    return <GuideGallery />;
-  }
 
   if (!started) {
     return (
@@ -436,9 +412,7 @@ export default function App() {
     // Once they are, the codes have done their job and the fight takes the
     // whole width, with a floating chip carrying the link status instead.
     ((onLan || onInternet) && !netOpen) ||
-    screen === "punchlab" ||
     screen === "tracking" ||
-    onPhoneCam ||
     inCareer ||
     showDiagnostics ||
     (stage3d && boxerStatus !== "ready") ||
@@ -538,7 +512,7 @@ export default function App() {
               samplePose={samplePredicted}
               view="behind"
               showTarget={inFight}
-              fps={onFps}
+              fps={firstPerson}
               dummy={onDummy}
               litRef={training.litRef}
               outcomeQueueRef={training.outcomeQueueRef}
@@ -601,9 +575,6 @@ export default function App() {
         )}
         {inFight && fight.hud && <ImpactPopups logRef={fight.impactLogRef} />}
         <FramingPrompt issue={framingIssue} />
-        {depth.status.state !== "off" && (
-          <DepthPanel status={depth.status} frameRef={depth.frameRef} />
-        )}
         {inFight && fight.hud && (
           <FightHud
             hud={fight.hud}
@@ -673,36 +644,14 @@ export default function App() {
             />
           )}
 
-          {(screen === "cpu" || onFps || onInternet) && (
+          {(screen === "cpu" || onInternet) && (
             <LeaderboardPanel
               result={fight.hud?.result ?? null}
               landed={fight.hud?.player.landed ?? 0}
             />
           )}
 
-          {onDummy && (
-            <TrainingHud
-              training={training}
-              scored={screen === "dummy"}
-              onRestart={startDrill}
-            />
-          )}
-
-          {onPhoneCam && (
-            <CameraLinkPanel
-              status={cameraLink.status}
-              offerUrl={cameraLink.offerUrl}
-              summary={cameraLink.summary}
-              scanning={cameraLink.scanning}
-              onStart={cameraLink.start}
-              onStop={cameraLink.stop}
-              onComplete={cameraLink.complete}
-            />
-          )}
-
-          {screen === "punchlab" && (
-            <PunchHarness poseRef={poseRef} enabled={poseStatus === "ready"} />
-          )}
+          {onDummy && <TrainingHud training={training} scored onRestart={startDrill} />}
 
           {(stage3d || wardrobe) && boxerStatus === "error" && (
             <p className="err">Model failed to load: {boxerError}</p>
@@ -772,60 +721,4 @@ function safeStorage(): Storage | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Standalone view of the punch trajectory guides, for both stances.
- * Reachable at ?guides=1 - no camera required.
- */
-function GuideGallery() {
-  const [stance, setStance] = useState<Stance>("orthodox");
-
-  const mockHead = useRef<HeadState>(NEUTRAL_HEAD_STATE);
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const t = performance.now() / 1000;
-      mockHead.current = {
-        tracked: true,
-        lean: Math.sin(t * 1.1),
-        duck: (Math.sin(t * 0.7) + 1) / 2,
-        raw: { lateral: Math.sin(t * 1.1) * 0.3, headDrop: 0, bodyDrop: 0 },
-      };
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  return (
-    <div className="harness" style={{ maxWidth: 620, margin: "2rem auto" }}>
-      <h2>Dodge indicator (synthetic preview)</h2>
-      <DodgeIndicator headStateRef={mockHead} />
-
-      <h2>Punch reference</h2>
-      <p className="muted small">
-        Diagrams are mirrored to match the webcam preview, so your lead hand
-        appears on the same side here as it does on screen.
-      </p>
-      <div className="row">
-        <label>
-          Stance:{" "}
-          <select
-            value={stance}
-            onChange={(e) => setStance(e.target.value as Stance)}
-          >
-            <option value="orthodox">Orthodox (left hand leads)</option>
-            <option value="southpaw">Southpaw (right hand leads)</option>
-          </select>
-        </label>
-      </div>
-      {(["jab", "cross", "hook", "uppercut"] as PunchType[]).map((t) => (
-        <div key={t}>
-          <div className="guide-title">{t.toUpperCase()}</div>
-          <PunchGuide type={t} stance={stance} />
-        </div>
-      ))}
-    </div>
-  );
 }

@@ -1,5 +1,5 @@
 import type { Difficulty } from "../sim/cpuOpponent";
-import type { WeightClass } from "../menu/menuModel";
+import type { WeightClass } from "../sim/attributes";
 
 // A career: a fixed ladder of opponents, fought in order. Groundwork only —
 // no cutscenes, no belts, just the one thing a career actually needs to be

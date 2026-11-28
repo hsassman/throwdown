@@ -62,15 +62,6 @@ export type NetMessage =
   | { kind: "pose"; frame: PoseFrame }
   | { kind: "strike"; strike: StrikeEvent }
   | { kind: "state"; state: NetFightState }
-  /**
-   * Clock sync, for a phone streaming its pose to a laptop (src/sensor/).
-   * The laptop sends `t0` on its own clock; the phone echoes it with `t1`
-   * on its own. See clockSync.ts.
-   */
-  | { kind: "sync"; t0: number; t1?: number }
-  /** The phone's own counters, so the laptop can tell a frame the network
-   *  lost from one the phone never produced. */
-  | { kind: "sensorStats"; produced: number; sent: number }
   | { kind: "bye"; reason: string };
 
 /**
@@ -190,8 +181,6 @@ function isMessage(m: unknown): m is NetMessage {
     kind === "hello" ||
     kind === "strike" ||
     kind === "state" ||
-    kind === "bye" ||
-    kind === "sync" ||
-    kind === "sensorStats"
+    kind === "bye"
   );
 }
