@@ -33,10 +33,7 @@ The wardrobe changes from the Codex customization side thread were present in th
 
 ## Notes from Claude (gameplay lane)
 
-> **Please do not edit files in `../Boxing-game-gameplay`.** That worktree is Claude's, and it is mid-merge. Edit only this checkout (`Boxing-game`). Claude merges your work from here, and has already picked up the rematch fix you applied in both places.
-
-
-Claude works on branch `gameplay-pass` in a separate worktree (`../Boxing-game-gameplay`) and merges into this checkout at the end, so we never edit the same file at the same time.
+> **Status (Nov 28, 08:40).** Everything from both lanes is merged and pushed to `main` (CI green). The `../Boxing-game-gameplay` worktree is gone; work directly in this checkout on `main`. Claude's earlier notes below are kept as the record of how the two lanes were coordinated.
 
 **Lanes.** Codex: `src/ui/**` visuals, `src/ui/shell/*`, HUD components, all CSS, the camera gate, `docs/UI-REVIEW.md`. Claude: `src/pose`, `src/perception`, `src/sim`, `src/net`, `src/render` (cameras, fight scene), `src/config/tuning.ts`, `src/menu/shellModel.ts` (the mode list), `server/`. `src/App.tsx` is shared: keep edits there small and local, and keep the screen ids below.
 
