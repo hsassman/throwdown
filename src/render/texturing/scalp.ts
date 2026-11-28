@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { FighterAppearance } from "../../menu/fighterAppearance";
+import { eyeOpeningShader } from "./eyes";
 
 type HairStyle = FighterAppearance["hair"];
 const HAIR_PROFILE: Record<HairStyle, number> = { shaved: 0, buzz: 1, crop: 2, taper: 3, part: 4 };
@@ -14,6 +15,7 @@ export function applyHeadDetail(
   tint: string,
   style: HairStyle,
   eyes: { left: THREE.Vector3; right: THREE.Vector3 } | null,
+  openEyes: boolean,
 ) {
   const positions = geometry.getAttribute("position");
   const bounds = new THREE.Box3();
@@ -35,6 +37,7 @@ export function applyHeadDetail(
     shader.uniforms.faceEyes = {
       value: eyes ? new THREE.Vector4(eyes.left.x, eyes.left.y, eyes.right.x, eyes.right.y) : new THREE.Vector4(),
     };
+    shader.uniforms.openEyes = { value: openEyes };
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vScalpPosition;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvScalpPosition = position;");
@@ -45,18 +48,26 @@ export function applyHeadDetail(
         uniform vec3 scalpTint;
         uniform float scalpStyle;
         uniform vec4 scalpBounds, faceEyes;
+        uniform bool openEyes;
+        ${eyeOpeningShader}
         float browShape(vec2 point, vec2 eye) {
           float side = sign(eye.x);
           float x = (point.x - eye.x) * side;
           float taper = clamp(1.0 - abs(x + 0.002) / 0.023, 0.0, 1.0);
           float arch = eye.y + 0.0205 + 0.0034 * cos((x + 0.002) * 83.0) - x * 0.085;
-          float filaments = 0.68 + 0.32 * sin(point.x * 3500.0 + point.y * 800.0);
+          float strands = point.x * 3350.0 + point.y * 1120.0;
+          float filaments = 0.83 + 0.17 * sin(strands + sin(x * 550.0) * 1.6);
           return taper * (1.0 - smoothstep(0.001, 0.0042, abs(point.y - arch))) * filaments;
         }`)
       .replace("#include <map_fragment>", `#include <map_fragment>
         float headHeight = (vScalpPosition.y - scalpBounds.x) / scalpBounds.y;
         float headFront = clamp((vScalpPosition.z - scalpBounds.z) / scalpBounds.w, 0.0, 1.0);
         vec2 facePoint = vScalpPosition.xy;
+        if (openEyes && headFront > 0.68 && abs(facePoint.y - faceEyes.y) < 0.012) {
+          float lidDepth = max(eyeOpening(facePoint, faceEyes.xy), eyeOpening(facePoint, faceEyes.zw));
+          if (lidDepth > 0.0) discard;
+          diffuseColor.rgb *= mix(0.64, 1.0, smoothstep(0.0, 0.0018, -lidDepth));
+        }
         float brows = max(browShape(facePoint, faceEyes.xy), browShape(facePoint, faceEyes.zw));
         brows *= smoothstep(0.60, 0.82, headFront) * step(1.0, faceEyes.y);
         vec2 cheekOffset = vec2((abs(facePoint.x) - 0.048) / 0.025,
@@ -85,6 +96,10 @@ export function applyHeadDetail(
             hairCoverage * (0.97 - partLine * 0.72));
         }`)
       .replace("#include <roughnessmap_fragment>", `#include <roughnessmap_fragment>
+        float faceSheen = smoothstep(0.60, 0.91, headFront)
+          * smoothstep(0.29, 0.52, headHeight) * (1.0 - smoothstep(0.76, 0.93, headHeight));
+        faceSheen *= mix(0.27, 1.0, 1.0 - smoothstep(0.008, 0.058, abs(facePoint.x)));
+        roughnessFactor = mix(roughnessFactor, 0.60, faceSheen);
         roughnessFactor = mix(roughnessFactor, 0.93, hairCoverage * 0.85);
       `);
   };

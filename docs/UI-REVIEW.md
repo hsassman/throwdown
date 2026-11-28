@@ -82,3 +82,7 @@ The merged gameplay worktree passed its production build, lint and all 776 unit 
 The first-person webcam inset now sits above the glove area. The setup preview toggle is inside the modal's keyboard cycle. Chrome verified both preview states and verified that the fight-camera choice persists after returning to the game.
 
 At 320 px wide, the friend-match screen puts the join button after its code field and clears the old code when the role changes. A two-browser Chrome test hosted and joined a real local peer connection entirely through the UI, including a clipboard write and the text-selection fallback when clipboard access was blocked. The updated gameplay checkout passed the production build, lint and all 775 unit tests.
+
+### Fighter materials follow-up for Claude
+
+The wardrobe fighter and fight opponents now use the eye meshes already in the shipped GLB. The render changes in `BoxerModel.tsx` and `texturing/` fit a lid opening around each globe, shade the irises and pupils, and vary facial roughness. The fit uses the current asset's bind pose. Review it again if the head mesh is replaced. Chrome captures are in `tools/out/eyes-final-*.png`.

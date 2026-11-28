@@ -44,6 +44,7 @@ import { buildCrowd, type Crowd } from "./arena/crowd";
 import { artTexture } from "./arena/artTextures";
 import { DEFAULT_APPEARANCE, FIGHTER_OPTIONS, trimColour, type FighterAppearance } from "../menu/fighterAppearance";
 import { applyHeadDetail } from "./texturing/scalp";
+import { textureEyes } from "./texturing/eyes";
 import { styleKitDetail, type KitTrim } from "./texturing/kitDetail";
 import { buildBloodDecals } from "./arena/bloodDecals";
 import { buildTrainingRoom } from "./arena/trainingRoom";
@@ -656,6 +657,7 @@ export function BoxerModel({
       retired: Set<THREE.Material>,
       hair = hairGrain,
       hairStyle: FighterAppearance["hair"] = "buzz",
+      iris = "#654430",
     ): BodyTexture | null => {
       // The body, not whichever skinned mesh traversal happens to end on.
       // The figure now carries eyeballs too, and texturing one of those would
@@ -698,7 +700,8 @@ export function BoxerModel({
       const eyeR = bindPos("r_eye");
       const eyes = eyeL && eyeR ? { left: eyeL, right: eyeR } : null;
       if (hair && kit.hair) {
-        applyHeadDetail(material, mesh.geometry, dominant, boneNames, hair, kit.hair, hairStyle, eyes);
+        const openEyes = eyes !== null && textureEyes(figure, iris, retired);
+        applyHeadDetail(material, mesh.geometry, dominant, boneNames, hair, kit.hair, hairStyle, eyes, openEyes);
       }
 
       const features = locateFaceFeatures(
@@ -762,7 +765,7 @@ export function BoxerModel({
           // player as well.
           const retired = new Set<THREE.Material>();
           playerSkin = textureFigure(model, playerKit, retired, croppedHair ?? hairGrain, appearance.hair);
-          targetSkin = textureFigure(opponent, opponentKit, retired);
+          targetSkin = textureFigure(opponent, opponentKit, retired, hairGrain, "buzz", "#513629");
           tintKit(model, playerKit, retired, appearance.finish === "matte", {
             laces: trimColour(appearance.laces),
             soles: trimColour(appearance.soles),
@@ -771,12 +774,6 @@ export function BoxerModel({
           tintKit(opponent, opponentKit, retired);
           for (const m of retired) m.dispose();
 
-          // Note: gloves, trunks and generated eyeballs were built here and
-          // Removed on 2026-09-16 (see blender/README.md). Three
-          // attempts at procedural/imported gear all failed a visual check;
-          // the kit is now authored in Blender and baked into the exported
-          // mesh instead of being generated at load. Do not re-add a runtime
-          // gear layer without reading that doc first.
           // No guard on the dummy: a dummy standing in a boxer's guard reads
           // as an opponent about to throw, and the player waits for a punch
           // that never comes. The reaction machinery is kept either way.
