@@ -1,13 +1,71 @@
-# Shadow Box
+# ShadowBox
 
 **A boxing game you play with your body.** Stand in front of a webcam, throw
 real punches, slip and duck real punches. The browser tracks your pose and
-turns it into the fight. No controller, no wearables, no install.
+turns it into a first-person fight. No controller, no wearables, no install.
 
-Everything runs client-side. Video never leaves the machine. In a two-player
-fight your pose landmarks, not the picture, go directly to your opponent.
+**Play it:** https://throwdown-orcin.vercel.app (Chrome or Safari, a webcam,
+and some room to move).
 
-![The ring](docs/images/ring.png)
+![First-person fight](docs/images/fight-first-person-desktop.webp)
+
+Everything that touches your camera runs in your browser. Video never leaves
+the machine. In a two-player fight only your pose landmarks (about 5 KB/s) go
+directly to your opponent, peer to peer.
+
+---
+
+## Screens
+
+| | |
+| --- | --- |
+| ![Camera gate](docs/images/gate-desktop.webp) | ![Main menu](docs/images/menu-desktop.webp) |
+| **Start.** One tap to enable the camera; everything after is driven by your body. | **Menu.** Three primary modes and the rest one tap away. Point and hold your hand to select. |
+| ![Third-person fight](docs/images/fight-third-person-desktop.webp) | ![Training](docs/images/training-desktop.webp) |
+| **Third person.** `V` or Settings switches the fight camera behind your fighter. | **Training.** Lit targets on a dummy, scored on accuracy, power and timing. |
+| ![Career](docs/images/career-desktop.webp) | ![Your Fighter](docs/images/fighter-desktop.webp) |
+| **Career.** Four opponents in order; your record is saved on the device. | **Your Fighter.** Skin, hair, kit colour, finish, laces, soles and wraps. |
+| ![Venue](docs/images/venue-desktop.webp) | ![Camera Check](docs/images/camera-check-desktop.webp) |
+| **Venue.** A regulation octagon or a championship ring, both procedural. | **Camera Check.** Live tracking quality and tips, skeleton only unless you turn your camera on. |
+
+Two players, the host and the guest, each in their own first-person view:
+
+![Two-player fight](docs/images/two-player.webp)
+
+A CPU punch, frame by frame: off the guard, across, landing, back. The hit
+registers as the glove arrives.
+
+![CPU punch sequence](docs/images/cpu-punch-sequence.webp)
+
+On a phone the game runs edge to edge:
+
+| | | | | |
+| --- | --- | --- | --- | --- |
+| ![Menu on a phone](docs/images/menu-phone.webp) | ![Settings](docs/images/settings-phone.webp) | ![Fight on a phone](docs/images/fight-first-person-phone.webp) | ![Your Fighter on a phone](docs/images/fighter-phone.webp) | ![Play a Friend on a phone](docs/images/play-a-friend-phone.webp) |
+
+---
+
+## Features
+
+- **First-person boxing.** The camera sits at your fighter's eyes; your gloves
+  are at the bottom of the frame and the opponent is in front of you.
+- **Full-body tracking from one webcam.** MediaPipe pose, cropped to you,
+  constrained, smoothed and predicted forward, at up to the camera's frame
+  rate. Punches, slips, ducks, the guard and steps all come from your body.
+- **A CPU opponent that boxes.** Separate attack, footwork and head-movement
+  state machines, a visible wind-up before every punch, punches thrown with the
+  shoulders, slips that beat straights but not hooks.
+- **Two-player fights.** Online matchmaking or a private code. The guest's
+  defence counts, both ends see the same result, and a rematch keeps the link.
+- **Career and training.** Four-opponent career, a learning target drill that
+  separates camera setup error from technique.
+- **Real sounds.** Recorded punches, blocks, whiffs, bell and crowd from
+  Openverse (CC0 and CC BY), with a synthesised fallback.
+- **Your look.** Fighter customisation with live 3D preview.
+- **Privacy by default.** The corner inset shows only your tracked skeleton
+  unless you choose to show your camera.
+
+Full list of modes, controls and rules: [`docs/GAMEPLAY.md`](docs/GAMEPLAY.md).
 
 ---
 
@@ -18,7 +76,7 @@ npm install
 npm run dev          # http://localhost:5174
 ```
 
-For online "Find a match", also run the server (needs the .NET 11 SDK):
+For online "Find a match" locally, also run the server (needs the .NET 11 SDK):
 
 ```bash
 dotnet run --project server/Throwdown.Server   # http://localhost:5160
@@ -28,15 +86,15 @@ dotnet run --project server/Throwdown.Server   # http://localhost:5160
 | --- | --- |
 | `npm run dev` | Dev server. |
 | `npm run build` | Type-check and build. |
-| `npm test` | Web unit tests (749). |
-| `dotnet test server/Throwdown.slnx` | Server tests (23). |
+| `npm test` | Web unit tests (Vitest, 775). |
 | `npm run lint` | oxlint. |
-| `npm run smoke` | Builds, then drives the real app in headless Chromium with a fake camera. |
-| `node tools/smoke-versus.mjs [s]` | Two browsers, one Play a Friend fight: checks defence, events, clock sync and rematch. |
-| `node tools/fight-burst.mjs [mode] [video]` | Screenshots a live fight with the fake player as the camera. |
-| `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings during a CPU fight: pose rate, render fps, long tasks. |
-| `node tools/fake-player.mjs` | Renders the boxer throwing punches into a video Chrome can use as a fake camera (needs `npm run dev`). |
-| `npm run measure:sweep` | Measures the pose pipeline on this machine (needs you in front of the webcam). |
+| `dotnet test server/Throwdown.slnx` | Server tests (xUnit). |
+| `npm run smoke` | Builds, then drives the real app in headless Chrome with a fake camera. |
+| `node tools/smoke-versus.mjs [s]` | Two browsers, one fight: defence, events, clock sync and rematch. |
+| `node tools/screenshots.mjs` | Regenerates every screenshot in this README. |
+| `node tools/fight-burst.mjs [mode] [video]` | Screenshots a live fight. |
+| `node tools/perf-ab.mjs [s] [n] [query...]` | A/B timings: pose rate, render fps, long tasks. |
+| `node tools/fake-player.mjs` | Renders the boxer throwing punches into a video Chrome uses as a fake camera. |
 
 The browser tools need `npm run preview` in another terminal. `?mode=<id>`
 opens a mode directly (`cpu`, `career`, `internet`, `lan`, `dummy`, `fighter`,
@@ -44,127 +102,51 @@ opens a mode directly (`cpu`, `career`, `internet`, `lan`, `dummy`, `fighter`,
 
 ---
 
-## What it does
+## How it is built
 
-### Modes
+```
+ webcam ──> MediaPipe PoseLandmarker ──> crop · constrain · smooth · predict
+                                              │
+             ┌────────────────────────────────┼─────────────────────────┐
+             ▼                                ▼                         ▼
+     strike resolver                  body channels              rig retargeting
+   (reach, zone, power)        (slip, duck, guard, step)       (MHR fighter, IK)
+             │                                │                         │
+             └──────────────> fight sim <─────┘                         │
+                       (health, stamina, rounds, CPU)                   │
+                                 │                                      ▼
+                                 ├──> HUD (React)              three.js scene
+                                 ├──> audio (WebAudio)     (first-person camera,
+                                 └──> peer link (WebRTC) ──>  venue, crowd)
+```
 
-**Fight** (three rounds against the CPU), **Career** (four opponents in order),
-**Online** (matchmaking), **Play a Friend** (private match by code),
-**Training** (the scored dummy), **Your Fighter** (look and kit), **Venue**
-(ring or cage) and **Camera Check** (what the camera can see).
-
-The menu is navigated with your body: your hand moves a cursor and holding it
-over a card confirms. Keyboard, touch and mouse work too, and Escape always
-returns to the menu. A new browser gets a three-step walkthrough (frame, guard,
-one punch each hand) that the camera confirms; `?firstrun=0` skips it.
-
-### First person
-
-Fights open with the camera at your fighter's eyes, your gloves at the bottom
-of the frame and the opponent in front of you. The head bone is collapsed while
-the camera is inside it, so only arms and gloves show. The field of view widens
-on portrait screens so the opponent's shoulders stay in frame. Both fighters
-hold the neutral gap, so defence is slips, ducks and the guard, and a downed
-player gets up early by holding their gloves up. **V** switches to the camera
-behind your fighter (and frees the footwork); the choice is remembered.
-
-### The CPU opponent
-
-Three state machines on independent clocks: attack, footwork and head
-movement. Every punch has a visible wind-up (down to 260 ms at the hardest
-difficulty), and the gloves glow through it in first person. A slip beats a
-straight but not a hook; a duck gets under any arc and does nothing about a
-body shot. Evading costs stamina. Every random choice is seeded, so a fight is
-reproducible.
-
-### Two players
-
-Peer-to-peer over WebRTC, found by matchmaking (Online) or by pasting codes
-(Play a Friend). The remote fighter is drawn from their own live pose through
-the same retargeting as yours.
-
-The host runs the fight. The guest sends its punches and its guard and head
-movement, measured from its own camera, and gets the state and every fight
-event back, so both ends see the same result, words and sounds. Because the
-guest's defence arrives late, the host holds its own punches at the guest for
-one round trip (30-150 ms) and counts a slip or block made inside that window.
-When the fight ends, both players asking (button or both hands raised) starts a
-rematch on the same connection.
-
-This is not rollback netcode: the guest sees the fight about one round trip
-late. Fine on a LAN; online it depends on the connection.
-
-### Training
-
-A torso on a stand with ten lit target zones, scored on accuracy, power and
-timing. A persistent profile separates setup error (the same bias on every
-zone, corrected for you) from technique (what is left), using median/MAD
-statistics so one bad zone cannot drag the correction.
-
-### Feel
-
-Hit-stop on power shots, a slow-motion knockdown with a camera cut, impact
-words in their own rows, seated crowd silhouettes with camera flashes. All
-render-time only: the clock, the sim and hit detection never slow down.
-
-### Venues
-
-A regulation octagon (30 feet across the flats) and a championship ring (20
-feet inside the ropes). Both are procedural and rescale from one number.
-
----
-
-## Tracking
-
-MediaPipe PoseLandmarker (lite), GPU first with a CPU fallback, cropped to the
-player before inference. The crop follows a sideways step or slip at once and
-widens immediately when the player is lost, so tracking recovers within a
-frame or two. Skeleton constraints, one-euro smoothing and forward prediction
-run after it; a separate fixed low-lag filter feeds hit detection.
-
-Five whole-body channels, all from x/y only: slip, rise, step (apparent torso
-size), turn (shoulder foreshortening) and crouch. **MediaPipe's `z` is never
-read**; a test poisons every `z` and asserts the output is identical.
-
-A tracking monitor grades the signal and adjusts smoothing and prediction, and
-Camera Check shows the grade, every metric and what it changed. **Nothing that
-decides whether a punch landed may be auto-tuned.** On phones, first person
-renders at 1x resolution with no shadows or crowd, because the scene and pose
-tracking share one GPU.
-
----
-
-## The character
-
-A 0.40 MB rigged mesh, 18 driven joints, generated offline from Meta's MHR body
-model and driven by the same landmarks. Ducking bends the knees and drops the
-root by exactly the height they gave up. Bruises and facial swelling paint
-where strikes resolved. Kit colours, trim, hair and skin are customisable.
-
----
-
-## Stack
-
-| | |
+| Layer | Technology |
 | --- | --- |
-| Pose | `@mediapipe/tasks-vision` PoseLandmarker |
-| UI | React 19 + TypeScript 6, React Bits Spotlight Card (vendored) |
-| 3D | three.js r185 |
-| Build | Vite 8 (rolldown) |
-| Test | Vitest, plus Playwright end-to-end |
-| Lint | oxlint |
-| Character | Meta MHR (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
+| Pose tracking | `@mediapipe/tasks-vision` PoseLandmarker (lite), GPU delegate with CPU fallback, WASM served from `public/` |
+| Game client | TypeScript 6, React 19, Vite 8 (rolldown) |
+| 3D | three.js r185, procedural venues, instanced crowd |
+| Character | Meta MHR body model (Apache-2.0), exported offline via FBX2glTF, kit authored in Blender |
+| UI | React components, React Bits Spotlight Card (vendored), CSS with safe-area and reduced-motion support |
+| Multiplayer | WebRTC data channels, peer to peer; host-authoritative fight |
+| Server | C# on .NET 11: ASP.NET Core, SignalR matchmaking, minimal APIs, Npgsql (Supabase Postgres), OpenTelemetry, xUnit |
+| Audio | WebAudio, recorded samples from Openverse, synthesised fallback |
+| Hosting | Vercel (game), Render (server, Docker) |
+| Quality | Vitest, Playwright end-to-end with a fake camera, oxlint, GitHub Actions |
+
+Deep dive: [`docs/TECHNOLOGY.md`](docs/TECHNOLOGY.md). How the game was built,
+phase by phase: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ---
 
 ## Ground rules
 
-- Perception never reads the character mesh.
+- Perception never reads the character mesh. What you hit does not depend on
+  how you are drawn.
 - MediaPipe `z` is never read for classification.
 - No threshold that decides whether a punch landed may be auto-tuned.
-- Video never crosses the network. Pose landmarks do, peer-to-peer, only to an
-  opponent you chose and only while a fight is open (about 5 KB/s).
-- Licence-clean only. No copyleft models, no ripped game assets.
+- Video never crosses the network. Pose landmarks do, peer to peer, only to an
+  opponent you chose and only while a fight is open.
+- Licence-clean only: no copyleft models, no ripped game assets.
 
 These are enforced by tests, not convention.
 
@@ -172,66 +154,31 @@ These are enforced by tests, not convention.
 
 ## Status
 
-**Working:** first-person fights against the CPU, career, training, the
-camera-driven menu, both venues, five-channel body tracking, damage and
-knockdowns with a referee's count, and two-player fights with defence, shared
-results and rematch, verified by two real browsers (`tools/smoke-versus.mjs`).
+**Working:** first-person and third-person fights against the CPU, career,
+training, the camera-driven menu, both venues, fighter customisation, damage
+and knockdowns, two-player fights with defence, shared results and rematch
+(verified by two real browsers), online matchmaking through the deployed
+server.
 
-**Not done:** punch *type* is not classified; hits are judged by reach and
-zone, which a front camera measures far better. No TURN relay is running, so
-some online pairings behind strict NATs will fail to connect. The server is
-built and tested but not deployed.
+**Not done:** punch *type* is not classified from a front camera; hits are
+judged by reach and zone instead. No TURN relay is running, so some online
+pairings behind strict NATs will not connect. The leaderboard is reported by
+the browser, so it is not cheat-proof.
 
-**Not verified:** real phones and live hand tracking on physical devices.
-
----
-
-## Online server
-
-`server/` is a small ASP.NET Core service (C#, .NET 11). It helps players find
-each other and keeps scores. The game itself stays in the browser.
-
-| Endpoint | What it does |
-| --- | --- |
-| `/hubs/matchmaking` (SignalR) | `JoinQueue` pairs two players. `RelayOffer`, `RelayAnswer` and `RelayIceCandidate` pass WebRTC details, only between the matched pair. |
-| `GET /ice-servers` | STUN/TURN servers from configuration, so TURN credentials stay off the client. |
-| `GET /leaderboard?top=N` | Top scores (default 10, max 50). |
-| `POST /leaderboard` | Submit `{ name, score }`. Validated and limited to 10 per minute per IP. |
-| `GET /health` | Health check. |
-
-| Setting | Purpose |
-| --- | --- |
-| `Cors:AllowedOrigins` | Browser origins allowed to connect. |
-| `ConnectionStrings:Leaderboard` | Supabase Postgres connection string, set on the host. Without it, scores are kept in memory. |
-| `Ice:Servers` | STUN/TURN servers. |
-| `Telemetry:Console` / `Telemetry:OtlpEndpoint` | OpenTelemetry traces. |
-
-The browser finds the server through `VITE_MATCHMAKING_URL`. A dev build falls
-back to `http://localhost:5160/hubs/matchmaking`; a production build without it
-says it has no server. Deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
-
-Scores are reported by the browser, so the leaderboard is not cheat-proof.
+**Not verified:** real phones and live hand tracking on physical devices; the
+end-to-end tests use Chrome with a fake camera.
 
 ---
 
-## Layout
+## Documentation
 
-```
-src/
-  capture/      camera
-  pose/         inference, crop, smoothing, prediction, tracking quality
-  perception/   landmarks to meaning: strikes, body motion, framing
-  sim/          the fight: health, stamina, scoring, the CPU, rematch
-  net/          peer-to-peer link, wire format, sessions
-  training/     dummy drills, career, the persistent profile
-  menu/         modes and fighter appearance as data
-  render/       three.js: fighters, cameras, venues
-  ui/           React
-  config/       every tunable constant
-docs/           architecture, plan, deploy, UI review
-server/         ASP.NET Core service: matchmaking, leaderboard, ICE config
-blender/        offline kit authoring
-tools/          measurement and end-to-end tests
-```
-
-More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+| | |
+| --- | --- |
+| [`docs/GAMEPLAY.md`](docs/GAMEPLAY.md) | Modes, controls, rules, scoring, settings. |
+| [`docs/TECHNOLOGY.md`](docs/TECHNOLOGY.md) | Tracking, character, rendering, fight sim, CPU, netcode, audio, server, measurements. |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Development phases, the Claude and Codex workflow, testing tools, what is next. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Principles and module boundaries. |
+| [`docs/ASSET-PIPELINE.md`](docs/ASSET-PIPELINE.md) | How the fighter mesh is made. |
+| [`docs/UI-REVIEW.md`](docs/UI-REVIEW.md) | UI research (FC 27, NBA 2K27, WWE 2K26, UFC 5) and design decisions. |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Deploying the game, the server and the database. |
+| [`docs/CREDITS.md`](docs/CREDITS.md) | Sounds, libraries and licences. |

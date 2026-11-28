@@ -63,6 +63,10 @@ try {
 
   const h = await debug(host);
   const g = await debug(guest);
+  if (process.env.SHOTS) {
+    await host.screenshot({ path: `${process.env.SHOTS}/versus-host.png` });
+    await guest.screenshot({ path: `${process.env.SHOTS}/versus-guest.png` });
+  }
   check("the host receives the guest's defence", !!h.remoteDefence, JSON.stringify(h.remoteDefence));
   check("the guest's clock follows the host's", Math.abs((h.hud?.clock ?? 0) - (g.hud?.clock ?? 99)) < 1.5, `${h.hud?.clock} / ${g.hud?.clock}`);
   check("the guest sees the host's fight events", (g.hud?.log?.length ?? 0) > 0, g.hud?.log?.[0] ?? "empty");
